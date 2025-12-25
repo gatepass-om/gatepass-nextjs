@@ -10,6 +10,7 @@ import type { User, GateActivity } from '@/lib/types';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
+import { serverFetchWorkerData } from '@/app/actions/workerActions';
 
 interface ChartProps {
   className?: string;
@@ -60,52 +61,74 @@ export function OnSiteByNationalityChart({ className, operatorId, siteId }: Char
                 return;
             }
 
-            unsubs.push(onSnapshot(activityQuery, (activitySnap) => {
-                unsubs.push(onSnapshot(collection(firestore, 'users'), (usersSnap) => {
-                    const activities = activitySnap.docs.map(d => d.data() as GateActivity);
-                    const users = usersSnap.docs.map(d => ({...d.data(), id: d.id}) as User);
-                    
-                    const userMap = new Map(users.map(u => [u.id, u]));
+            unsubs.push(onSnapshot(activityQuery, async (activitySnap) => {
+                const usersSnap = await getDocs(collection(firestore, 'users'));
+                
+                const activities = activitySnap.docs.map(d => d.data() as GateActivity);
+                const users = usersSnap.docs.map(d => ({...d.data(), id: d.id}) as User);
+                
+                const userMap = new Map(users.map(u => [u.id, u]));
 
-                    const latestActivity: Record<string, GateActivity> = {};
-                    activities.forEach(activity => {
-                        const timestamp = typeof activity.timestamp === 'string' ? new Date(activity.timestamp) : activity.timestamp.toDate();
-                        if (!latestActivity[activity.userId] || timestamp > (typeof latestActivity[activity.userId].timestamp === 'string' ? new Date(latestActivity[activity.userId].timestamp) : latestActivity[activity.userId].timestamp.toDate())) {
-                            latestActivity[activity.userId] = activity;
-                        }
-                    });
+                const latestActivity: Record<string, GateActivity> = {};
+                activities.forEach(activity => {
+                    const timestamp = typeof activity.timestamp === 'string' ? new Date(activity.timestamp) : activity.timestamp.toDate();
+                    if (!latestActivity[activity.userId] || timestamp > (typeof latestActivity[activity.userId].timestamp === 'string' ? new Date(latestActivity[activity.userId].timestamp) : latestActivity[activity.userId].timestamp.toDate())) {
+                        latestActivity[activity.userId] = activity;
+                    }
+                });
 
-                    const onSiteUsers: User[] = [];
-                    Object.values(latestActivity).forEach(activity => {
-                        if (activity.type === 'Check-in') {
-                            const user = userMap.get(activity.userId);
-                            if (user) onSiteUsers.push(user);
-                        }
-                    });
+                const onSiteUserIds: string[] = [];
+                Object.values(latestActivity).forEach(activity => {
+                    if (activity.type === 'Check-in') {
+                        onSiteUserIds.push(activity.userId);
+                    }
+                });
 
-                    const nationalityCounts = onSiteUsers.reduce((acc, user) => {
-                        const nationality = user.nationality || 'Unknown';
+                // Fetch external data for on-site users
+                const workerDataPromises = onSiteUserIds.map(userId => {
+                    const user = userMap.get(userId);
+                    if (user && user.idNumber) {
+                        return serverFetchWorkerData({ workerId: user.idNumber });
+                    }
+                    return Promise.resolve(null);
+                });
+
+                const workersData = await Promise.all(workerDataPromises);
+
+                const nationalityCounts = workersData.reduce((acc, worker) => {
+                    if (worker) {
+                        const nationality = worker.nationality || 'Unknown';
                         acc[nationality] = (acc[nationality] || 0) + 1;
-                        return acc;
-                    }, {} as Record<string, number>);
+                    }
+                    return acc;
+                }, {} as Record<string, number>);
 
-                    const finalChartData = Object.entries(nationalityCounts)
-                        .map(([name, value]) => ({ name, value }))
-                        .sort((a, b) => b.value - a.value);
+                // Handle users on-site who might not be in the external DB
+                const onSiteUsersNotInExternalDb = onSiteUserIds.filter(userId => {
+                    const user = userMap.get(userId);
+                    return !user?.idNumber;
+                });
+                
+                if (onSiteUsersNotInExternalDb.length > 0) {
+                    nationalityCounts['Unknown'] = (nationalityCounts['Unknown'] || 0) + onSiteUsersNotInExternalDb.length;
+                }
 
-                    const newChartConfig: ChartConfig = {};
-                    const colors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
-                    finalChartData.forEach((item, index) => {
-                        newChartConfig[item.name] = {
-                            label: item.name,
-                            color: colors[index % colors.length],
-                        };
-                    });
-                    
-                    setChartConfig(newChartConfig);
-                    setChartData(finalChartData);
-                    setLoading(false);
-                }));
+                const finalChartData = Object.entries(nationalityCounts)
+                    .map(([name, value]) => ({ name, value }))
+                    .sort((a, b) => b.value - a.value);
+
+                const newChartConfig: ChartConfig = {};
+                const colors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+                finalChartData.forEach((item, index) => {
+                    newChartConfig[item.name] = {
+                        label: item.name,
+                        color: colors[index % colors.length],
+                    };
+                });
+                
+                setChartConfig(newChartConfig);
+                setChartData(finalChartData);
+                setLoading(false);
             }));
         };
 
