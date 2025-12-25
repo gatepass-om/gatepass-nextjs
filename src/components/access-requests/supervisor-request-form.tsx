@@ -174,6 +174,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                     id: w.workerId, 
                     name: w.name!, 
                     email: w.email!,
+                    nationality: w.nationality,
                     certificates: w.certificates,
                 })),
             });

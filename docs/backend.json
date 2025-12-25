@@ -35,6 +35,10 @@
         "nationality": {
             "type": "string",
             "description": "The nationality of the user."
+        },
+        "idNumber": {
+            "type": "string",
+            "description": "The user's ID number from an external system."
         }
       },
       "required": ["name", "email", "role"]

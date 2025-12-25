@@ -25,6 +25,7 @@ const WorkerDataSchema = z.object({
     id: z.string(),
     name: z.string(),
     email: z.string(),
+    nationality: z.string().optional(),
     certificates: z.array(certificateSchema).optional(),
 });
 
@@ -147,6 +148,7 @@ const processAccessRequestFlow = ai.defineFlow(
                 name: workerData.name,
                 email: workerData.email,
                 idNumber: workerData.id, // Save the worker's employee ID
+                nationality: workerData.nationality,
                 company: (await firestore.collection('contractors').doc(input.contractorId).get()).data()?.name,
                 contractorId: input.contractorId,
                 role: 'Worker',
