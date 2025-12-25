@@ -18,6 +18,7 @@ export type User = {
   company?: string; 
   operatorId?: string;
   contractorId?: string;
+  nationality?: string;
   certificates?: Certificate[];
   idCardImageUrl?: string;
   idNumber?: string; // For manually entered ID
@@ -50,7 +51,7 @@ export type GateActivity = {
   id: string;
   userId: string;
   userName:string;
-  timestamp: string; // Should be ISO string
+  timestamp: string | Timestamp; // Allow both for easier use
   type: 'Check-in' | 'Check-out';
   gate: string;
   siteId: string;

@@ -9,6 +9,8 @@ import type { Site, GateActivity, User, Operator, Contractor } from '@/lib/types
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RecentActivityTable } from '@/components/dashboard/recent-activity-table';
+import { OnSiteByCompanyChart } from '@/components/dashboard/on-site-by-company-chart';
+import { OnSiteByNationalityChart } from '@/components/dashboard/on-site-by-nationality-chart';
 
 export default function DashboardPage() {
     const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Manager', 'Security', 'Supervisor']);
@@ -18,15 +20,15 @@ export default function DashboardPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [gateActivity, setGateActivity] = useState<GateActivity[]>([]);
     const [loadingData, setLoadingData] = useState(true);
+    const [selectedOperatorId, setSelectedOperatorId] = useState<string>('all');
     const [selectedSiteId, setSelectedSiteId] = useState<string>('all');
-    const [selectedCompanyId, setSelectedCompanyId] = useState<string>('all');
 
     const canViewFullDashboard = firestoreUser && ['Admin', 'Operator Admin', 'Manager'].includes(firestoreUser.role);
     const isAdmin = firestoreUser?.role === 'Admin';
 
 
     const filteredSites = useMemo(() => {
-        if (selectedCompanyId === 'all') {
+        if (selectedOperatorId === 'all') {
              if (firestoreUser?.role === 'Operator Admin') {
                 return sites.filter(s => s.operatorId === firestoreUser.operatorId);
             }
@@ -36,14 +38,14 @@ export default function DashboardPage() {
             return sites;
         }
         
-        return sites.filter(s => s.operatorId === selectedCompanyId);
+        return sites.filter(s => s.operatorId === selectedOperatorId);
 
-    }, [sites, selectedCompanyId, firestoreUser]);
+    }, [sites, selectedOperatorId, firestoreUser]);
 
     // When company changes, reset the site filter
     useEffect(() => {
         setSelectedSiteId('all');
-    }, [selectedCompanyId]);
+    }, [selectedOperatorId]);
 
 
      useEffect(() => {
@@ -88,8 +90,8 @@ export default function DashboardPage() {
             if (selectedSiteId !== 'all') {
                 activityQuery = query(collection(firestore, "gateActivity"), where('siteId', '==', selectedSiteId));
             } 
-            else if (selectedCompanyId !== 'all') {
-                const operatorSiteIds = sites.filter(s => s.operatorId === selectedCompanyId).map(s => s.id);
+            else if (selectedOperatorId !== 'all') {
+                const operatorSiteIds = sites.filter(s => s.operatorId === selectedOperatorId).map(s => s.id);
                 if (operatorSiteIds.length > 0) {
                     activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', operatorSiteIds));
                 }
@@ -124,7 +126,7 @@ export default function DashboardPage() {
 
 
         return () => unsubs.forEach(unsub => unsub());
-    }, [firestore, firestoreUser, selectedSiteId, selectedCompanyId, isAdmin]); // Rerun when filters change
+    }, [firestore, firestoreUser, selectedSiteId, selectedOperatorId, isAdmin]); // Rerun when filters change
     
     if (loading) {
         return <div>Loading...</div>;
@@ -157,7 +159,7 @@ export default function DashboardPage() {
                  loadingData ? (
                     <Skeleton className="h-10 w-full md:w-[200px]" />
                 ) : (
-                    <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+                    <Select value={selectedOperatorId} onValueChange={setSelectedOperatorId}>
                         <SelectTrigger className="w-full md:w-[200px]">
                             <SelectValue placeholder="Select an operator" />
                         </SelectTrigger>
@@ -174,7 +176,7 @@ export default function DashboardPage() {
                 loadingData ? (
                     <Skeleton className="h-10 w-full md:w-[200px]" />
                 ) : (
-                    <Select value={selectedSiteId} onValueChange={setSelectedSiteId} disabled={filteredSites.length === 0 && selectedCompanyId !== 'all'}>
+                    <Select value={selectedSiteId} onValueChange={setSelectedSiteId} disabled={filteredSites.length === 0 && selectedOperatorId !== 'all'}>
                         <SelectTrigger className="w-full md:w-[200px]">
                             <SelectValue placeholder="Select a site" />
                         </SelectTrigger>
@@ -192,7 +194,11 @@ export default function DashboardPage() {
 
       {canViewFullDashboard && (
         <div className="space-y-4 md:space-y-6">
-            <StatsCards siteId={selectedSiteId} companyId={selectedCompanyId} />
+            <StatsCards siteId={selectedSiteId} operatorId={selectedOperatorId} />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <OnSiteByCompanyChart className="lg:col-span-4" operatorId={selectedOperatorId} siteId={selectedSiteId} />
+                <OnSiteByNationalityChart className="lg:col-span-3" operatorId={selectedOperatorId} siteId={selectedSiteId} />
+            </div>
             <RecentActivityTable activity={gateActivity} users={users} sites={sites} isLoading={loadingData} />
         </div>
       )}

@@ -31,6 +31,10 @@
         "operatorId": {
             "type": "string",
             "description": "The ID of the operator company the user belongs to."
+        },
+        "nationality": {
+            "type": "string",
+            "description": "The nationality of the user."
         }
       },
       "required": ["name", "email", "role"]

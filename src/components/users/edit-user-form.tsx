@@ -25,6 +25,7 @@ const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   idNumber: z.string().optional(),
+  nationality: z.string().optional(),
   role: z.enum(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor']),
   status: z.enum(['Active', 'Inactive']),
   notes: z.string().optional(),
@@ -62,6 +63,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
             name: user.name || "",
             email: user.email || "",
             idNumber: user.idNumber || "",
+            nationality: (user as any).nationality || "",
             notes: (user as any).notes || "",
             role: user.role || "Worker",
             status: user.status || "Inactive",
@@ -268,20 +270,35 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                 />
                 )}
             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <FormField
+                    control={form.control}
+                    name="idNumber"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>ID Number (optional)</FormLabel>
+                        <FormControl>
+                            <Input placeholder="e.g. Driver's License #" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                <FormField
+                    control={form.control}
+                    name="nationality"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Nationality (optional)</FormLabel>
+                        <FormControl>
+                            <Input placeholder="e.g. Omani" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+            </div>
 
-            <FormField
-              control={form.control}
-              name="idNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>ID Number (optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Driver's License #" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             {selectedRole === "Security" && (
               <FormField
