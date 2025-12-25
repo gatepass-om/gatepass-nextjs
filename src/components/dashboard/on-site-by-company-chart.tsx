@@ -73,7 +73,7 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
 
                     const personnelCounts = requests.reduce((acc, req) => {
                         const opName = operatorMap.get(req.operatorId) || 'Unknown Operator';
-                        const workerCount = req.workerIds.length;
+                        const workerCount = req.workerIds?.length || 0;
                         acc[opName] = (acc[opName] || 0) + workerCount;
                         return acc;
                     }, {} as Record<string, number>);
