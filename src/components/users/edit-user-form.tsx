@@ -63,7 +63,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
             name: user.name || "",
             email: user.email || "",
             idNumber: user.idNumber || "",
-            nationality: (user as any).nationality || "",
+            nationality: user.nationality || "",
             notes: (user as any).notes || "",
             role: user.role || "Worker",
             status: user.status || "Inactive",
