@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useEffect } from 'react';
@@ -196,7 +195,3 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
         </Card>
     );
 }
-
-    
-
-    
