@@ -42,7 +42,7 @@ export default function DashboardPage() {
 
     }, [sites, selectedOperatorId, firestoreUser]);
 
-    // When company changes, reset the site filter
+    // When operator changes, reset the site filter
     useEffect(() => {
         setSelectedSiteId('all');
     }, [selectedOperatorId]);
@@ -176,7 +176,7 @@ export default function DashboardPage() {
                 loadingData ? (
                     <Skeleton className="h-10 w-full md:w-[200px]" />
                 ) : (
-                    <Select value={selectedSiteId} onValueChange={setSelectedSiteId} disabled={filteredSites.length === 0 && selectedOperatorId !== 'all'}>
+                    <Select value={selectedSiteId} onValueChange={setSelectedSiteId} disabled={selectedOperatorId === 'all' && !isAdmin}>
                         <SelectTrigger className="w-full md:w-[200px]">
                             <SelectValue placeholder="Select a site" />
                         </SelectTrigger>
@@ -209,3 +209,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
