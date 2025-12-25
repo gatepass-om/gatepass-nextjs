@@ -105,7 +105,7 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                         setDescription("Breakdown of on-site personnel by operator.");
                         const operatorMap = new Map(operators.map(o => [o.id, o.name]));
                         personnelCounts = onSiteUsers.reduce((acc, user) => {
-                            const opName = user.operatorId ? operatorMap.get(user.operatorId) || 'Unknown Operator' : 'Unknown Operator';
+                            const opName = user.operatorId ? operatorMap.get(user.operatorId) || 'Unknown Operator' : 'Contractor/Other';
                             acc[opName] = (acc[opName] || 0) + 1;
                             return acc;
                         }, {} as Record<string, number>);
@@ -116,10 +116,8 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                         const contractorMap = new Map(contractors.map(c => [c.id, c.name]));
                         personnelCounts = onSiteUsers.reduce((acc, user) => {
                             // This chart should only show contractors for the selected operator
-                            if (user.operatorId === operatorId || (user.contractorId && contractors.some(c => c.id === user.contractorId))) {
-                                const contractorName = user.contractorId ? contractorMap.get(user.contractorId) || user.company || 'Direct Hire' : 'Direct Hire';
-                                acc[contractorName] = (acc[contractorName] || 0) + 1;
-                            }
+                            const contractorName = user.contractorId ? contractorMap.get(user.contractorId) || user.company || 'Direct Hire' : 'Direct Hire';
+                            acc[contractorName] = (acc[contractorName] || 0) + 1;
                             return acc;
                         }, {} as Record<string, number>);
                     }
@@ -198,5 +196,7 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
         </Card>
     );
 }
+
+    
 
     
