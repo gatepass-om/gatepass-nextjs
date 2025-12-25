@@ -36,6 +36,7 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
             let activityQuery: Query | null = collection(firestore, 'gateActivity');
             let sitesQuery: Query | null = null;
             
+            // Determine which sites to filter by
             if (siteId !== 'all') {
                 sitesQuery = query(collection(firestore, 'sites'), where('__name__', '==', siteId));
             } else if (operatorId !== 'all') {
@@ -52,7 +53,8 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                 if (siteIds.length > 0) {
                     activityQuery = query(activityQuery, where('siteId', 'in', siteIds));
                 } else {
-                    activityQuery = null; // No sites match the filter, so no activity is possible
+                    // No sites match filter, so no activity possible for this user/filter combo
+                    activityQuery = null; 
                 }
             }
 
@@ -74,6 +76,7 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                 const operatorMap = new Map(operatorsSnap.docs.map(d => [d.id, d.data() as Operator]));
                 const contractorMap = new Map(contractorsSnap.docs.map(d => [d.id, d.data() as Contractor]));
 
+                // Find the latest activity for each user
                 const latestActivity: Record<string, GateActivity> = {};
                 activities.forEach(activity => {
                     const timestamp = typeof activity.timestamp === 'string' ? new Date(activity.timestamp) : activity.timestamp.toDate();
@@ -82,21 +85,28 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                     }
                 });
 
+                // Get IDs of users currently checked-in
                 const onSiteUserIds = Object.values(latestActivity)
                     .filter(activity => activity.type === 'Check-in')
                     .map(activity => activity.userId);
 
+                // Group on-site users by company
                 const companyCounts = onSiteUserIds.reduce((acc, userId) => {
                     const user = userMap.get(userId);
                     if (!user) return acc;
                     
                     let companyName: string;
+
                     if (isDrillDownView) {
-                        // Group by Contractor
-                        companyName = user.contractorId ? (contractorMap.get(user.contractorId)?.name || 'Unknown Contractor') : 'Direct Hire/Other';
+                        // When an Operator is selected, group by Contractor
+                        companyName = user.contractorId 
+                            ? (contractorMap.get(user.contractorId)?.name || 'Unknown Contractor') 
+                            : 'Direct Hire';
                     } else {
-                        // Group by Operator
-                        companyName = user.operatorId ? (operatorMap.get(user.operatorId)?.name || 'Unknown Operator') : 'Contractor/Other';
+                        // When "All Operators" is selected, group by Operator
+                        companyName = user.operatorId
+                            ? (operatorMap.get(user.operatorId)?.name || 'Unknown Operator')
+                            : 'Contractors / Other';
                     }
                     
                     acc[companyName] = (acc[companyName] || 0) + 1;
