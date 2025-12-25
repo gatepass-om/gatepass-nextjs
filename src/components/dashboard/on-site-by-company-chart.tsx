@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useEffect } from 'react';
@@ -5,7 +6,7 @@ import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, query, where, getDocs, Query } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { AccessRequest, Operator } from '@/lib/types';
+import type { GateActivity, User, Operator, Contractor } from '@/lib/types';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
@@ -23,34 +24,86 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
     const [chartConfig, setChartConfig] = useState<ChartConfig>({});
     const [loading, setLoading] = useState(true);
 
+    const isDrillDownView = operatorId !== 'all';
+
     useEffect(() => {
-        if (!firestore) return;
+        if (!firestore || !firestoreUser) return;
         setLoading(true);
 
-        const operatorsQuery = collection(firestore, 'operators');
-        const operatorsUnsub = onSnapshot(operatorsQuery, (operatorsSnap) => {
-            const operatorMap = new Map(operatorsSnap.docs.map(doc => [doc.id, (doc.data() as Operator).name]));
+        const unsubs: (() => void)[] = [];
+
+        const setupListeners = async () => {
+            let activityQuery: Query | null = collection(firestore, 'gateActivity');
+            let sitesQuery: Query | null = null;
             
-            let requestsQuery: Query = collection(firestore, 'accessRequests');
-            
-            if (operatorId !== 'all') {
-                requestsQuery = query(requestsQuery, where('operatorId', '==', operatorId));
-            }
             if (siteId !== 'all') {
-                requestsQuery = query(requestsQuery, where('siteId', '==', siteId));
+                sitesQuery = query(collection(firestore, 'sites'), where('__name__', '==', siteId));
+            } else if (operatorId !== 'all') {
+                sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', operatorId));
+            } else if (firestoreUser.role === 'Manager') {
+                sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', firestoreUser.id));
+            } else if (firestoreUser.role === 'Operator Admin') {
+                sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', firestoreUser.operatorId));
             }
-            
-            const requestsUnsub = onSnapshot(requestsQuery, (requestsSnap) => {
-                const requests = requestsSnap.docs.map(d => d.data() as AccessRequest);
+
+            if (sitesQuery) {
+                const siteSnap = await getDocs(sitesQuery);
+                const siteIds = siteSnap.docs.map(d => d.id);
+                if (siteIds.length > 0) {
+                    activityQuery = query(activityQuery, where('siteId', 'in', siteIds));
+                } else {
+                    activityQuery = null; // No sites match the filter, so no activity is possible
+                }
+            }
+
+            if (!activityQuery) {
+                setChartData([]);
+                setLoading(false);
+                return;
+            }
+
+            unsubs.push(onSnapshot(activityQuery, async (activitySnap) => {
+                const [usersSnap, operatorsSnap, contractorsSnap] = await Promise.all([
+                    getDocs(collection(firestore, 'users')),
+                    getDocs(collection(firestore, 'operators')),
+                    getDocs(collection(firestore, 'contractors'))
+                ]);
                 
-                const personnelCounts = requests.reduce((acc, req) => {
-                    const opName = operatorMap.get(req.operatorId) || 'Unknown Operator';
-                    const workerCount = req.workerIds ? req.workerIds.length : 0;
-                    acc[opName] = (acc[opName] || 0) + workerCount;
+                const activities = activitySnap.docs.map(d => d.data() as GateActivity);
+                const userMap = new Map(usersSnap.docs.map(d => [d.id, {...d.data(), id: d.id} as User]));
+                const operatorMap = new Map(operatorsSnap.docs.map(d => [d.id, d.data() as Operator]));
+                const contractorMap = new Map(contractorsSnap.docs.map(d => [d.id, d.data() as Contractor]));
+
+                const latestActivity: Record<string, GateActivity> = {};
+                activities.forEach(activity => {
+                    const timestamp = typeof activity.timestamp === 'string' ? new Date(activity.timestamp) : activity.timestamp.toDate();
+                    if (!latestActivity[activity.userId] || timestamp > (typeof latestActivity[activity.userId].timestamp === 'string' ? new Date(latestActivity[activity.userId].timestamp) : latestActivity[activity.userId].timestamp.toDate())) {
+                        latestActivity[activity.userId] = activity;
+                    }
+                });
+
+                const onSiteUserIds = Object.values(latestActivity)
+                    .filter(activity => activity.type === 'Check-in')
+                    .map(activity => activity.userId);
+
+                const companyCounts = onSiteUserIds.reduce((acc, userId) => {
+                    const user = userMap.get(userId);
+                    if (!user) return acc;
+                    
+                    let companyName: string;
+                    if (isDrillDownView) {
+                        // Group by Contractor
+                        companyName = user.contractorId ? (contractorMap.get(user.contractorId)?.name || 'Unknown Contractor') : 'Direct Hire/Other';
+                    } else {
+                        // Group by Operator
+                        companyName = user.operatorId ? (operatorMap.get(user.operatorId)?.name || 'Unknown Operator') : 'Contractor/Other';
+                    }
+                    
+                    acc[companyName] = (acc[companyName] || 0) + 1;
                     return acc;
                 }, {} as Record<string, number>);
 
-                const finalChartData = Object.entries(personnelCounts)
+                const finalChartData = Object.entries(companyCounts)
                     .map(([name, value]) => ({ name, value }))
                     .sort((a, b) => b.value - a.value);
 
@@ -66,13 +119,12 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                 setChartConfig(newChartConfig);
                 setChartData(finalChartData);
                 setLoading(false);
-            });
+            }));
+        };
 
-            return () => requestsUnsub();
-        });
-
-        return () => operatorsUnsub();
-    }, [firestore, siteId, operatorId]);
+        setupListeners();
+        return () => unsubs.forEach(unsub => unsub());
+    }, [firestore, firestoreUser, siteId, operatorId, isDrillDownView]);
 
      if (authLoading || loading) {
         return (
@@ -91,8 +143,13 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
     return (
         <Card className={className}>
             <CardHeader>
-                <CardTitle>Personnel in Access Requests by Operator</CardTitle>
-                <CardDescription>Total number of personnel included in access requests, grouped by operator.</CardDescription>
+                <CardTitle>On-Site Personnel by Company</CardTitle>
+                <CardDescription>
+                    {isDrillDownView 
+                        ? 'Breakdown of on-site personnel by contractor.'
+                        : 'Breakdown of on-site personnel by operator.'
+                    }
+                </CardDescription>
             </CardHeader>
             <CardContent>
                  {chartData.length > 0 ? (
@@ -115,7 +172,7 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                     </ChartContainer>
                 ) : (
                     <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                        No access request data available for this filter.
+                        No on-site personnel data available for this filter.
                     </div>
                 )}
             </CardContent>
