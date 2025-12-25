@@ -63,7 +63,7 @@ export function OnSiteByNationalityChart({ className, operatorId, siteId }: Char
             unsubs.push(onSnapshot(activityQuery, (activitySnap) => {
                 unsubs.push(onSnapshot(collection(firestore, 'users'), (usersSnap) => {
                     const activities = activitySnap.docs.map(d => d.data() as GateActivity);
-                    const users = usersSnap.docs.map(d => ({...d.data(), id: d.id}) as User & { nationality?: string });
+                    const users = usersSnap.docs.map(d => ({...d.data(), id: d.id}) as User);
                     
                     const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -84,7 +84,7 @@ export function OnSiteByNationalityChart({ className, operatorId, siteId }: Char
                     });
 
                     const nationalityCounts = onSiteUsers.reduce((acc, user) => {
-                        const nationality = (user as any).nationality || 'Unknown';
+                        const nationality = user.nationality || 'Unknown';
                         acc[nationality] = (acc[nationality] || 0) + 1;
                         return acc;
                     }, {} as Record<string, number>);
