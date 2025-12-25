@@ -176,7 +176,7 @@ export default function DashboardPage() {
                 loadingData ? (
                     <Skeleton className="h-10 w-full md:w-[200px]" />
                 ) : (
-                    <Select value={selectedSiteId} onValueChange={setSelectedSiteId} disabled={selectedOperatorId === 'all' && !isAdmin}>
+                    <Select value={selectedSiteId} onValueChange={setSelectedSiteId} disabled={isAdmin && selectedOperatorId === 'all'}>
                         <SelectTrigger className="w-full md:w-[200px]">
                             <SelectValue placeholder="Select a site" />
                         </SelectTrigger>

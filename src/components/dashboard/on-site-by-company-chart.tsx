@@ -115,7 +115,8 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                         setDescription("Breakdown of on-site contractors for the selected operator.");
                         const contractorMap = new Map(contractors.map(c => [c.id, c.name]));
                         personnelCounts = onSiteUsers.reduce((acc, user) => {
-                            if (user.operatorId === operatorId) { // only count users of the selected operator
+                            // This chart should only show contractors for the selected operator
+                            if (user.operatorId === operatorId || (user.contractorId && contractors.some(c => c.id === user.contractorId))) {
                                 const contractorName = user.contractorId ? contractorMap.get(user.contractorId) || user.company || 'Direct Hire' : 'Direct Hire';
                                 acc[contractorName] = (acc[contractorName] || 0) + 1;
                             }
