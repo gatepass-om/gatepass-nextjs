@@ -34,28 +34,28 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
 
         const setupListeners = async () => {
             let activityQuery: Query | null = collection(firestore, 'gateActivity');
-            let sitesQuery: Query | null = null;
-            
-            // Determine which sites to filter by
-            if (siteId !== 'all') {
-                sitesQuery = query(collection(firestore, 'sites'), where('__name__', '==', siteId));
-            } else if (operatorId !== 'all') {
-                sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', operatorId));
-            } else if (firestoreUser.role === 'Manager' && firestoreUser.id) {
-                sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', firestoreUser.id));
-            } else if (firestoreUser.role === 'Operator Admin') {
-                sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', firestoreUser.operatorId));
-            }
+            let sitesToFilter: string[] = [];
 
-            if (sitesQuery) {
-                const siteSnap = await getDocs(sitesQuery);
-                const siteIds = siteSnap.docs.map(d => d.id);
-                if (siteIds.length > 0) {
-                    activityQuery = query(activityQuery, where('siteId', 'in', siteIds));
-                } else {
-                    // No sites match filter, so no activity possible for this user/filter combo
-                    activityQuery = null; 
-                }
+            // Determine which sites to query based on user role and filters
+            if (siteId !== 'all') {
+                sitesToFilter = [siteId];
+            } else if (operatorId !== 'all') {
+                const sitesSnap = await getDocs(query(collection(firestore, 'sites'), where('operatorId', '==', operatorId)));
+                sitesToFilter = sitesSnap.docs.map(d => d.id);
+            } else if (firestoreUser.role === 'Manager') {
+                const sitesSnap = await getDocs(query(collection(firestore, 'sites'), where('managerIds', 'array-contains', firestoreUser.id)));
+                sitesToFilter = sitesSnap.docs.map(d => d.id);
+            } else if (firestoreUser.role === 'Operator Admin') {
+                const sitesSnap = await getDocs(query(collection(firestore, 'sites'), where('operatorId', '==', firestoreUser.operatorId)));
+                sitesToFilter = sitesSnap.docs.map(d => d.id);
+            }
+            
+            // If we have specific sites to filter by (and it's not the admin 'all' view), apply the 'where' clause
+            if (sitesToFilter.length > 0) {
+                 activityQuery = query(activityQuery, where('siteId', 'in', sitesToFilter));
+            } else if (siteId !== 'all' || operatorId !== 'all') {
+                 // If filters are selected but result in no sites, there can be no activity
+                 activityQuery = null;
             }
 
             if (!activityQuery) {
@@ -73,8 +73,8 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                 
                 const activities = activitySnap.docs.map(d => d.data() as GateActivity);
                 const userMap = new Map(usersSnap.docs.map(d => [d.id, {...d.data(), id: d.id} as User]));
-                const operatorMap = new Map(operatorsSnap.docs.map(d => [d.id, d.data() as Operator]));
-                const contractorMap = new Map(contractorsSnap.docs.map(d => [d.id, d.data() as Contractor]));
+                const operatorMap = new Map(operatorsSnap.docs.map(d => [d.id, d.data().name as string]));
+                const contractorMap = new Map(contractorsSnap.docs.map(d => [d.id, d.data().name as string]));
 
                 // Find the latest activity for each user
                 const latestActivity: Record<string, GateActivity> = {};
@@ -85,7 +85,7 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                     }
                 });
 
-                // Get IDs of users currently checked-in
+                // Get on-site users
                 const onSiteUserIds = Object.values(latestActivity)
                     .filter(activity => activity.type === 'Check-in')
                     .map(activity => activity.userId);
@@ -100,12 +100,12 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                     if (isDrillDownView) {
                         // When an Operator is selected, group by Contractor
                         companyName = user.contractorId 
-                            ? (contractorMap.get(user.contractorId)?.name || 'Unknown Contractor') 
+                            ? (contractorMap.get(user.contractorId) || 'Unknown Contractor') 
                             : 'Direct Hire';
                     } else {
                         // When "All Operators" is selected, group by Operator
                         companyName = user.operatorId
-                            ? (operatorMap.get(user.operatorId)?.name || 'Unknown Operator')
+                            ? (operatorMap.get(user.operatorId) || 'Unknown Operator')
                             : 'Contractors / Other';
                     }
                     
@@ -153,11 +153,13 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
     return (
         <Card className={className}>
             <CardHeader>
-                <CardTitle>On-Site Personnel by Company</CardTitle>
+                <CardTitle>
+                    {isDrillDownView ? 'On-Site by Contractor' : 'On-Site by Operator'}
+                </CardTitle>
                 <CardDescription>
                     {isDrillDownView 
-                        ? 'Breakdown of on-site personnel by contractor.'
-                        : 'Breakdown of on-site personnel by operator.'
+                        ? 'Breakdown of on-site contractors for the selected operator.'
+                        : 'Breakdown of on-site personnel by parent operator company.'
                     }
                 </CardDescription>
             </CardHeader>
@@ -189,3 +191,4 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
         </Card>
     );
 }
+
