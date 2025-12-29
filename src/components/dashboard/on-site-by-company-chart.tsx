@@ -41,7 +41,7 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                 sitesQuery = query(collection(firestore, 'sites'), where('__name__', '==', siteId));
             } else if (operatorId !== 'all') {
                 sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', operatorId));
-            } else if (firestoreUser.role === 'Manager') {
+            } else if (firestoreUser.role === 'Manager' && firestoreUser.id) {
                 sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', firestoreUser.id));
             } else if (firestoreUser.role === 'Operator Admin') {
                 sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', firestoreUser.operatorId));
