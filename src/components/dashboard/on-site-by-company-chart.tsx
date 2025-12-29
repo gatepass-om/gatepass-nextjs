@@ -6,7 +6,7 @@ import { useFirestore } from '@/firebase';
 import { collection, onSnapshot, query, where, getDocs, Query } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { GateActivity, User, Operator, Contractor } from '@/lib/types';
+import type { GateActivity, User, Operator, Contractor, Site } from '@/lib/types';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
@@ -36,7 +36,6 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
             let activityQuery: Query | null = collection(firestore, 'gateActivity');
             let sitesToFilter: string[] = [];
 
-            // Determine which sites to query based on user role and filters
             if (siteId !== 'all') {
                 sitesToFilter = [siteId];
             } else if (operatorId !== 'all') {
@@ -50,11 +49,9 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                 sitesToFilter = sitesSnap.docs.map(d => d.id);
             }
             
-            // If we have specific sites to filter by (and it's not the admin 'all' view), apply the 'where' clause
             if (sitesToFilter.length > 0) {
                  activityQuery = query(activityQuery, where('siteId', 'in', sitesToFilter));
-            } else if (siteId !== 'all' || operatorId !== 'all') {
-                 // If filters are selected but result in no sites, there can be no activity
+            } else if ((siteId !== 'all' || operatorId !== 'all') && firestoreUser.role !== 'Admin') {
                  activityQuery = null;
             }
 
@@ -65,18 +62,19 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
             }
 
             unsubs.push(onSnapshot(activityQuery, async (activitySnap) => {
-                const [usersSnap, operatorsSnap, contractorsSnap] = await Promise.all([
+                const [usersSnap, operatorsSnap, contractorsSnap, sitesSnap] = await Promise.all([
                     getDocs(collection(firestore, 'users')),
                     getDocs(collection(firestore, 'operators')),
-                    getDocs(collection(firestore, 'contractors'))
+                    getDocs(collection(firestore, 'contractors')),
+                    getDocs(collection(firestore, 'sites'))
                 ]);
                 
                 const activities = activitySnap.docs.map(d => d.data() as GateActivity);
                 const userMap = new Map(usersSnap.docs.map(d => [d.id, {...d.data(), id: d.id} as User]));
                 const operatorMap = new Map(operatorsSnap.docs.map(d => [d.id, d.data().name as string]));
                 const contractorMap = new Map(contractorsSnap.docs.map(d => [d.id, d.data().name as string]));
+                const siteMap = new Map(sitesSnap.docs.map(d => [d.id, d.data() as Site]));
 
-                // Find the latest activity for each user
                 const latestActivity: Record<string, GateActivity> = {};
                 activities.forEach(activity => {
                     const timestamp = typeof activity.timestamp === 'string' ? new Date(activity.timestamp) : activity.timestamp.toDate();
@@ -85,28 +83,22 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
                     }
                 });
 
-                // Get on-site users
-                const onSiteUserIds = Object.values(latestActivity)
-                    .filter(activity => activity.type === 'Check-in')
-                    .map(activity => activity.userId);
+                const onSiteUsers = Object.values(latestActivity)
+                    .filter(activity => activity.type === 'Check-in');
 
-                // Group on-site users by company
-                const companyCounts = onSiteUserIds.reduce((acc, userId) => {
-                    const user = userMap.get(userId);
-                    if (!user) return acc;
-                    
+                const companyCounts = onSiteUsers.reduce((acc, activity) => {
                     let companyName: string;
 
                     if (isDrillDownView) {
-                        // When an Operator is selected, group by Contractor
-                        companyName = user.contractorId 
+                        const user = userMap.get(activity.userId);
+                        companyName = user?.contractorId 
                             ? (contractorMap.get(user.contractorId) || 'Unknown Contractor') 
                             : 'Direct Hire';
                     } else {
-                        // When "All Operators" is selected, group by Operator
-                        companyName = user.operatorId
-                            ? (operatorMap.get(user.operatorId) || 'Unknown Operator')
-                            : 'Contractors / Other';
+                        const site = siteMap.get(activity.siteId);
+                        companyName = site?.operatorId
+                            ? (operatorMap.get(site.operatorId) || 'Unknown Operator')
+                            : 'Unassigned Site';
                     }
                     
                     acc[companyName] = (acc[companyName] || 0) + 1;
@@ -191,4 +183,3 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
         </Card>
     );
 }
-
