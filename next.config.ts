@@ -3,6 +3,7 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  trailingSlash: true,
   experimental: {
     serverActions: {
       allowedOrigins: ['localhost:3000', '*.devtunnels.ms', "*.gatepass.om"],
