@@ -289,7 +289,7 @@
         "jobTitle": "Production Supervisor",
         "idNumber": "OM20010011",
         "certificates": [
-            { "name": "H2S", "expiryDate": "2025-12-01" },
+            { "name": "H2S", "expiryDate": "2026-12-01" },
             { "name": "HSE Induction", "expiryDate": "2026-01-15" }
         ]
       },
@@ -316,7 +316,7 @@
         "jobTitle": "Geologist",
         "idNumber": "OM20010033",
         "certificates": [
-            { "name": "H2S", "expiryDate": "2024-11-10" },
+            { "name": "H2S", "expiryDate": "2026-11-10" },
             { "name": "HSE Induction", "expiryDate": "2026-04-01" }
         ]
       },
