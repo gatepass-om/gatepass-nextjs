@@ -280,6 +280,47 @@
         ]
       },
       {
+        "id": "20010011",
+        "name": "Said Al-Farsi",
+        "email": "said.farsi@pdo.co.om",
+        "company": "PDO",
+        "age": 45,
+        "nationality": "Omani",
+        "jobTitle": "Production Supervisor",
+        "idNumber": "OM20010011",
+        "certificates": [
+            { "name": "H2S", "expiryDate": "2025-12-01" },
+            { "name": "HSE Induction", "expiryDate": "2026-01-15" }
+        ]
+      },
+      {
+        "id": "20010022",
+        "name": "Maryam Al-Hinai",
+        "email": "maryam.hinai@pdo.co.om",
+        "company": "PDO",
+        "age": 33,
+        "nationality": "Omani",
+        "jobTitle": "Reservoir Engineer",
+        "idNumber": "OM20010022",
+        "certificates": [
+            { "name": "HSE Induction", "expiryDate": "2026-03-20" }
+        ]
+      },
+      {
+        "id": "20010033",
+        "name": "Chris Baker",
+        "email": "chris.baker@pdo.co.om",
+        "company": "PDO",
+        "age": 52,
+        "nationality": "British",
+        "jobTitle": "Geologist",
+        "idNumber": "OM20010033",
+        "certificates": [
+            { "name": "H2S", "expiryDate": "2024-11-10" },
+            { "name": "HSE Induction", "expiryDate": "2026-04-01" }
+        ]
+      },
+      {
         "id": "EMP101",
         "name": "Alice Johnson",
         "email": "alice.j@contractor-a.com",
