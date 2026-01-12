@@ -57,7 +57,6 @@
         "siteId": { "type": "string" },
         "siteName": { "type": "string" },
         "contractNumber": { "type": "string" },
-        "focalPoint": { "type": "string", "description": "Contact person at the operator company." },
         "workerIds": { "type": "array", "items": { "type": "string" }, "description": "List of worker user IDs included in the request." },
         "status": { "type": "string", "enum": ["Pending", "Approved", "Denied"] },
         "requestedAt": { "type": "string", "format": "date-time" },
@@ -65,7 +64,7 @@
         "expiresAt": { "type": "string", "description": "The end date of the access validity period. Can also be 'Permanent'." },
         "notes": { "type": "string", "description": "Optional notes or comments about the request." }
       },
-      "required": ["supervisorId", "operatorId", "contractorId", "siteId", "contractNumber", "focalPoint", "workerIds", "status", "requestedAt"]
+      "required": ["supervisorId", "operatorId", "contractorId", "siteId", "contractNumber", "workerIds", "status", "requestedAt"]
     },
     "GateActivity": {
       "title": "Gate Activity",

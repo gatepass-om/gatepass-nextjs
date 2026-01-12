@@ -136,13 +136,9 @@ export function RequestDetailsDialog({ request, allUsers, open, onOpenChange }: 
                         <Label htmlFor="contractNumber">Contract Number</Label>
                         <Input id="contractNumber" value={request.contractNumber} readOnly disabled icon={Hash} />
                     </div>
-                    <div className="grid w-full items-center gap-1.5">
-                        <Label htmlFor="focalPoint">Focal Point</Label>
-                        <Input id="focalPoint" value={request.focalPoint} readOnly disabled icon={Contact} />
-                    </div>
                 </div>
                  {request.notes && (
-                    <div className="grid w-full items-center gap-1.5">
+                    <div className="grid w-full items-center gap-1.5 pt-4">
                         <Label htmlFor="notes">Notes</Label>
                         <Textarea id="notes" value={request.notes} readOnly disabled className="h-24"/>
                     </div>

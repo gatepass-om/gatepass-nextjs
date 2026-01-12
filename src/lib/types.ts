@@ -38,7 +38,6 @@ export type AccessRequest = {
   siteId: string;
   siteName: string;
   contractNumber: string;
-  focalPoint: string;
   workerIds: string[];
   status: AccessRequestStatus;
   requestedAt: Timestamp | string;

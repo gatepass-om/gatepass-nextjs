@@ -17,6 +17,7 @@ import mockWorkerDatabase from '@/lib/worker-database.json';
 
 const FetchWorkerDataInputSchema = z.object({
   workerId: z.string().describe('The unique ID of the worker to fetch.'),
+  operatorId: z.string().optional().describe('If provided, only workers belonging to this operator are returned.'),
 });
 export type FetchWorkerDataInput = z.infer<typeof FetchWorkerDataInputSchema>;
 
@@ -56,14 +57,26 @@ const fetchWorkerDataFlow = ai.defineFlow(
     inputSchema: FetchWorkerDataInputSchema,
     outputSchema: FetchWorkerDataOutputSchema,
   },
-  async ({ workerId }) => {
+  async ({ workerId, operatorId }) => {
     console.log(`[Flow] Fetching data for worker ID: ${workerId}`);
     
     // Simulate a network delay
     await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400));
     
     // Find worker in the imported JSON database
-    const worker = mockWorkerDatabase.workers.find(w => w.id.toUpperCase() === workerId.toUpperCase());
+    let worker = mockWorkerDatabase.workers.find(w => w.id.toUpperCase() === workerId.toUpperCase());
+
+    // If operatorId is provided, ensure the found worker belongs to that operator
+    if (worker && operatorId) {
+        // This is a mock: In a real system you'd query where companyId matches operatorId
+        // Here we'll simulate by checking company name.
+        const operatorCompanies = ["PDO", "OQ", "OXY"]; // Example operator company names
+        if (!operatorCompanies.includes(worker.company)) {
+            console.log(`[Flow] Worker ${workerId} found, but does not belong to operator ${operatorId}.`);
+            worker = undefined; // Unset the worker if they don't belong to the operator
+        }
+    }
+
 
     if (worker) {
         console.log(`[Flow] Found worker: ${worker.name}`);

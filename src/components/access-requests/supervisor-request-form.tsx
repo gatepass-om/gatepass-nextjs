@@ -41,7 +41,6 @@ const formSchema = z.object({
   operatorId: z.string({ required_error: "Please select an operator." }),
   siteId: z.string({ required_error: "Please select a site." }),
   contractNumber: z.string().min(1, { message: "Contract number is required." }),
-  focalPoint: z.string().min(2, { message: "Focal point name is required." }),
   notes: z.string().optional(),
   workers: z.array(workerSchema).min(1, { message: "Please add at least one worker." }),
 });
@@ -68,7 +67,6 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
             operatorId: isOperatorAdmin ? supervisor.operatorId : "",
             siteId: "",
             contractNumber: "",
-            focalPoint: "",
             notes: "",
             workers: [{ workerId: "", status: 'unchecked' }],
         },
@@ -99,7 +97,9 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
 
         form.setValue(`workers.${index}.status`, 'loading');
         try {
-            const result = await serverFetchWorkerData({ workerId });
+            const operatorId = isOperatorAdmin ? supervisor.operatorId : undefined;
+            const result = await serverFetchWorkerData({ workerId, operatorId });
+            
             if (result && result.name) {
                 form.setValue(`workers.${index}.name`, result.name);
                 form.setValue(`workers.${index}.email`, result.email);
@@ -119,14 +119,14 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
             console.error("Error fetching worker data:", error);
             form.setValue(`workers.${index}.status`, 'not_found');
         }
-    }, [form, toast]);
+    }, [form, toast, isOperatorAdmin, supervisor.operatorId]);
 
 
     async function onSubmit(values: FormValues) {
-        const contractorId = isOperatorAdmin ? supervisor.id : supervisor.contractorId;
+        const contractorId = supervisor.contractorId;
 
         if (!contractorId) {
-             toast({ variant: "destructive", title: "Error", description: "Your user profile is not linked to a contractor or operator."});
+             toast({ variant: "destructive", title: "Error", description: "Your user profile is not linked to a contractor."});
             return;
         }
 
@@ -178,7 +178,6 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                 operatorId: values.operatorId,
                 siteId: values.siteId,
                 contractNumber: values.contractNumber,
-                focalPoint: values.focalPoint,
                 notes: values.notes,
                 workerList: verifiedWorkers.map(w => ({ 
                     id: w.workerId, 
@@ -264,7 +263,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                                 )}
                             />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                             <FormField
                                 control={form.control}
                                 name="contractNumber"
@@ -272,17 +271,6 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                                     <FormItem>
                                         <FormLabel>Contract Number</FormLabel>
                                         <FormControl><Input placeholder="e.g., C-123-XYZ" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="focalPoint"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Operator Focal Point</FormLabel>
-                                        <FormControl><Input placeholder="e.g., Site Manager Name" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
