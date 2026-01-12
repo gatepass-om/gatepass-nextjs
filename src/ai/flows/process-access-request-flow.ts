@@ -32,10 +32,11 @@ const WorkerDataSchema = z.object({
 const ProcessAccessRequestInputSchema = z.object({
   supervisorId: z.string(),
   supervisorName: z.string(),
-  contractorId: z.string(),
+  contractorId: z.string().optional(),
   operatorId: z.string(),
   siteId: z.string(),
   contractNumber: z.string(),
+  focalPoint: z.string().optional(),
   notes: z.string().optional(),
   workerList: z.array(WorkerDataSchema).describe("A list of verified worker objects."),
 });
@@ -148,8 +149,9 @@ const processAccessRequestFlow = ai.defineFlow(
                 email: workerData.email,
                 idNumber: workerData.id, // Save the worker's employee ID
                 nationality: workerData.nationality,
-                company: (await firestore.collection('contractors').doc(input.contractorId).get()).data()?.name,
+                company: input.contractorId ? (await firestore.collection('contractors').doc(input.contractorId).get()).data()?.name : (await firestore.collection('operators').doc(input.operatorId).get()).data()?.name,
                 contractorId: input.contractorId,
+                operatorId: input.operatorId,
                 role: 'Worker',
                 status: 'Active',
                 certificates: workerData.certificates || [],
@@ -169,7 +171,7 @@ const processAccessRequestFlow = ai.defineFlow(
 
       // 4. Create the Access Request document
       const operatorDoc = await firestore.collection('operators').doc(input.operatorId).get();
-      const contractorDoc = await firestore.collection('contractors').doc(input.contractorId).get();
+      const contractorDoc = input.contractorId ? await firestore.collection('contractors').doc(input.contractorId).get() : null;
       const siteDoc = await firestore.collection('sites').doc(input.siteId).get();
 
       const accessRequestData = {
@@ -178,10 +180,11 @@ const processAccessRequestFlow = ai.defineFlow(
         operatorId: input.operatorId,
         operatorName: operatorDoc.data()?.name || 'Unknown Operator',
         contractorId: input.contractorId,
-        contractorName: contractorDoc.data()?.name || 'Unknown Contractor',
+        contractorName: contractorDoc?.data()?.name || 'Direct Hire',
         siteId: input.siteId,
         siteName: siteDoc.data()?.name || 'Unknown Site',
         contractNumber: input.contractNumber,
+        focalPoint: input.focalPoint,
         notes: input.notes,
         workerIds: processedUserIds,
         status: 'Pending',
@@ -203,3 +206,5 @@ const processAccessRequestFlow = ai.defineFlow(
     }
   }
 );
+
+    

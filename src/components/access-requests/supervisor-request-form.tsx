@@ -41,6 +41,7 @@ const formSchema = z.object({
   operatorId: z.string({ required_error: "Please select an operator." }),
   siteId: z.string({ required_error: "Please select a site." }),
   contractNumber: z.string().min(1, { message: "Contract number is required." }),
+  focalPoint: z.string().optional(),
   notes: z.string().optional(),
   workers: z.array(workerSchema).min(1, { message: "Please add at least one worker." }),
 });
@@ -67,6 +68,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
             operatorId: isOperatorAdmin ? supervisor.operatorId : "",
             siteId: "",
             contractNumber: "",
+            focalPoint: "",
             notes: "",
             workers: [{ workerId: "", status: 'unchecked' }],
         },
@@ -125,7 +127,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
     async function onSubmit(values: FormValues) {
         const contractorId = supervisor.contractorId;
 
-        if (!contractorId) {
+        if (!contractorId && !isOperatorAdmin) {
              toast({ variant: "destructive", title: "Error", description: "Your user profile is not linked to a contractor."});
             return;
         }
@@ -178,6 +180,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                 operatorId: values.operatorId,
                 siteId: values.siteId,
                 contractNumber: values.contractNumber,
+                focalPoint: values.focalPoint,
                 notes: values.notes,
                 workerList: verifiedWorkers.map(w => ({ 
                     id: w.workerId, 
@@ -263,7 +266,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                                 )}
                             />
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <FormField
                                 control={form.control}
                                 name="contractNumber"
@@ -275,6 +278,19 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                                     </FormItem>
                                 )}
                             />
+                             {!isOperatorAdmin && (
+                                <FormField
+                                    control={form.control}
+                                    name="focalPoint"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Operator Focal Point (Optional)</FormLabel>
+                                            <FormControl><Input placeholder="e.g., john.doe@operator.com" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                             )}
                         </div>
 
                          <FormField
@@ -384,3 +400,5 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
         </Card>
     )
 }
+
+    

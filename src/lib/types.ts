@@ -33,7 +33,7 @@ export type AccessRequest = {
   supervisorName: string;
   operatorId: string;
   operatorName: string;
-  contractorId: string;
+  contractorId?: string;
   contractorName: string;
   siteId: string;
   siteName: string;
@@ -43,6 +43,7 @@ export type AccessRequest = {
   requestedAt: Timestamp | string;
   validFrom?: string; // ISO 8601 Date string "yyyy-MM-dd"
   expiresAt?: string; // ISO 8601 Date string "yyyy-MM-dd" or "Permanent"
+  focalPoint?: string;
   notes?: string;
 };
 
@@ -78,3 +79,5 @@ export type Contractor = {
     id: string;
     name: string;
 }
+
+    

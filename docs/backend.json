@@ -62,6 +62,7 @@
         "requestedAt": { "type": "string", "format": "date-time" },
         "validFrom": { "type": "string", "format": "date", "description": "The start date of the access validity period." },
         "expiresAt": { "type": "string", "description": "The end date of the access validity period. Can also be 'Permanent'." },
+        "focalPoint": { "type": "string", "description": "The email of the operator's focal point for this request."},
         "notes": { "type": "string", "description": "Optional notes or comments about the request." }
       },
       "required": ["supervisorId", "operatorId", "contractorId", "siteId", "contractNumber", "workerIds", "status", "requestedAt"]
@@ -154,3 +155,5 @@
     }
   }
 }
+
+    
