@@ -75,10 +75,9 @@ export function SidebarNav() {
       { href: '/access-requests', label: 'Access Requests', icon: ClipboardList, roles: ['Admin', 'Operator Admin', 'Manager', 'Worker', 'Supervisor', 'Contractor Admin'] },
       { href: '/companies', label: 'Companies', icon: Briefcase, roles: ['Admin'] },
       { href: '/sites', label: 'Site Management', icon: Building2, roles: ['Admin', 'Operator Admin'] },
-      { href: '/certificates', label: 'Certificates', icon: FileBadge, roles: ['Admin', 'Operator Admin'] },
+      { href: '/certificates', label: 'Certificates', icon: FileBadge, roles: ['Admin'] },
       { href: '/users', label: 'Personnel', icon: Users, roles: ['Admin', 'Operator Admin', 'Contractor Admin'] },
       { href: '/scan', label: 'Scan', icon: ScanLine, roles: ['Security'] },
-      { href: '/profile', label: 'My QR Code', icon: QrCodeIcon, roles: ['Worker', 'Visitor', 'Manager', 'Supervisor', 'Admin', 'Operator Admin'] },
     ];
 
     return allItems.filter(item => item.roles.includes(role));

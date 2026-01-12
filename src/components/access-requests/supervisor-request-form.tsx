@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { Operator, Site, Contractor, User, Certificate } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { processAccessRequest } from "@/ai/flows/process-access-request-flow";
 import { serverFetchWorkerData } from "@/app/actions/workerActions";
 import { cn } from "@/lib/utils";
@@ -60,10 +60,12 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     
+    const isOperatorAdmin = supervisor.role === 'Operator Admin';
+
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            operatorId: "",
+            operatorId: isOperatorAdmin ? supervisor.operatorId : "",
             siteId: "",
             contractNumber: "",
             focalPoint: "",
@@ -71,6 +73,12 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
             workers: [{ workerId: "", status: 'unchecked' }],
         },
     });
+
+    useEffect(() => {
+        if (isOperatorAdmin && supervisor.operatorId) {
+            form.setValue('operatorId', supervisor.operatorId);
+        }
+    }, [isOperatorAdmin, supervisor.operatorId, form]);
 
     const { fields, append, remove } = useFieldArray({
       control: form.control,
@@ -115,8 +123,10 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
 
 
     async function onSubmit(values: FormValues) {
-        if (!supervisor.contractorId) {
-            toast({ variant: "destructive", title: "Error", description: "Your user profile is not linked to a contractor."});
+        const contractorId = isOperatorAdmin ? supervisor.id : supervisor.contractorId;
+
+        if (!contractorId) {
+             toast({ variant: "destructive", title: "Error", description: "Your user profile is not linked to a contractor or operator."});
             return;
         }
 
@@ -164,7 +174,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
             const result = await processAccessRequest({
                 supervisorId: supervisor.id,
                 supervisorName: supervisor.name,
-                contractorId: supervisor.contractorId,
+                contractorId: contractorId,
                 operatorId: values.operatorId,
                 siteId: values.siteId,
                 contractNumber: values.contractNumber,
@@ -215,7 +225,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                                 render={({ field }) => (
                                     <FormItem>
                                     <FormLabel>Operator</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isLoading}>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isLoading || isOperatorAdmin}>
                                         <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder={isLoading ? "Loading..." : "Select an operator"} />

@@ -15,7 +15,7 @@ import { ApprovalDialog } from "@/components/access-requests/approval-dialog";
 export default function AccessRequestsPage() {
   const { user: authUser, firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Worker', 'Supervisor']);
   const isManager = useMemo(() => firestoreUser?.role === 'Manager' || firestoreUser?.role === 'Operator Admin' || firestoreUser?.role === 'Admin', [firestoreUser?.role]);
-  const isSupervisor = useMemo(() => firestoreUser?.role === 'Supervisor' || firestoreUser?.role === 'Contractor Admin' || firestoreUser?.role === 'Admin', [firestoreUser?.role]);
+  const isSupervisor = useMemo(() => firestoreUser?.role === 'Supervisor' || firestoreUser?.role === 'Contractor Admin' || firestoreUser?.role === 'Admin' || firestoreUser?.role === 'Operator Admin', [firestoreUser?.role]);
   const isWorker = useMemo(() => firestoreUser?.role === 'Worker', [firestoreUser?.role]);
   const currentUserId = authUser?.uid;
   const firestore = useFirestore();
@@ -46,17 +46,34 @@ export default function AccessRequestsPage() {
 
     const unsubs: (()=>void)[] = [];
     const requestsCollection = collection(firestore, "accessRequests");
+    const role = firestoreUser?.role;
 
     // Listener for requests relevant to the current user
     let userRequestsQuery;
     if (isWorker) {
       // Workers see requests they are a part of
       userRequestsQuery = query(requestsCollection, where("workerIds", "array-contains", currentUserId));
-    } else if (isSupervisor) {
-      // Supervisors see requests they have submitted
+    } else if (role === 'Supervisor' || role === 'Contractor Admin') {
+      // Supervisors/Contractor Admins see requests they have submitted
        userRequestsQuery = query(requestsCollection, where("supervisorId", "==", currentUserId));
-    } else if (isManager) {
-      // Admins/Managers see all requests for a consolidated view if needed, or customize as required
+    } else if (role === 'Operator Admin') {
+      // Operator Admins see requests for their sites or that they have submitted
+      userRequestsQuery = query(requestsCollection, where('operatorId', '==', firestoreUser.operatorId));
+    } else if (role === 'Manager') {
+      // Managers see requests for their assigned sites
+       const sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', currentUserId));
+        getDocs(sitesQuery).then(sitesSnapshot => {
+            const managedSiteIds = sitesSnapshot.docs.map(doc => doc.id);
+            if (managedSiteIds.length > 0) {
+                const managerRequestsQuery = query(requestsCollection, where("siteId", "in", managedSiteIds));
+                 unsubs.push(onSnapshot(managerRequestsQuery, (snapshot) => {
+                    const userRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AccessRequest));
+                    setMyRequests(userRequests);
+                }));
+            }
+        });
+    } else if (role === 'Admin') {
+      // Admins see all requests
       userRequestsQuery = query(requestsCollection);
     }
     
@@ -73,8 +90,12 @@ export default function AccessRequestsPage() {
     if (isManager) {
         const getManagedSiteIds = async () => {
             let managedSiteIds: string[] = [];
-            if (firestoreUser?.role === 'Admin' || firestoreUser?.role === 'Operator Admin') {
+            if (firestoreUser?.role === 'Admin') {
                 const sitesSnapshot = await getDocs(collection(firestore, 'sites'));
+                managedSiteIds = sitesSnapshot.docs.map(doc => doc.id);
+            } else if (firestoreUser?.role === 'Operator Admin') {
+                const sitesQuery = query(collection(firestore, 'sites'), where('operatorId', '==', firestoreUser.operatorId));
+                const sitesSnapshot = await getDocs(sitesQuery);
                 managedSiteIds = sitesSnapshot.docs.map(doc => doc.id);
             } else if (firestoreUser?.role === 'Manager') {
                 const sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', currentUserId));
@@ -111,7 +132,7 @@ export default function AccessRequestsPage() {
     return () => {
       unsubs.forEach(unsub => unsub());
     };
-  }, [firestore, currentUserId, isManager, isSupervisor, isWorker, firestoreUser?.role, firestoreUser?.id]);
+  }, [firestore, currentUserId, isManager, firestoreUser]);
 
   const handleOpenApprovalDialog = (request: AccessRequest) => {
     setApprovalRequest(request);

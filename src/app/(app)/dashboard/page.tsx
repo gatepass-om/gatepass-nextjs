@@ -25,6 +25,14 @@ export default function DashboardPage() {
 
     const canViewFullDashboard = firestoreUser && ['Admin', 'Operator Admin', 'Manager'].includes(firestoreUser.role);
     const isAdmin = firestoreUser?.role === 'Admin';
+    const isOperatorAdmin = firestoreUser?.role === 'Operator Admin';
+
+    // Set default operator for Operator Admin
+    useEffect(() => {
+        if (isOperatorAdmin && firestoreUser.operatorId) {
+            setSelectedOperatorId(firestoreUser.operatorId);
+        }
+    }, [isOperatorAdmin, firestoreUser?.operatorId]);
 
 
     const filteredSites = useMemo(() => {
@@ -44,8 +52,10 @@ export default function DashboardPage() {
 
     // When operator changes, reset the site filter
     useEffect(() => {
-        setSelectedSiteId('all');
-    }, [selectedOperatorId]);
+        if (!isOperatorAdmin) { // Don't reset for the initial Operator Admin set
+            setSelectedSiteId('all');
+        }
+    }, [selectedOperatorId, isOperatorAdmin]);
 
 
      useEffect(() => {
@@ -176,7 +186,7 @@ export default function DashboardPage() {
                 loadingData ? (
                     <Skeleton className="h-10 w-full md:w-[200px]" />
                 ) : (
-                    <Select value={selectedSiteId} onValueChange={setSelectedSiteId} disabled={isAdmin && selectedOperatorId === 'all'}>
+                    <Select value={selectedSiteId} onValueChange={setSelectedSiteId} disabled={(isAdmin && selectedOperatorId === 'all') || loadingData}>
                         <SelectTrigger className="w-full md:w-[200px]">
                             <SelectValue placeholder="Select a site" />
                         </SelectTrigger>

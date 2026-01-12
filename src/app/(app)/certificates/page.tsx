@@ -22,7 +22,7 @@ const formSchema = z.object({
 });
 
 export default function CertificatesPage() {
-    const { firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin']);
+    const { firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin']);
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();

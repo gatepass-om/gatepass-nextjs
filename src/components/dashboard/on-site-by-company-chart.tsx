@@ -88,14 +88,14 @@ export function OnSiteByCompanyChart({ className, operatorId, siteId }: ChartPro
 
                 const companyCounts = onSiteUsers.reduce((acc, activity) => {
                     let companyName: string;
+                    const user = userMap.get(activity.userId);
+                    const site = siteMap.get(activity.siteId);
 
                     if (isDrillDownView) {
-                        const user = userMap.get(activity.userId);
                         companyName = user?.contractorId 
                             ? (contractorMap.get(user.contractorId) || 'Unknown Contractor') 
                             : 'Direct Hire';
                     } else {
-                        const site = siteMap.get(activity.siteId);
                         companyName = site?.operatorId
                             ? (operatorMap.get(site.operatorId) || 'Unknown Operator')
                             : 'Unassigned Site';
