@@ -2,8 +2,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +12,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { FileBadge, Loader2, Plus, Trash2 } from 'lucide-react';
+import { FileBadge, Loader2, Plus, Trash2, Pencil, MoreHorizontal } from 'lucide-react';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
+import { useSession } from '@/providers/session-provider';
+import { createCertificateTypeRequest, deleteCertificateTypeRequest, listCertificateTypesRequest, updateCertificateTypeRequest } from '@/lib/api';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 const formSchema = z.object({
   name: z.string().min(3, { message: "Certificate name must be at least 3 characters." }),
@@ -25,8 +28,11 @@ export default function CertificatesPage() {
     const { firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin']);
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editingCert, setEditingCert] = useState<CertificateType | null>(null);
+    const [editedName, setEditedName] = useState('');
     const { toast } = useToast();
-    const firestore = useFirestore();
+    const { token } = useSession();
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -34,46 +40,66 @@ export default function CertificatesPage() {
     });
 
     useEffect(() => {
-        if (!firestore || !firestoreUser) return;
+        if (!token || !firestoreUser) return;
         setLoading(true);
-        const unsubscribe = onSnapshot(collection(firestore, "certificateTypes"), (snapshot) => {
-            const certsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CertificateType));
-            setCertificateTypes(certsData.sort((a, b) => a.name.localeCompare(b.name)));
-            setLoading(false);
-        });
-        return () => unsubscribe();
-    }, [firestore, firestoreUser]);
+        listCertificateTypesRequest(token)
+            .then((certs) => {
+                setCertificateTypes((certs as CertificateType[]).sort((a, b) => a.name.localeCompare(b.name)));
+            })
+            .catch((error) => {
+                console.error("Error loading certificate types: ", error);
+                toast({ variant: "destructive", title: "Load Error", description: "Could not load certificate types." });
+            })
+            .finally(() => setLoading(false));
+    }, [token, firestoreUser, toast]);
 
     const handleAddCertificate = async (values: z.infer<typeof formSchema>) => {
-        if (!firestore) {
+        if (!token) {
             toast({ variant: "destructive", title: "Error", description: "Database not available." });
             return;
         }
         try {
-            await addDoc(collection(firestore, "certificateTypes"), {
-                name: values.name,
-                createdAt: serverTimestamp()
-            });
-            toast({ title: "Certificate Type Added", description: `"${values.name}" has been added.` });
+            const trimmed = values.name.trim();
+            await createCertificateTypeRequest(token, { name: trimmed });
+            const updated = await listCertificateTypesRequest(token);
+            setCertificateTypes((updated as CertificateType[]).sort((a, b) => a.name.localeCompare(b.name)));
+            toast({ title: "Certificate Type Added", description: `"${trimmed}" has been added.` });
             form.reset();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error adding certificate type: ", error);
-            toast({ variant: "destructive", title: "Creation Error", description: "Could not add certificate type." });
+            toast({ variant: "destructive", title: "Creation Error", description: error.message || "Could not add certificate type." });
         }
     };
 
     const handleDeleteCertificate = async (certId: string, certName: string) => {
-        if (!firestore) {
+        if (!token) {
             toast({ variant: "destructive", title: "Error", description: "Database not available." });
             return;
         }
-        // TODO: Add a check to see if this certificate is in use by any site before deleting.
         try {
-            await deleteDoc(doc(firestore, "certificateTypes", certId));
+            await deleteCertificateTypeRequest(token, certId);
+            const updated = await listCertificateTypesRequest(token);
+            setCertificateTypes((updated as CertificateType[]).sort((a, b) => a.name.localeCompare(b.name)));
             toast({ title: "Certificate Type Deleted", description: `"${certName}" has been removed.` });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error deleting certificate type: ", error);
-            toast({ variant: "destructive", title: "Deletion Error", description: "Could not remove certificate type." });
+            toast({ variant: "destructive", title: "Deletion Error", description: error.message || "Could not remove certificate type." });
+        }
+    };
+
+    const handleRenameCertificate = async () => {
+        if (!token || !editingCert) return;
+        const nextName = editedName.trim();
+        if (!nextName) return;
+        try {
+            await updateCertificateTypeRequest(token, editingCert.id, { name: nextName });
+            const updated = await listCertificateTypesRequest(token);
+            setCertificateTypes((updated as CertificateType[]).sort((a, b) => a.name.localeCompare(b.name)));
+            toast({ title: "Certificate Updated", description: "Certificate name updated." });
+            setIsEditOpen(false);
+        } catch (error: any) {
+            console.error("Error renaming certificate type: ", error);
+            toast({ variant: "destructive", title: "Update Error", description: error.message || "Could not update certificate type." });
         }
     };
     
@@ -86,6 +112,7 @@ export default function CertificatesPage() {
     }
 
     return (
+        <>
         <div className="space-y-4 md:space-y-6">
             <header>
                 <h1 className="text-3xl font-bold tracking-tight">Certificate Management</h1>
@@ -122,10 +149,49 @@ export default function CertificatesPage() {
                                                     {cert.name}
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteCertificate(cert.id, cert.name)}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                        <span className="sr-only">Delete</span>
-                                                    </Button>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon">
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                                <span className="sr-only">Actions</span>
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem
+                                                                onSelect={() => {
+                                                                    setEditingCert(cert);
+                                                                    setEditedName(cert.name);
+                                                                    setIsEditOpen(true);
+                                                                }}
+                                                            >
+                                                                <Pencil className="mr-2 h-4 w-4" /> Rename
+                                                            </DropdownMenuItem>
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <DropdownMenuItem
+                                                                        onSelect={(event) => event.preventDefault()}
+                                                                        className="text-destructive focus:text-destructive"
+                                                                    >
+                                                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                                    </DropdownMenuItem>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>Delete certificate?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            This will remove "{cert.name}" if it is not required by any site.
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                        <AlertDialogAction onClick={() => handleDeleteCertificate(cert.id, cert.name)}>
+                                                                            Delete
+                                                                        </AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </TableCell>
                                             </TableRow>
                                         ))
@@ -176,5 +242,33 @@ export default function CertificatesPage() {
                 </div>
             </div>
         </div>
+
+        <Dialog
+            open={isEditOpen}
+            onOpenChange={(open) => {
+                setIsEditOpen(open);
+                if (!open) {
+                    setEditingCert(null);
+                    setEditedName('');
+                }
+            }}
+        >
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Rename Certificate</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <Input
+                        value={editedName}
+                        onChange={(event) => setEditedName(event.target.value)}
+                        placeholder="Certificate name"
+                    />
+                    <Button onClick={handleRenameCertificate} disabled={!editedName.trim()}>
+                        Save
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }

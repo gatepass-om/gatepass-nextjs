@@ -15,11 +15,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import type { AccessRequest, User, Site } from "@/lib/types";
-import { useFirestore } from "@/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import type { Site } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useSession } from "@/providers/session-provider";
 
 
 const formSchema = z.object({
@@ -36,7 +35,15 @@ const formSchema = z.object({
 
 interface NewRequestFormProps {
     currentUserId: string;
-    onNewRequest: (request: Omit<AccessRequest, 'id'|'status'|'requestedAt'>) => void;
+    onNewRequest: (request: {
+        userId: string;
+        userName: string;
+        userAvatar: string;
+        date: string;
+        reason: string;
+        siteId: string;
+        siteName: string;
+    }) => void;
     sites: Site[];
     isLoadingSites: boolean;
 }
@@ -45,20 +52,13 @@ export function NewRequestForm({ currentUserId, onNewRequest, sites, isLoadingSi
     const { toast } = useToast();
     const [userName, setUserName] = useState("User");
     const [userAvatar, setUserAvatar] = useState("");
-    const firestore = useFirestore();
+    const { user } = useSession();
 
     useEffect(() => {
-        if (!firestore) return;
-        const userRef = doc(firestore, 'users', currentUserId);
-        const unsubscribe = onSnapshot(userRef, (docSnap) => {
-             if (docSnap.exists()) {
-                const user = docSnap.data() as User;
-                setUserName(user.name);
-                setUserAvatar(user.avatarUrl);
-            }
-        });
-        return () => unsubscribe();
-    }, [currentUserId, firestore]);
+        if (!user || user.id !== currentUserId) return;
+        setUserName(user.name);
+        setUserAvatar(user.avatarUrl || "");
+    }, [user, currentUserId]);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),

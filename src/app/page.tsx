@@ -1,12 +1,9 @@
-
 'use client';
-import { useUser } from '@/firebase/auth/use-user';
-import { useFirestore } from '@/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { redirect } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import type { User as UserType, UserRole } from '@/lib/types';
 
+import { useSession } from '@/providers/session-provider';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import type { UserRole } from '@/lib/types';
 
 const getHomepageForRole = (role?: UserRole): string => {
   switch (role) {
@@ -15,40 +12,21 @@ const getHomepageForRole = (role?: UserRole): string => {
     default:
       return '/dashboard';
   }
-}
+};
 
 export default function Home() {
-  const { user, loading } = useUser();
-  const firestore = useFirestore();
-  const [firestoreUser, setFirestoreUser] = useState<UserType | null>(null);
-  const [userLoading, setUserLoading] = useState(true);
+  const { user, loading } = useSession();
+  const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
-    if (!user || !firestore) {
-      setUserLoading(false);
+    if (!user) {
+      router.push('/login');
       return;
     }
-    
-    const unsub = onSnapshot(doc(firestore, 'users', user.uid), (doc) => {
-      if (doc.exists()) {
-        setFirestoreUser(doc.data() as UserType);
-      }
-      setUserLoading(false);
-    });
 
-    return () => unsub();
+    router.push(getHomepageForRole(user.role));
+  }, [user, loading, router]);
 
-  }, [user, loading, firestore]);
-
-  if (loading || userLoading) {
-    return <div>Loading...</div>;
-  }
-  
-  if (!user) {
-    redirect('/login');
-  } else {
-    const homePage = getHomepageForRole(firestoreUser?.role);
-    redirect(homePage);
-  }
+  return <div>Loading...</div>;
 }

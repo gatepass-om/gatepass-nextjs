@@ -1,7 +1,5 @@
 
 'use client';
-
-import React from 'react';
 import {
   Table,
   TableBody,
@@ -12,22 +10,37 @@ import {
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import type { Contractor, User, AccessRequest } from '@/lib/types';
-import { Loader2, ClipboardList, User as UserIcon } from 'lucide-react';
+import { Loader2, ClipboardList, User as UserIcon, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Button } from '../ui/button';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Input } from '../ui/input';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
+import { useState } from 'react';
 
 interface ContractorsTableProps {
   contractors: Contractor[];
   users: User[];
   accessRequests: AccessRequest[];
   isLoading?: boolean;
+  onRenameContractor?: (contractorId: string, name: string) => void;
+  onDeleteContractor?: (contractorId: string, name: string) => void;
 }
 
-export function ContractorsTable({ contractors, users, accessRequests, isLoading = false }: ContractorsTableProps) {
+export function ContractorsTable({ contractors, users, accessRequests, isLoading = false, onRenameContractor, onDeleteContractor }: ContractorsTableProps) {
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingContractor, setEditingContractor] = useState<Contractor | null>(null);
+  const [editedName, setEditedName] = useState('');
   
   const getContractorPersonnelCount = (contractorId: string) => {
     return users.filter(u => u.contractorId === contractorId && (u.role === 'Worker' || u.role === 'Supervisor')).length;
@@ -51,11 +64,12 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                 <TableHead>Contractor Name</TableHead>
                 <TableHead>Personnel</TableHead>
                 <TableHead>Active Requests</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={3} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
               ) : contractors.length > 0 ? (
                 contractors.map((contractor) => (
                   <TableRow key={contractor.id}>
@@ -72,15 +86,96 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                         <span className="font-semibold">{getActiveRequestCount(contractor.id)}</span>
                       </div>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">More actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onSelect={() => {
+                              setEditingContractor(contractor);
+                              setEditedName(contractor.name);
+                              setIsEditOpen(true);
+                            }}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" /> Rename
+                          </DropdownMenuItem>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem
+                                onSelect={(event) => event.preventDefault()}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete contractor?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will remove {contractor.name} if it has no linked users or requests.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => onDeleteContractor?.(contractor.id, contractor.name)}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
-                <TableRow><TableCell colSpan={3} className="h-24 text-center">No contractors found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="h-24 text-center">No contractors found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
         </div>
       </CardContent>
+
+      <Dialog
+        open={isEditOpen}
+        onOpenChange={(open) => {
+          setIsEditOpen(open);
+          if (!open) {
+            setEditingContractor(null);
+            setEditedName('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename Contractor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              value={editedName}
+              onChange={(event) => setEditedName(event.target.value)}
+              placeholder="Contractor name"
+            />
+            <Button
+              onClick={() => {
+                if (!editingContractor) return;
+                onRenameContractor?.(editingContractor.id, editedName.trim());
+                setIsEditOpen(false);
+              }}
+              disabled={!editedName.trim()}
+            >
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

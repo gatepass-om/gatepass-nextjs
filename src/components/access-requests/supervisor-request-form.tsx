@@ -14,8 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { Operator, Site, Contractor, User, Certificate } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo, useCallback } from "react";
-import { processAccessRequest } from "@/ai/flows/process-access-request-flow";
-import { serverFetchWorkerData } from "@/app/actions/workerActions";
+import { useSession } from "@/providers/session-provider";
+import { createAccessRequest, fetchWorkerRequest } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Badge } from "../ui/badge";
 import { format, parseISO, isBefore } from "date-fns";
@@ -59,6 +59,7 @@ interface SupervisorRequestFormProps {
 export function SupervisorRequestForm({ supervisor, operators, sites, contractors, isLoading }: SupervisorRequestFormProps) {
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { token } = useSession();
     
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -91,7 +92,13 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
 
         form.setValue(`workers.${index}.status`, 'loading');
         try {
-            const result = await serverFetchWorkerData({ workerId });
+            if (!token) {
+                toast({ variant: "destructive", title: "Session expired", description: "Please log in again to continue." });
+                form.setValue(`workers.${index}.status`, 'not_found');
+                return;
+            }
+
+            const result = await fetchWorkerRequest(token, workerId);
             if (result && result.name) {
                 form.setValue(`workers.${index}.name`, result.name);
                 form.setValue(`workers.${index}.email`, result.email);
@@ -111,10 +118,15 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
             console.error("Error fetching worker data:", error);
             form.setValue(`workers.${index}.status`, 'not_found');
         }
-    }, [form, toast]);
+    }, [form, toast, token]);
 
 
     async function onSubmit(values: FormValues) {
+        if (!token) {
+            toast({ variant: "destructive", title: "Session expired", description: "Please log in again to continue." });
+            return;
+        }
+
         if (!supervisor.contractorId) {
             toast({ variant: "destructive", title: "Error", description: "Your user profile is not linked to a contractor."});
             return;
@@ -161,9 +173,8 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
 
         setIsSubmitting(true);
         try {
-            const result = await processAccessRequest({
+            await createAccessRequest(token, {
                 supervisorId: supervisor.id,
-                supervisorName: supervisor.name,
                 contractorId: supervisor.contractorId,
                 operatorId: values.operatorId,
                 siteId: values.siteId,
@@ -179,17 +190,12 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                 })),
             });
 
-            if (result.success) {
-                toast({
-                    title: "Request Submitted!",
-                    description: `Access request for ${result.workersProcessed} worker(s) has been sent for approval.`,
-                });
-                form.reset();
-                 // Reset field array to a single empty row
-                form.control._reset();
-            } else {
-                throw new Error(result.error || "Failed to process the request.");
-            }
+            toast({
+                title: "Request Submitted!",
+                description: `Access request for ${verifiedWorkers.length} worker(s) has been sent for approval.`,
+            });
+            form.reset();
+            form.control._reset();
 
         } catch (error: any) {
             console.error("Error submitting group access request:", error);

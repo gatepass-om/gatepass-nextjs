@@ -2,16 +2,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { serverFetchWorkerData } from '@/app/actions/workerActions';
-import type { FetchWorkerDataOutput } from '@/ai/flows/fetch-worker-data-flow';
+import { useSession } from '@/providers/session-provider';
+import { fetchWorkerRequest } from '@/lib/api';
+import type { WorkerProfile } from '@/lib/types';
 
 export function useWorkerData(workerId: string | undefined) {
-  const [workerData, setWorkerData] = useState<FetchWorkerDataOutput | null>(null);
+  const { token } = useSession();
+  const [workerData, setWorkerData] = useState<WorkerProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!workerId) {
+    if (!workerId || !token) {
       setWorkerData(null);
       return;
     }
@@ -20,18 +22,23 @@ export function useWorkerData(workerId: string | undefined) {
       setLoading(true);
       setError(null);
       try {
-        const result = await serverFetchWorkerData({ workerId });
+        const result = await fetchWorkerRequest(token, workerId);
         setWorkerData(result);
       } catch (err: any) {
-        setError(err.message || 'Failed to fetch worker data');
-        console.error(err);
+        const message = err?.message || 'Failed to fetch worker data';
+        if (message.toLowerCase().includes('not found')) {
+          setWorkerData(null);
+        } else {
+          setError(message);
+          console.error(err);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [workerId]);
+  }, [workerId, token]);
 
   return { workerData, loading, error };
 }

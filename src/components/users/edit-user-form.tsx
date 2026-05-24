@@ -12,13 +12,14 @@ import { Textarea } from "@/components/ui/textarea";
 import type { User, UserRole, Certificate, CertificateType, Site, UserStatus, Contractor, Operator } from "@/lib/types";
 import { CalendarIcon, FileText, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { useFirestore } from "@/firebase";
-import { collection, onSnapshot } from "firebase/firestore";
 import * as Popover from "@radix-ui/react-popover";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { Calendar } from "../ui/calendar";
 import { useMediaQuery } from "react-responsive";
+import { useSession } from "@/providers/session-provider";
+import { listCertificateTypesRequest } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 
 const formSchema = z.object({
@@ -53,7 +54,8 @@ interface EditUserFormProps {
 export function EditUserForm({ user, onUpdateUser, sites, contractors, operators, isLoading, closeDialog }: EditUserFormProps) {
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
-    const firestore = useFirestore();
+    const { token } = useSession();
+    const { toast } = useToast();
     const roles: UserRole[] = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor'];
     const statuses: UserStatus[] = ['Active', 'Inactive'];
 
@@ -64,7 +66,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
             email: user.email || "",
             idNumber: user.idNumber || "",
             nationality: user.nationality || "",
-            notes: (user as any).notes || "",
+            notes: user.notes || "",
             role: user.role || "Worker",
             status: user.status || "Inactive",
             certificates: user.certificates?.map(c => ({...c, expiryDate: c.expiryDate ? parseISO(c.expiryDate) : undefined})) || [],
@@ -80,15 +82,34 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
     });
 
     useEffect(() => {
-        if (!firestore) return;
-        setLoadingCerts(true);
-        const certsUnsub = onSnapshot(collection(firestore, "certificateTypes"), (snapshot) => {
-            const certsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CertificateType));
-            setCertificateTypes(certsData);
+        if (!token) {
             setLoadingCerts(false);
-        });
-        return () => certsUnsub();
-    }, [firestore]);
+            return;
+        }
+        let isActive = true;
+        setLoadingCerts(true);
+        listCertificateTypesRequest(token)
+            .then((certsData) => {
+                if (!isActive) return;
+                setCertificateTypes(certsData as CertificateType[]);
+            })
+            .catch((error) => {
+                console.error('Failed to load certificate types', error);
+                if (isActive) {
+                    toast({
+                        variant: "destructive",
+                        title: "Certificate Load Failed",
+                        description: "Could not load certificate types.",
+                    });
+                }
+            })
+            .finally(() => {
+                if (isActive) setLoadingCerts(false);
+            });
+        return () => {
+            isActive = false;
+        };
+    }, [token, toast]);
 
 
     const { fields, append, remove } = useFieldArray({
@@ -97,34 +118,51 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
     });
 
     async function onSubmit(values: FormValues) {
+        const emptyToNull = (value?: string) => (value && value.trim() ? value.trim() : null);
         const certificates: Certificate[] = values.certificates ? values.certificates.map(cert => ({
             name: cert.name,
             expiryDate: cert.expiryDate ? format(cert.expiryDate, "yyyy-MM-dd") : undefined,
         })) : [];
 
         const selectedContractor = contractors.find(c => c.id === values.contractorId);
+        const selectedOperator = operators.find(o => o.id === values.operatorId);
+
+        const isContractorRole = ['Worker', 'Supervisor', 'Contractor Admin'].includes(values.role);
+        const isOperatorRole = ['Manager', 'Operator Admin', 'Admin'].includes(values.role);
+
+        const contractorIdValue = isContractorRole
+            ? values.contractorId || null
+            : null;
+        const operatorIdValue = isOperatorRole
+            ? values.operatorId || null
+            : null;
+        const assignedSiteIdValue = values.role === 'Security'
+            ? values.assignedSiteId || null
+            : null;
+
+        let companyValue: string | null = null;
+        if (isContractorRole) {
+            companyValue = selectedContractor?.name ?? null;
+        } else if (isOperatorRole) {
+            companyValue = selectedOperator?.name ?? null;
+        } else if (values.role === 'Visitor') {
+            companyValue = user.company ?? null;
+        }
 
         const updatedData: Omit<User, 'id' | 'idCardImageUrl'> = {
-            ...values,
-            company: selectedContractor?.name || user.company || '',
+            name: values.name,
             role: values.role,
             status: values.status,
             email: values.email || undefined,
-            idNumber: values.idNumber || undefined,
+            notes: emptyToNull(values.notes),
+            idNumber: emptyToNull(values.idNumber),
+            nationality: emptyToNull(values.nationality),
+            assignedSiteId: assignedSiteIdValue,
+            contractorId: contractorIdValue,
+            operatorId: operatorIdValue,
+            company: companyValue,
             certificates: certificates,
         };
-        
-        if (values.role !== 'Security') {
-            updatedData.assignedSiteId = undefined;
-        }
-        if (values.role !== 'Worker' && values.role !== 'Supervisor' && values.role !== 'Contractor Admin') {
-            updatedData.contractorId = undefined;
-            updatedData.company = undefined;
-        }
-        if (values.role !== 'Manager' && values.role !== 'Operator Admin' && values.role !== 'Admin') {
-            updatedData.operatorId = undefined;
-        }
-
 
         const success = await onUpdateUser(user.id, user, updatedData);
 

@@ -1,20 +1,32 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import type { Operator, Contractor, User, Site, AccessRequest } from '@/lib/types';
 import { OperatorsTable } from '@/components/companies/operators-table';
 import { ContractorsTable } from '@/components/companies/contractors-table';
 import { NewCompanyForm } from '@/components/companies/new-company-form';
-import { Card } from '@/components/ui/card';
+import { useSession } from '@/providers/session-provider';
+import {
+  listOperatorsRequest,
+  listContractorsRequest,
+  listUsersRequest,
+  listSitesRequest,
+  listAccessRequestsRequest,
+  createOperatorRequest,
+  createContractorRequest,
+  updateOperatorRequest,
+  updateContractorRequest,
+  deleteOperatorRequest,
+  deleteContractorRequest,
+} from '@/lib/api';
+import { usePolling } from '@/lib/polling';
 
 export default function CompaniesPage() {
   const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin']);
+  const { token } = useSession();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -23,50 +35,111 @@ export default function CompaniesPage() {
   const [loadingData, setLoadingData] = useState(true);
   
   const { toast } = useToast();
-  const firestore = useFirestore();
+
+  const fetchData = useCallback(async () => {
+    if (!token || !firestoreUser?.id) return;
+    setLoadingData(true);
+
+    try {
+      const [operatorsData, contractorsData, usersData, sitesData, requestData] = await Promise.all([
+        listOperatorsRequest(token),
+        listContractorsRequest(token),
+        listUsersRequest(token),
+        listSitesRequest(token),
+        listAccessRequestsRequest(token),
+      ]);
+
+      setOperators(operatorsData as Operator[]);
+      setContractors(contractorsData as Contractor[]);
+      setUsers(usersData as User[]);
+      setSites((sitesData as any[]).map((site) => ({
+        id: site.id,
+        name: site.name,
+        operatorId: site.operator?.id ?? site.operatorId ?? '',
+        managerIds: site.managerIds ?? [],
+        requiredCertificates: site.requiredCertificates ?? [],
+      })));
+      setRequests(requestData as AccessRequest[]);
+    } catch (error) {
+      console.error('Failed to load companies data', error);
+      toast({ variant: "destructive", title: "Loading Failed", description: "Could not load company data." });
+    } finally {
+      setLoadingData(false);
+    }
+  }, [token, firestoreUser?.id, toast]);
 
   useEffect(() => {
-    if (!firestore || !firestoreUser?.id) return;
-    setLoadingData(true);
-    
-    const unsubs: (() => void)[] = [];
+    void fetchData();
+  }, [fetchData]);
 
-    unsubs.push(onSnapshot(collection(firestore, "operators"), (snap) => setOperators(snap.docs.map(d => ({...d.data(), id: d.id } as Operator)))));
-    unsubs.push(onSnapshot(collection(firestore, "contractors"), (snap) => setContractors(snap.docs.map(d => ({...d.data(), id: d.id } as Contractor)))));
-    unsubs.push(onSnapshot(collection(firestore, "users"), (snap) => setUsers(snap.docs.map(d => ({...d.data(), id: d.id } as User)))));
-    unsubs.push(onSnapshot(collection(firestore, "sites"), (snap) => setSites(snap.docs.map(d => ({...d.data(), id: d.id } as Site)))));
-    unsubs.push(onSnapshot(collection(firestore, "accessRequests"), (snap) => setRequests(snap.docs.map(d => ({...d.data(), id: d.id } as AccessRequest)))));
-    
-    // A simple way to check when all initial data has loaded
-    const loadingPromises = snapshot => new Promise(resolve => {
-      const unsub = onSnapshot(snapshot, () => resolve(null), () => resolve(null));
-      unsubs.push(unsub);
-    });
-
-    Promise.all([
-      loadingPromises(collection(firestore, "operators")),
-      loadingPromises(collection(firestore, "contractors")),
-      loadingPromises(collection(firestore, "users")),
-      loadingPromises(collection(firestore, "sites")),
-      loadingPromises(collection(firestore, "accessRequests")),
-    ]).then(() => setLoadingData(false));
-
-
-    return () => unsubs.forEach(unsub => unsub());
-  }, [firestore, firestoreUser?.id]);
+  usePolling(() => {
+    void fetchData();
+  }, 20000);
 
   const handleAddCompany = async (name: string, type: 'operator' | 'contractor') => {
-    if (!firestore || !name) return;
+    const trimmed = name.trim();
+    if (!token || !trimmed) return;
     try {
-      const collectionName = type === 'operator' ? 'operators' : 'contractors';
-      await addDoc(collection(firestore, collectionName), {
-        name,
-        createdAt: serverTimestamp()
-      });
-      toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} Created`, description: `Company "${name}" has been added.` });
-    } catch (error) {
+      if (type === 'operator') {
+        await createOperatorRequest(token, { name: trimmed });
+      } else {
+        await createContractorRequest(token, { name: trimmed });
+      }
+      toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} Created`, description: `Company "${trimmed}" has been added.` });
+      void fetchData();
+    } catch (error: any) {
       console.error(`Error adding ${type}:`, error);
-      toast({ variant: "destructive", title: "Creation Failed", description: `Could not create the new ${type}.` });
+      toast({ variant: "destructive", title: "Creation Failed", description: error.message || `Could not create the new ${type}.` });
+    }
+  };
+
+  const handleRenameOperator = async (operatorId: string, name: string) => {
+    const trimmed = name.trim();
+    if (!token || !trimmed) return;
+    try {
+      await updateOperatorRequest(token, operatorId, { name: trimmed });
+      toast({ title: "Operator Updated", description: "Operator name has been updated." });
+      void fetchData();
+    } catch (error: any) {
+      console.error('Error renaming operator:', error);
+      toast({ variant: "destructive", title: "Update Failed", description: error.message || "Could not update operator." });
+    }
+  };
+
+  const handleRenameContractor = async (contractorId: string, name: string) => {
+    const trimmed = name.trim();
+    if (!token || !trimmed) return;
+    try {
+      await updateContractorRequest(token, contractorId, { name: trimmed });
+      toast({ title: "Contractor Updated", description: "Contractor name has been updated." });
+      void fetchData();
+    } catch (error: any) {
+      console.error('Error renaming contractor:', error);
+      toast({ variant: "destructive", title: "Update Failed", description: error.message || "Could not update contractor." });
+    }
+  };
+
+  const handleDeleteOperator = async (operatorId: string, name: string) => {
+    if (!token) return;
+    try {
+      await deleteOperatorRequest(token, operatorId);
+      toast({ title: "Operator Deleted", description: `${name} has been removed.` });
+      void fetchData();
+    } catch (error: any) {
+      console.error('Error deleting operator:', error);
+      toast({ variant: "destructive", title: "Deletion Failed", description: error.message || "Could not delete operator." });
+    }
+  };
+
+  const handleDeleteContractor = async (contractorId: string, name: string) => {
+    if (!token) return;
+    try {
+      await deleteContractorRequest(token, contractorId);
+      toast({ title: "Contractor Deleted", description: `${name} has been removed.` });
+      void fetchData();
+    } catch (error: any) {
+      console.error('Error deleting contractor:', error);
+      toast({ variant: "destructive", title: "Deletion Failed", description: error.message || "Could not delete contractor." });
     }
   };
 
@@ -96,12 +169,16 @@ export default function CompaniesPage() {
             users={users}
             sites={sites}
             isLoading={loadingData}
+            onRenameOperator={handleRenameOperator}
+            onDeleteOperator={handleDeleteOperator}
         />
         <ContractorsTable
             contractors={contractors}
             users={users}
             accessRequests={requests}
             isLoading={loadingData}
+            onRenameContractor={handleRenameContractor}
+            onDeleteContractor={handleDeleteContractor}
         />
       </div>
     </div>

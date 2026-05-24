@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { Site, User, CertificateType } from '@/lib/types';
+import type { Site, User, CertificateType, Operator, UserRole } from '@/lib/types';
 import { Loader2, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from '../ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { EditSiteForm } from './edit-site-form';
 
@@ -30,11 +31,25 @@ interface SitesTableProps {
   sites: Site[];
   users: User[];
   certificateTypes: CertificateType[];
+  operators: Operator[];
   isLoading?: boolean;
+  isLoadingOperators: boolean;
+  currentUserRole: UserRole;
   onUpdateSite: (siteId: string, updatedData: Partial<Omit<Site, 'id'>>) => Promise<boolean>;
+  onDeleteSite: (siteId: string, siteName: string) => void;
 }
 
-export function SitesTable({ sites, users, certificateTypes, isLoading = false, onUpdateSite }: SitesTableProps) {
+export function SitesTable({
+  sites,
+  users,
+  certificateTypes,
+  operators,
+  isLoading = false,
+  isLoadingOperators,
+  currentUserRole,
+  onUpdateSite,
+  onDeleteSite,
+}: SitesTableProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
 
@@ -118,6 +133,30 @@ export function SitesTable({ sites, users, certificateTypes, isLoading = false, 
                                   <DropdownMenuItem onSelect={() => handleEditClick(site)}>
                                       <Pencil className="mr-2 h-4 w-4" /> Edit
                                   </DropdownMenuItem>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem
+                                        onSelect={(event) => event.preventDefault()}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete site?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          This will remove {site.name} if it has no linked activity, requests, or assigned users.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => onDeleteSite(site.id, site.name)}>
+                                          Delete
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
                               </DropdownMenuContent>
                           </DropdownMenu>
                       </TableCell>
@@ -136,7 +175,15 @@ export function SitesTable({ sites, users, certificateTypes, isLoading = false, 
         </CardContent>
       </Card>
       
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) {
+            setSelectedSite(null);
+          }
+        }}
+      >
           <DialogContent className="sm:max-w-4xl">
               <DialogHeader>
                   <DialogTitle>Edit Site</DialogTitle>
@@ -147,8 +194,11 @@ export function SitesTable({ sites, users, certificateTypes, isLoading = false, 
                       site={selectedSite}
                       users={users}
                       certificateTypes={certificateTypes}
+                      operators={operators}
                       isLoadingUsers={isLoading}
                       isLoadingCerts={isLoading}
+                      isLoadingOperators={isLoadingOperators}
+                      currentUserRole={currentUserRole}
                       onUpdateSite={onUpdateSite}
                       closeDialog={() => setIsEditDialogOpen(false)}
                   />

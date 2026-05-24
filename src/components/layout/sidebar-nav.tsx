@@ -9,7 +9,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -24,15 +23,14 @@ import {
   LogOut,
   Briefcase,
   User as UserIcon,
+  LockKeyhole,
+  ClipboardCheck,
+  MapPinned,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { useAuth, useFirestore } from '@/firebase';
-import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@/firebase/auth/use-user';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { useState, useEffect, useMemo } from 'react';
-import type { User as UserType } from '@/lib/types';
+import { useSession } from '@/providers/session-provider';
+import { useMemo } from 'react';
 
 
 const GatePassLogo = () => (
@@ -46,28 +44,12 @@ const GatePassLogo = () => (
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const { user: authUser } = useUser();
-  const firestore = useFirestore();
-  const [firestoreUser, setFirestoreUser] = useState<UserType | null>(null);
-
-  useEffect(() => {
-    if (!authUser || !firestore) return;
-    const userRef = doc(firestore, 'users', authUser.uid);
-    const unsubscribe = onSnapshot(userRef, (docSnap) => {
-        if (docSnap.exists()) {
-            setFirestoreUser(docSnap.data() as UserType);
-        } else {
-            setFirestoreUser(null);
-        }
-    });
-    return () => unsubscribe();
-  }, [authUser, firestore]);
+  const { user, logout } = useSession();
   
   const navItems = useMemo(() => {
-    const role = firestoreUser?.role;
+    const role = user?.role;
     if (!role) return [];
 
     const allItems = [
@@ -75,26 +57,23 @@ export function SidebarNav() {
       { href: '/access-requests', label: 'Access Requests', icon: ClipboardList, roles: ['Admin', 'Operator Admin', 'Manager', 'Worker', 'Supervisor', 'Contractor Admin'] },
       { href: '/companies', label: 'Companies', icon: Briefcase, roles: ['Admin'] },
       { href: '/sites', label: 'Site Management', icon: Building2, roles: ['Admin', 'Operator Admin'] },
+      { href: '/smart-access', label: 'Smart Access', icon: LockKeyhole, roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },
+      { href: '/location-governance', label: 'Geofencing', icon: MapPinned, roles: ['Admin', 'Operator Admin', 'Manager', 'Security', 'Contractor Admin', 'Supervisor'] },
       { href: '/certificates', label: 'Certificates', icon: FileBadge, roles: ['Admin', 'Operator Admin'] },
       { href: '/users', label: 'Personnel', icon: Users, roles: ['Admin', 'Operator Admin', 'Contractor Admin'] },
+      { href: '/permits', label: 'Permits to Work', icon: ClipboardCheck, roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Security'] },
       { href: '/scan', label: 'Scan', icon: ScanLine, roles: ['Security'] },
       { href: '/profile', label: 'My QR Code', icon: QrCodeIcon, roles: ['Worker', 'Visitor', 'Manager', 'Supervisor', 'Admin', 'Operator Admin'] },
     ];
 
     return allItems.filter(item => item.roles.includes(role));
-  }, [firestoreUser]);
+  }, [user]);
 
 
-  const handleLogout = async () => {
-    if (!auth) return;
-    try {
-      await signOut(auth);
-      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      router.push('/login');
-    } catch (error) {
-      console.error('Logout Error:', error);
-      toast({ variant: 'destructive', title: 'Logout Failed', description: 'Could not log you out. Please try again.' });
-    }
+  const handleLogout = () => {
+    logout();
+    toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+    router.push('/login');
   };
 
   const getInitials = (name: string) => {
@@ -133,12 +112,12 @@ export function SidebarNav() {
       <SidebarFooter className="p-2 flex-col gap-2">
         <Separator className="bg-sidebar-border/50 my-2" />
         <div className="flex items-center gap-3 p-2">
-           <div className="h-10 w-10 flex items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground font-semibold">
-              {firestoreUser ? getInitials(firestoreUser.name) : <UserIcon />}
-           </div>
-          <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="font-semibold text-sm text-sidebar-foreground">{firestoreUser?.name || 'Loading...'}</span>
-            <span className="text-xs text-sidebar-foreground/70">{firestoreUser?.email || ''}</span>
+              <div className="h-10 w-10 flex items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground font-semibold">
+                 {user ? getInitials(user.name) : <UserIcon />}
+              </div>
+            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+            <span className="font-semibold text-sm text-sidebar-foreground">{user?.name || 'Loading...'}</span>
+            <span className="text-xs text-sidebar-foreground/70">{user?.email || ''}</span>
           </div>
         </div>
          <SidebarMenu>

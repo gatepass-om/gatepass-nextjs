@@ -13,48 +13,19 @@ import { Button } from '@/components/ui/button';
 import { Search, Bell, LifeBuoy, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
-import { useAuth } from '@/firebase';
-import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@/firebase/auth/use-user';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
-import { useState, useEffect } from 'react';
-import type { User as UserType } from '@/lib/types';
-
+import { useSession } from '@/providers/session-provider';
 
 export function Header() {
-  const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const { user: authUser } = useUser();
-  const firestore = useFirestore();
-  const [firestoreUser, setFirestoreUser] = useState<UserType | null>(null);
+  const { user, logout } = useSession();
 
-  useEffect(() => {
-    if (!authUser || !firestore) return;
-    const userRef = doc(firestore, 'users', authUser.uid);
-    const unsubscribe = onSnapshot(userRef, (docSnap) => {
-        if (docSnap.exists()) {
-            setFirestoreUser(docSnap.data() as UserType);
-        } else {
-            setFirestoreUser(null);
-        }
-    });
-    return () => unsubscribe();
-  }, [authUser, firestore]);
-
-  const handleLogout = async () => {
-    if (!auth) return;
-    try {
-      await signOut(auth);
-      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      router.push('/login');
-    } catch (error) {
-      console.error('Logout Error:', error);
-      toast({ variant: 'destructive', title: 'Logout Failed', description: 'Could not log you out. Please try again.' });
-    }
+  const handleLogout = () => {
+    logout();
+    toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+    router.push('/login');
   };
 
   const getInitials = (name: string) => {
@@ -81,7 +52,7 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
                <div className="h-8 w-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground font-semibold">
-                  {firestoreUser ? getInitials(firestoreUser.name) : <UserIcon />}
+                  {user ? getInitials(user.name) : <UserIcon />}
                </div>
               <span className="sr-only">Toggle user menu</span>
             </Button>
@@ -89,9 +60,9 @@ export function Header() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{firestoreUser?.name || 'Loading...'}</p>
+                <p className="text-sm font-medium leading-none">{user?.name || 'Loading...'}</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  {firestoreUser?.email || ''}
+                  {user?.email || ''}
                 </p>
               </div>
             </DropdownMenuLabel>

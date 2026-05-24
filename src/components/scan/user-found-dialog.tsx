@@ -7,48 +7,53 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import type { User, Site, AccessRequest, Certificate } from '@/lib/types';
-import { Check, LogOut, User as UserIcon, Building, X, AlertTriangle, ShieldX, LogIn, FileWarning, CalendarDays, Briefcase } from 'lucide-react';
+import type { User, Site, ScanAccessRequest } from '@/lib/types';
+import { Check, LogOut, User as UserIcon, Building, X, AlertTriangle, ShieldX, LogIn, FileWarning, CalendarDays, Briefcase, BadgeCheck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { useSession } from '@/providers/session-provider';
+import { createGateActivityRequest } from '@/lib/api';
 
 interface UserFoundDialogProps {
   scannedUser: User;
   accessStatus: 'approved' | 'denied-no-request' | 'denied-expired' | 'denied-not-started' | null;
   certificateStatus: { missing: string[], expired: string[] };
-  lastActivity: 'Check-in' | 'Check-out' | null;
+  lastActivity: 'CheckIn' | 'CheckOut' | null;
   assignedSite: Site;
-  accessRequest: AccessRequest | null;
+  accessRequest: ScanAccessRequest | null;
   workerData?: { jobTitle?: string };
+  smartLockEnforced?: boolean;
+  scanRequired?: boolean;
+  accessEnforcementMessage?: string | null;
   onClose: () => void;
 }
 
-export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, lastActivity, assignedSite, accessRequest, workerData, onClose }: UserFoundDialogProps) {
-  const firestore = useFirestore();
+export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, lastActivity, assignedSite, accessRequest, workerData, smartLockEnforced = false, scanRequired = true, accessEnforcementMessage, onClose }: UserFoundDialogProps) {
   const { toast } = useToast();
+  const { token } = useSession();
 
-  const handleActivity = async (type: 'Check-in' | 'Check-out') => {
-    if (!firestore) return;
+  const handleActivity = async (type: 'CheckIn' | 'CheckOut') => {
+    if (!token) {
+      toast({ variant: 'destructive', title: 'Session expired', description: 'Please log in again to continue.' });
+      return;
+    }
 
+    const label = type === 'CheckIn' ? 'Check-in' : 'Check-out';
     try {
-      await addDoc(collection(firestore, "gateActivity"), {
+      await createGateActivityRequest(token, {
         userId: scannedUser.id,
-        userName: scannedUser.name,
-        timestamp: serverTimestamp(),
-        type: type,
-        gate: `${assignedSite.name} Main Gate`,
         siteId: assignedSite.id,
+        gate: `${assignedSite.name} Main Gate`,
+        type,
       });
-      toast({ title: `${type} Successful`, description: `${scannedUser.name} has been checked ${type.toLowerCase()}.` });
+      toast({ title: `${label} Successful`, description: `${scannedUser.name} has been checked ${label.toLowerCase()}.` });
     } catch (e) {
       console.error("Error adding gate activity:", e);
-      toast({ variant: 'destructive', title: 'Error', description: `Failed to record ${type}.` });
+      toast({ variant: 'destructive', title: 'Error', description: `Failed to record ${label}.` });
     }
     onClose();
   };
 
-  const showCheckIn = lastActivity !== 'Check-in';
+  const showCheckIn = lastActivity !== 'CheckIn';
   const hasCertificateIssues = certificateStatus.missing.length > 0 || certificateStatus.expired.length > 0;
   const isAccessGranted = accessStatus === 'approved' && !hasCertificateIssues;
 
@@ -91,13 +96,22 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
               <Building className="h-4 w-4" /> <span>{scannedUser.company || 'N/A'}</span>
             </div>
              {lastActivity && (
-                 <Badge variant={lastActivity === 'Check-in' ? 'default' : 'secondary'} className={lastActivity === 'Check-in' ? 'bg-blue-500/20 text-blue-700 border-transparent hover:bg-blue-500/30' : 'bg-gray-500/20 text-gray-700 border-transparent hover:bg-gray-500/30'}>
-                    {lastActivity === 'Check-in' ? 'Currently On-Site' : 'Currently Off-Site'}
+                 <Badge variant={lastActivity === 'CheckIn' ? 'default' : 'secondary'} className={lastActivity === 'CheckIn' ? 'bg-blue-500/20 text-blue-700 border-transparent hover:bg-blue-500/30' : 'bg-gray-500/20 text-gray-700 border-transparent hover:bg-gray-500/30'}>
+                    {lastActivity === 'CheckIn' ? 'Currently On-Site' : 'Currently Off-Site'}
                 </Badge>
             )}
           </div>
         </div>
         <div className="space-y-2">
+           {smartLockEnforced && (
+              <Alert>
+                <BadgeCheck className="h-4 w-4" />
+                <AlertTitle>Smart lock access</AlertTitle>
+                <AlertDescription>
+                  {accessEnforcementMessage ?? 'Scanning is not required for this locked access path. Check-in is performed only in the mobile app using the provisioned smart-lock credential.'}
+                </AlertDescription>
+              </Alert>
+           )}
            <Badge className={`w-full justify-center text-base py-1 px-3 ${isAccessGranted ? 'bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30' : 'bg-red-500/20 text-red-700 border-transparent hover:bg-red-500/30'}`}>
               {isAccessGranted ? <Check className="mr-2 h-5 w-5" /> : <ShieldX className="mr-2 h-5 w-5" />}
               {isAccessGranted ? 'Access Approved' : 'Access Denied'}
@@ -109,7 +123,7 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
                 <div>
                     <AlertTitle>Access Validity</AlertTitle>
                     <AlertDescription>
-                        {format(parseISO(accessRequest.validFrom!), 'PPP')} - {accessRequest.expiresAt === 'Permanent' ? 'Permanent' : format(parseISO(accessRequest.expiresAt!), 'PPP')}
+                        {accessRequest.validFrom ? format(parseISO(accessRequest.validFrom), 'PPP') : 'N/A'} - {accessRequest.expiresAt === 'Permanent' ? 'Permanent' : accessRequest.expiresAt ? format(parseISO(accessRequest.expiresAt), 'PPP') : 'N/A'}
                     </AlertDescription>
                 </div>
               </Alert>
@@ -138,10 +152,12 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
         </div>
       </div>
       <DialogFooter>
-        {showCheckIn ? (
-             <Button className="w-full" onClick={() => handleActivity('Check-in')} disabled={!isAccessGranted}><LogIn className="mr-2 h-4 w-4" /> Check-in</Button>
+        {!scanRequired || smartLockEnforced ? (
+          <Button className="w-full" variant="outline" onClick={onClose}>Close</Button>
+        ) : showCheckIn ? (
+             <Button className="w-full" onClick={() => handleActivity('CheckIn')} disabled={!isAccessGranted}><LogIn className="mr-2 h-4 w-4" /> Check-in</Button>
         ) : (
-            <Button variant="outline" className="w-full" onClick={() => handleActivity('Check-out')}><LogOut className="mr-2 h-4 w-4" /> Check-out</Button>
+            <Button variant="outline" className="w-full" onClick={() => handleActivity('CheckOut')}><LogOut className="mr-2 h-4 w-4" /> Check-out</Button>
         )}
       </DialogFooter>
        <DialogClose asChild>

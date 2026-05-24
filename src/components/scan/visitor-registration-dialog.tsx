@@ -6,10 +6,10 @@ import { DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { Site } from '@/lib/types';
 import { X } from 'lucide-react';
+import { useSession } from '@/providers/session-provider';
+import { createGateActivityRequest, createUserRequest } from '@/lib/api';
 
 interface VisitorRegistrationDialogProps {
   assignedSite: Site;
@@ -22,36 +22,38 @@ export function VisitorRegistrationDialog({ assignedSite, onClose }: VisitorRegi
   const [visitorEmail, setVisitorEmail] = useState('');
   const [visitorIdNumber, setVisitorIdNumber] = useState('');
   
-  const firestore = useFirestore();
+  const { token } = useSession();
   const { toast } = useToast();
 
   const handleRegisterVisitorAndCheckIn = async () => {
-    if (!firestore || !visitorName) {
+    if (!token) {
+      toast({ variant: 'destructive', title: 'Session expired', description: 'Please log in again to continue.' });
+      return;
+    }
+    if (!visitorName) {
       toast({ variant: 'destructive', title: 'Missing Information', description: 'Please provide the visitor\'s name.' });
       return;
     }
     try {
       // 1. Create the visitor user profile
-      const newUser = {
+      const createResult = await createUserRequest(token, {
         name: visitorName,
-        company: visitorCompany,
+        company: visitorCompany || undefined,
         email: visitorEmail || `visitor_${Date.now()}@gatepass.local`,
-        role: 'Visitor' as const,
-        status: 'Active' as const,
-        idNumber: visitorIdNumber,
-        createdAt: serverTimestamp()
-      };
-      const docRef = await addDoc(collection(firestore, "users"), newUser);
+        role: 'Visitor',
+        status: 'Active',
+        idNumber: visitorIdNumber || undefined,
+        sendWelcomeEmail: false,
+      });
+      const newUser = createResult.user;
       toast({ title: 'Visitor Registered', description: `${visitorName} has been created.` });
 
       // 2. Immediately check them in
-      await addDoc(collection(firestore, "gateActivity"), {
-        userId: docRef.id,
-        userName: newUser.name,
-        timestamp: serverTimestamp(),
-        type: 'Check-in',
-        gate: `${assignedSite.name} Main Gate`,
+      await createGateActivityRequest(token, {
+        userId: newUser.id,
         siteId: assignedSite.id,
+        gate: `${assignedSite.name} Main Gate`,
+        type: 'CheckIn',
       });
       toast({ title: `Check-in Successful`, description: `${newUser.name} has been checked in.` });
 

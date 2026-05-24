@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import type { Site, User, CertificateType } from "@/lib/types";
+import type { Site, User, CertificateType, Operator, UserRole } from "@/lib/types";
 import React from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { ChevronsUpDown, Check } from "lucide-react";
@@ -17,6 +17,7 @@ import { Badge } from "../ui/badge";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Site name must be at least 2 characters." }),
+  operatorId: z.string().optional(),
   managerIds: z.array(z.string()).min(1, { message: "At least one manager must be selected." }),
   requiredCertificates: z.array(z.string()).optional(),
 });
@@ -28,26 +29,47 @@ interface EditSiteFormProps {
     onUpdateSite: (siteId: string, data: Omit<Site, 'id'>) => Promise<boolean>;
     users: User[];
     certificateTypes: CertificateType[];
+    operators: Operator[];
     isLoadingUsers: boolean;
     isLoadingCerts: boolean;
+    isLoadingOperators: boolean;
+    currentUserRole: UserRole;
     closeDialog: () => void;
 }
 
-export function EditSiteForm({ site, onUpdateSite, users, certificateTypes, isLoadingUsers, isLoadingCerts, closeDialog }: EditSiteFormProps) {
+export function EditSiteForm({
+    site,
+    onUpdateSite,
+    users,
+    certificateTypes,
+    operators,
+    isLoadingUsers,
+    isLoadingCerts,
+    isLoadingOperators,
+    currentUserRole,
+    closeDialog,
+}: EditSiteFormProps) {
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: site.name,
+            operatorId: site.operatorId,
             managerIds: site.managerIds,
             requiredCertificates: site.requiredCertificates || [],
         },
     });
 
-    const managers = users.filter(u => u.role === 'Manager' || u.role === 'Admin');
+    const managers = users.filter(u => u.role === 'Manager' || u.role === 'Admin' || u.role === 'Operator Admin');
 
     async function onSubmit(values: FormValues) {
+        if (currentUserRole === 'Admin' && !values.operatorId) {
+            form.setError("operatorId", { message: "Please select an operator." });
+            return;
+        }
+
         const success = await onUpdateSite(site.id, {
             name: values.name,
+            operatorId: values.operatorId || site.operatorId,
             managerIds: values.managerIds,
             requiredCertificates: values.requiredCertificates || [],
         });
@@ -63,6 +85,68 @@ export function EditSiteForm({ site, onUpdateSite, users, certificateTypes, isLo
                     <FormField control={form.control} name="name" render={({ field }) => (
                         <FormItem><FormLabel>Site Name</FormLabel><FormControl><Input placeholder="e.g., Main Headquarters" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
+
+                    {currentUserRole === 'Admin' && (
+                        <FormField
+                            control={form.control}
+                            name="operatorId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Operator</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    className={cn(
+                                                        "w-full justify-between h-auto min-h-10",
+                                                        !field.value?.length && "text-muted-foreground"
+                                                    )}
+                                                    disabled={isLoadingOperators}
+                                                >
+                                                    {isLoadingOperators
+                                                        ? "Loading operators..."
+                                                        : field.value
+                                                            ? operators.find((op) => op.id === field.value)?.name
+                                                            : "Select operator..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Search operators..." />
+                                                <CommandList>
+                                                    <CommandEmpty>No operators found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {operators.map((operator) => (
+                                                            <CommandItem
+                                                                value={operator.name}
+                                                                key={operator.id}
+                                                                onSelect={() => {
+                                                                    form.setValue("operatorId", operator.id, { shouldValidate: true });
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "mr-2 h-4 w-4",
+                                                                        field.value === operator.id ? "opacity-100" : "opacity-0"
+                                                                    )}
+                                                                />
+                                                                {operator.name}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
 
                     <FormField
                         control={form.control}
@@ -155,8 +239,8 @@ export function EditSiteForm({ site, onUpdateSite, users, certificateTypes, isLo
                                         >
                                         <div className="flex flex-wrap gap-1">
                                             {isLoadingCerts ? "Loading certificates..." :
-                                                field.value?.length > 0 ? (
-                                                    certificateTypes.filter(cert => field.value.includes(cert.name)).map(cert => (
+                                                (field.value ?? []).length > 0 ? (
+                                                    certificateTypes.filter(cert => (field.value ?? []).includes(cert.name)).map(cert => (
                                                         <Badge key={cert.id} variant="secondary" className="mr-1">
                                                             {cert.name}
                                                         </Badge>

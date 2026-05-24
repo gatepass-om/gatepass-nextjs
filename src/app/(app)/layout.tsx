@@ -8,14 +8,11 @@ import {
 } from '@/components/ui/sidebar';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { Header } from '@/components/layout/header';
-import { useUser } from '@/firebase/auth/use-user';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirestore } from '@/firebase';
-import { doc, onSnapshot, setDoc, getDocs, collection, query, limit, getDoc } from 'firebase/firestore';
-import type { User, UserRole } from '@/lib/types';
-
+import type { UserRole } from '@/lib/types';
+import { useSession } from '@/providers/session-provider';
 
 function AppLoadingSkeleton() {
   return (
@@ -53,100 +50,50 @@ const getHomepageForRole = (role?: UserRole): string => {
   }
 }
 
+const publicRoutes = ['/login', '/activate-account'];
 
-export default function AppLayout({ children }: { children: ReactNode }) {
-  const { user, loading: authLoading } = useUser();
-  const [firestoreUser, setFirestoreUser] = useState<User | null>(null);
-  const [userStatusLoading, setUserStatusLoading] = useState(true);
+function LayoutContent({ children }: { children: ReactNode }) {
+  const { user, token, loading, refresh } = useSession();
   const router = useRouter();
   const pathname = usePathname();
-  const firestore = useFirestore();
+  const lastRefreshedPath = useRef<string | null>(null);
 
-  // Redirect unauthenticated users to login
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (loading) return;
+    if (!user && !publicRoutes.includes(pathname)) {
       router.push('/login');
     }
-  }, [user, authLoading, router]);
+  }, [loading, user, pathname, router]);
 
-  // Handle Firestore user profile: fetch, create if non-existent, and check status
   useEffect(() => {
-    if (!user || !firestore) {
-        if (!authLoading) setUserStatusLoading(false);
-        return;
+    if (loading || !user) return;
+    const homePage = getHomepageForRole(user.role);
+    if (user.status === 'Inactive' && pathname !== '/activate-account') {
+      router.push('/activate-account');
+    } else if (user.status === 'Active' && pathname === '/activate-account') {
+      router.push(homePage);
     }
+  }, [loading, user, pathname, router]);
 
-    const userRef = doc(firestore, 'users', user.uid);
-    let unsubscribe: () => void;
+  useEffect(() => {
+    if (loading || !token || !user || publicRoutes.includes(pathname)) return;
+    if (lastRefreshedPath.current === pathname) return;
+    lastRefreshedPath.current = pathname;
+    void refresh().catch(() => undefined);
+  }, [loading, pathname, refresh, token, user]);
 
-    const manageUserProfile = async () => {
-        const docSnap = await getDoc(userRef);
-
-        if (!docSnap.exists()) {
-             // User exists in Auth but not in Firestore. Create the document.
-            console.log(`User document not found for UID ${user.uid}. Creating new profile.`);
-            try {
-                // Check if this is the very first user to determine their role.
-                const usersQuery = query(collection(firestore, "users"), limit(1));
-                const existingUsersSnapshot = await getDocs(usersQuery);
-                const isFirstUser = existingUsersSnapshot.empty;
-                const role = isFirstUser ? 'Admin' : 'Worker';
-
-                const newUserProfile: Omit<User, 'id'> = {
-                    name: user.email || 'New User',
-                    email: user.email!,
-                    role: role, 
-                    status: 'Inactive', 
-                };
-                await setDoc(userRef, newUserProfile);
-                console.log(`Created new user profile with role: ${role}`);
-            } catch (error) {
-                console.error("Failed to create user document in Firestore:", error);
-                setUserStatusLoading(false);
-                return; // Stop execution if profile creation fails
-            }
-        }
-        
-        // At this point, the user doc is guaranteed to exist, so we can listen to it.
-        unsubscribe = onSnapshot(userRef, (doc) => {
-            const userData = doc.data() as User;
-            setFirestoreUser(userData);
-            setUserStatusLoading(false);
-            
-            const homePage = getHomepageForRole(userData.role);
-
-            // Redirection logic based on status
-            if (userData.status === 'Inactive' && pathname !== '/activate-account') {
-                router.push('/activate-account');
-            } else if (userData.status === 'Active' && pathname === '/activate-account') {
-                router.push(homePage);
-            }
-        }, (error) => {
-            console.error("Error fetching user profile:", error);
-            setUserStatusLoading(false);
-        });
-    }
-
-    manageUserProfile();
-
-    return () => {
-        if (unsubscribe) {
-            unsubscribe();
-        }
-    };
-  }, [user, firestore, router, pathname, authLoading]);
-
-  const loading = authLoading || userStatusLoading;
-
-  if (loading || !user || !firestoreUser) {
+  const isPublic = publicRoutes.includes(pathname);
+  if (loading && !isPublic) {
     return <AppLoadingSkeleton />;
   }
 
-  // If user is Inactive, only the activation page should render its specific layout (or none)
-  if (firestoreUser.status === 'Inactive' && pathname !== '/activate-account') {
-      return <>{children}</>;
+  if (!user && isPublic) {
+    return <>{children}</>;
   }
 
+  if (!user) {
+    return <AppLoadingSkeleton />;
+  }
 
   return (
     <SidebarProvider>
@@ -161,4 +108,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </SidebarInset>
     </SidebarProvider>
   );
+}
+
+export default function AppLayout({ children }: { children: ReactNode }) {
+  return <LayoutContent>{children}</LayoutContent>;
 }

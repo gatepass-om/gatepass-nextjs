@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { GateActivity, User, Site } from '@/lib/types';
+import type { DashboardRecentActivity } from '@/lib/api';
 import { formatDistanceToNow, format } from 'date-fns';
 import { Loader2, LogIn, LogOut, Briefcase } from 'lucide-react';
 import {
@@ -21,34 +21,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { Timestamp } from 'firebase/firestore';
-import { useWorkerData } from '@/hooks/use-worker-data';
 
 interface RecentActivityTableProps {
-  activity: GateActivity[];
-  users: User[];
-  sites: Site[];
+  activity: DashboardRecentActivity[];
   isLoading?: boolean;
 }
 
-const ActivityTableRow = ({ activityItem, allUsers, allSites }: { activityItem: GateActivity, allUsers: User[], allSites: Site[] }) => {
-    const user = allUsers.find(u => u.id === activityItem.userId);
-    const { workerData, loading: workerLoading } = useWorkerData(user?.idNumber);
-
+const ActivityTableRow = ({ activityItem }: { activityItem: DashboardRecentActivity }) => {
     const getInitials = (name: string) => {
         if (!name) return '';
         return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
     }
     
-    const toDate = (timestamp: string | Timestamp): Date => {
-      if (typeof timestamp === 'object' && timestamp.toDate) {
-        return timestamp.toDate();
-      }
-      return new Date(timestamp);
-    }
-    
-    const activityDate = toDate(activityItem.timestamp);
-    const siteName = allSites.find(s => s.id === activityItem.siteId)?.name || 'Unknown Site';
+    const activityDate = new Date(activityItem.occurredAtUtc);
+    const isCheckIn = activityItem.activityType === 'CheckIn' || activityItem.activityType === 'Check-in';
+    const activityLabel = isCheckIn ? 'Check-in' : 'Check-out';
 
     return (
         <TableRow>
@@ -63,17 +50,17 @@ const ActivityTableRow = ({ activityItem, allUsers, allSites }: { activityItem: 
             <TableCell>
                 <div className="text-sm text-muted-foreground flex items-center gap-1.5">
                     <Briefcase className="h-3 w-3" />
-                    <span>{workerLoading ? '...' : workerData?.jobTitle || 'N/A'}</span>
+                    <span>{activityItem.jobTitle || activityItem.workerCode || 'N/A'}</span>
                 </div>
             </TableCell>
             <TableCell>
-                <Badge variant={activityItem.type === 'Check-in' ? 'default' : 'secondary'} className={`flex items-center gap-1.5 w-fit ${activityItem.type === 'Check-in' ? 'bg-blue-500/20 text-blue-700 border-transparent hover:bg-blue-500/30' : 'bg-gray-500/20 text-gray-700 border-transparent hover:bg-gray-500/30'}`}>
-                    {activityItem.type === 'Check-in' ? <LogIn className="h-3 w-3" /> : <LogOut className="h-3 w-3" />}
-                    {activityItem.type}
+                <Badge variant={isCheckIn ? 'default' : 'secondary'} className={`flex items-center gap-1.5 w-fit ${isCheckIn ? 'bg-blue-500/20 text-blue-700 border-transparent hover:bg-blue-500/30' : 'bg-gray-500/20 text-gray-700 border-transparent hover:bg-gray-500/30'}`}>
+                    {isCheckIn ? <LogIn className="h-3 w-3" /> : <LogOut className="h-3 w-3" />}
+                    {activityLabel}
                 </Badge>
             </TableCell>
              <TableCell>
-                <span className="text-sm text-muted-foreground">{siteName}</span>
+                <span className="text-sm text-muted-foreground">{activityItem.siteName}</span>
             </TableCell>
             <TableCell className="text-right whitespace-nowrap">
             <TooltipProvider>
@@ -92,18 +79,11 @@ const ActivityTableRow = ({ activityItem, allUsers, allSites }: { activityItem: 
 }
 
 
-export function RecentActivityTable({ activity, users, sites, isLoading = false }: RecentActivityTableProps) {
+export function RecentActivityTable({ activity, isLoading = false }: RecentActivityTableProps) {
   
-  const toDate = (timestamp: string | Timestamp): Date => {
-    if (typeof timestamp === 'object' && timestamp.toDate) {
-      return timestamp.toDate();
-    }
-    return new Date(timestamp);
-  }
-
   const sortedActivity = activity.sort((a,b) => {
-    const timeA = toDate(a.timestamp).getTime();
-    const timeB = toDate(b.timestamp).getTime();
+    const timeA = new Date(a.occurredAtUtc).getTime();
+    const timeB = new Date(b.occurredAtUtc).getTime();
     return timeB - timeA;
   }).slice(0, 10); // Get latest 10 activities
 
@@ -130,7 +110,7 @@ export function RecentActivityTable({ activity, users, sites, isLoading = false 
                 <TableRow><TableCell colSpan={5} className="h-56 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
               ) : sortedActivity.length > 0 ? (
                 sortedActivity.map((item) => (
-                    <ActivityTableRow key={item.id} activityItem={item} allUsers={users} allSites={sites} />
+                    <ActivityTableRow key={item.id} activityItem={item} />
                 ))
               ) : (
                 <TableRow><TableCell colSpan={5} className="h-56 text-center">No recent activity found.</TableCell></TableRow>

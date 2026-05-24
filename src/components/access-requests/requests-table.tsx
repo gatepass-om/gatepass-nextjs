@@ -11,13 +11,23 @@ import {
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { AccessRequest, User } from '@/lib/types';
-import { format, parseISO, isBefore } from 'date-fns';
+import type { AccessRequest } from '@/lib/types';
+import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Check, X, Loader2, Users, CalendarDays, Infinity } from 'lucide-react';
-import type { Timestamp } from 'firebase/firestore';
-import React, { useState } from 'react';
+import { Check, X, Loader2, Users, CalendarDays, Infinity, Trash2, ShieldCheck, Clock3, ShieldX } from 'lucide-react';
+import { useState } from 'react';
 import { RequestDetailsDialog } from './request-details-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 
 interface RequestsTableProps {
@@ -27,8 +37,8 @@ interface RequestsTableProps {
   showActions?: boolean;
   onApprove?: (request: AccessRequest) => void;
   onDeny?: (requestId: string) => void;
+  onDelete?: (request: AccessRequest) => void | Promise<void>;
   isLoading?: boolean;
-  allUsers: User[];
 }
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline'} = {
@@ -43,22 +53,31 @@ const statusColorClasses = {
   Denied: 'bg-red-500/20 text-red-700 border-transparent hover:bg-red-500/30',
 }
 
-export function RequestsTable({ requests, title, description, showActions = false, onApprove, onDeny, isLoading = false, allUsers }: RequestsTableProps) {
+const statusIcons = {
+  Approved: ShieldCheck,
+  Pending: Clock3,
+  Denied: ShieldX,
+};
+
+export function RequestsTable({
+  requests,
+  title,
+  description,
+  showActions = false,
+  onApprove,
+  onDeny,
+  onDelete,
+  isLoading = false,
+}: RequestsTableProps) {
   const [selectedRequest, setSelectedRequest] = useState<AccessRequest | null>(null);
 
-  const formatTimestamp = (timestamp: Timestamp | string | undefined) => {
+  const formatTimestamp = (timestamp: string | undefined) => {
     if (!timestamp) return 'N/A';
-    if (typeof timestamp === 'string') {
-      try {
-        return format(parseISO(timestamp), 'dd MMM yyyy, HH:mm');
-      } catch {
-        return 'Invalid Date';
-      }
+    try {
+      return format(parseISO(timestamp), 'dd MMM yyyy, HH:mm');
+    } catch {
+      return 'Invalid Date';
     }
-    if (typeof timestamp === 'object' && 'toDate' in timestamp) {
-      return format(timestamp.toDate(), 'dd MMM yyyy, HH:mm');
-    }
-    return 'Invalid Date';
   };
   
   const formatDate = (dateString?: string) => {
@@ -70,10 +89,17 @@ export function RequestsTable({ requests, title, description, showActions = fals
     }
   }
 
-  const colSpan = showActions ? 6 : 5;
+  const showActionColumn = showActions || Boolean(onDelete);
+  const colSpan = showActionColumn ? 7 : 6;
 
   const handleRowClick = (request: AccessRequest) => {
     setSelectedRequest(request);
+  };
+
+  const getRequestedAtTime = (value: string | undefined) => {
+    if (!value) return 0;
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
   };
 
   return (
@@ -92,8 +118,9 @@ export function RequestsTable({ requests, title, description, showActions = fals
                 <TableHead>Supervisor</TableHead>
                 <TableHead>Requested At</TableHead>
                 <TableHead>Access Dates</TableHead>
+                <TableHead>On-Site</TableHead>
                 <TableHead>Status</TableHead>
-                {showActions && <TableHead className="text-right">Actions</TableHead>}
+                {showActionColumn && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -105,8 +132,8 @@ export function RequestsTable({ requests, title, description, showActions = fals
                 </TableRow>
               ) : requests.length > 0 ? (
                 requests.sort((a,b) => {
-                    const dateA = a.requestedAt && typeof a.requestedAt !== 'string' ? a.requestedAt.toDate().getTime() : 0;
-                    const dateB = b.requestedAt && typeof b.requestedAt !== 'string' ? b.requestedAt.toDate().getTime() : 0;
+                    const dateA = getRequestedAtTime(a.requestedAt);
+                    const dateB = getRequestedAtTime(b.requestedAt);
                     return dateB - dateA;
                 }).map((request) => (
                   <TableRow key={request.id} onClick={() => handleRowClick(request)} className="cursor-pointer">
@@ -117,7 +144,7 @@ export function RequestsTable({ requests, title, description, showActions = fals
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
                           <Users className="h-4 w-4" /> 
-                          <span>{(request.workerIds || []).length} Workers</span>
+                          <span>{request.workerCount ?? (request.workerIds || []).length} Workers</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -142,15 +169,82 @@ export function RequestsTable({ requests, title, description, showActions = fals
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant[request.status]} className={statusColorClasses[request.status as keyof typeof statusColorClasses]}>
+                      {typeof request.onSiteCount === 'number' ? (
+                        <span className="text-sm font-medium">
+                          {request.onSiteCount}/{request.workerCount ?? (request.workerIds || []).length}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">--</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant[request.status]} className={`gap-1.5 ${statusColorClasses[request.status as keyof typeof statusColorClasses]}`}>
+                        {(() => {
+                          const StatusIcon = statusIcons[request.status as keyof typeof statusIcons];
+                          return StatusIcon ? <StatusIcon className="h-3 w-3" /> : null;
+                        })()}
                         {request.status}
                       </Badge>
                     </TableCell>
-                    {showActions && (
+                    {showActionColumn && (
                         <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
-                                <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); onApprove?.(request); }}><Check className="h-4 w-4 text-green-600" /></Button>
-                                <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); onDeny?.(request.id); }}><X className="h-4 w-4 text-red-600" /></Button>
+                                {showActions && (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onApprove?.(request);
+                                      }}
+                                    >
+                                      <Check className="h-4 w-4 text-green-600" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeny?.(request.id);
+                                      }}
+                                    >
+                                      <X className="h-4 w-4 text-red-600" />
+                                    </Button>
+                                  </>
+                                )}
+                                {onDelete && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-red-600" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete access request?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          This will permanently remove the request for {request.siteName}. This action cannot be undone.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDelete(request);
+                                          }}
+                                        >
+                                          Delete
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
                             </div>
                         </TableCell>
                     )}
@@ -172,13 +266,15 @@ export function RequestsTable({ requests, title, description, showActions = fals
     {selectedRequest && (
       <RequestDetailsDialog 
         request={selectedRequest}
-        allUsers={allUsers}
         open={!!selectedRequest}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedRequest(null);
           }
         }}
+        onDelete={onDelete}
+        onApprove={showActions ? onApprove : undefined}
+        onDeny={showActions ? onDeny : undefined}
       />
     )}
   </>

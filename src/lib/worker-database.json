@@ -31,8 +31,8 @@
       {
         "id": "10034567",
         "name": "Fatma Al Balushi",
-        "email": "fatma.balushi@pdo.com",
-        "company": "PDO",
+        "email": "fatma.balushi@petrofac.com",
+        "company": "Petrofac Oman",
         "age": 29,
         "nationality": "Omani",
         "jobTitle": "HSE Officer",
@@ -73,8 +73,8 @@
       {
         "id": "10067890",
         "name": "Nasser Al Rashdi",
-        "email": "nasser.rashdi@pdo.com",
-        "company": "PDO",
+        "email": "nasser.rashdi@galfar.com",
+        "company": "Galfar Engineering & Contracting",
         "age": 38,
         "nationality": "Omani",
         "jobTitle": "Drilling Supervisor",
@@ -129,8 +129,8 @@
       {
         "id": "10101234",
         "name": "John Smith",
-        "email": "john.smith@pdo.com",
-        "company": "PDO",
+        "email": "john.smith@worley.com",
+        "company": "Worley Oman",
         "age": 39,
         "nationality": "British",
         "jobTitle": "Instrument Technician (Oil & Gas)",
@@ -185,8 +185,8 @@
       {
         "id": "10145678",
         "name": "Khalid Al Jabri",
-        "email": "khalid.jabri@pdo.com",
-        "company": "PDO",
+        "email": "khalid.jabri@alhassaneng.com",
+        "company": "Al Hassan Engineering",
         "age": 35,
         "nationality": "Omani",
         "jobTitle": "Senior Mechanical Engineer (Oilfield)",
@@ -241,8 +241,8 @@
       {
         "id": "10189012",
         "name": "James Walker",
-        "email": "james.walker@pdo.com",
-        "company": "PDO",
+        "email": "james.walker@ccc.net",
+        "company": "CCC",
         "age": 47,
         "nationality": "Australian",
         "jobTitle": "Offshore Operations Supervisor",
@@ -280,70 +280,144 @@
         ]
       },
       {
-        "id": "EMP101",
-        "name": "Alice Johnson",
-        "email": "alice.j@contractor-a.com",
-        "company": "Alpha Services",
+        "id": "10222345",
+        "name": "Maryam Al Farsi",
+        "email": "maryam.farsi@galfar.com",
+        "company": "Galfar Engineering & Contracting",
+        "age": 33,
+        "nationality": "Omani",
+        "jobTitle": "Civil Foreman",
+        "idNumber": "OM10222345",
+        "certificates": [
+          { "name": "HSE Induction", "expiryDate": "2026-06-01" },
+          { "name": "Working at Heights", "expiryDate": "2025-11-15" }
+        ]
+      },
+      {
+        "id": "10233456",
+        "name": "Faisal Al Maimani",
+        "email": "faisal.maimani@alhassaneng.com",
+        "company": "Al Hassan Engineering",
+        "age": 41,
+        "nationality": "Omani",
+        "jobTitle": "Mechanical Supervisor",
+        "idNumber": "OM10233456",
+        "certificates": [
+          { "name": "H2S", "expiryDate": "2026-02-02" },
+          { "name": "Confined Space Entry", "expiryDate": "2025-09-10" }
+        ]
+      },
+      {
+        "id": "10244567",
+        "name": "Priya Nair",
+        "email": "priya.nair@lntecc.com",
+        "company": "L&T Oman",
+        "age": 29,
+        "nationality": "Indian",
+        "jobTitle": "QA/QC Inspector",
+        "idNumber": "OM10244567",
+        "certificates": [
+          { "name": "H2S", "expiryDate": "2026-04-10" },
+          { "name": "HSE Induction", "expiryDate": "2026-04-10" }
+        ]
+      },
+      {
+        "id": "10255678",
+        "name": "Imran Shah",
+        "email": "imran.shah@halliburton.com",
+        "company": "Halliburton",
+        "age": 36,
+        "nationality": "Pakistani",
+        "jobTitle": "Drilling Fluids Engineer",
+        "idNumber": "OM10255678",
+        "certificates": [
+          { "name": "H2S", "expiryDate": "2025-12-12" },
+          { "name": "Confined Space Entry", "expiryDate": "2025-12-12" },
+          { "name": "HSE Induction", "expiryDate": "2026-02-02" }
+        ]
+      },
+      {
+        "id": "10266789",
+        "name": "Ramesh Kumar",
+        "email": "ramesh.kumar@weatherford.com",
+        "company": "Weatherford",
         "age": 34,
-        "nationality": "American",
-        "jobTitle": "Senior Welder",
-        "idNumber": "US-123456",
+        "nationality": "Indian",
+        "jobTitle": "Wireline Operator",
+        "idNumber": "OM10266789",
         "certificates": [
-          { "name": "Scaffolding Safety", "expiryDate": "2025-08-15" },
-          { "name": "Working at Heights", "expiryDate": "2026-01-20" }
+          { "name": "H2S", "expiryDate": "2026-01-20" },
+          { "name": "Working at Heights", "expiryDate": "2025-08-01" }
         ]
       },
       {
-        "id": "EMP102",
-        "name": "Bob Williams",
-        "email": "bob.w@contractor-a.com",
-        "company": "Alpha Services",
-        "age": 42,
-        "nationality": "British",
-        "jobTitle": "Electrician",
-        "idNumber": "GB-789012",
+        "id": "10277890",
+        "name": "Noor Al Mahrooqi",
+        "email": "noor.mahrooqi@petrofac.com",
+        "company": "Petrofac Oman",
+        "age": 27,
+        "nationality": "Omani",
+        "jobTitle": "Project Coordinator",
+        "idNumber": "OM10277890",
         "certificates": [
-          { "name": "Electrical Safety", "expiryDate": "2024-11-30" }
+          { "name": "HSE Induction", "expiryDate": "2026-02-02" }
         ]
       },
       {
-        "id": "EMP201",
-        "name": "Charlie Brown",
-        "email": "charlie.b@contractor-b.net",
-        "company": "Beta Solutions",
-        "age": 28,
-        "nationality": "Canadian",
-        "jobTitle": "Pipefitter",
-        "idNumber": "CA-345678",
+        "id": "10288901",
+        "name": "Faisal Al Abri",
+        "email": "faisal.abri@ccc.net",
+        "company": "CCC",
+        "age": 38,
+        "nationality": "Omani",
+        "jobTitle": "Scaffolding Supervisor",
+        "idNumber": "OM10288901",
         "certificates": [
-          { "name": "Confined Space Entry", "expiryDate": "2025-06-01" }
+          { "name": "H2S", "expiryDate": "2026-02-02" },
+          { "name": "Working at Heights", "expiryDate": "2024-05-01" }
         ]
       },
       {
-        "id": "EMP202",
-        "name": "Diana Miller",
-        "email": "diana.m@contractor-b.net",
-        "company": "Beta Solutions",
-        "age": 39,
-        "nationality": "Australian",
-        "jobTitle": "HSE Advisor",
-        "idNumber": "AU-901234",
+        "id": "10299012",
+        "name": "Aisha Al Kiyumi",
+        "email": "aisha.kiyumi@worley.com",
+        "company": "Worley Oman",
+        "age": 31,
+        "nationality": "Omani",
+        "jobTitle": "Planning Engineer",
+        "idNumber": "OM10299012",
         "certificates": [
-          { "name": "NEBOSH IGC", "expiryDate": "2027-03-10" },
-          { "name": "First Aid", "expiryDate": "2026-02-28" }
+          { "name": "HSE Induction", "expiryDate": "2026-02-02" },
+          { "name": "H2S", "expiryDate": "2026-02-02" }
         ]
       },
       {
-        "id": "EMP301",
-        "name": "Ethan Davis",
-        "email": "ethan.d@contractor-c.org",
-        "company": "Gamma Tech",
-        "age": 51,
-        "nationality": "German",
-        "jobTitle": "Lead Inspector",
-        "idNumber": "DE-567890",
+        "id": "10300123",
+        "name": "Habib Rahman",
+        "email": "habib.rahman@saipem.com",
+        "company": "Saipem",
+        "age": 37,
+        "nationality": "Bangladeshi",
+        "jobTitle": "Pipeline Welder",
+        "idNumber": "OM10300123",
         "certificates": [
-          { "name": "API 510 Inspector", "expiryDate": "2026-10-05" }
+          { "name": "H2S", "expiryDate": "2025-07-30" },
+          { "name": "Confined Space Entry", "expiryDate": "2025-07-30" }
+        ]
+      },
+      {
+        "id": "10311234",
+        "name": "Joseph Dsouza",
+        "email": "joseph.dsouza@jgc.com",
+        "company": "JGC Oman",
+        "age": 43,
+        "nationality": "Indian",
+        "jobTitle": "Instrumentation Technician",
+        "idNumber": "OM10311234",
+        "certificates": [
+          { "name": "H2S", "expiryDate": "2026-03-15" },
+          { "name": "HSE Induction", "expiryDate": "2026-03-15" },
+          { "name": "Working at Heights", "expiryDate": "2025-09-20" }
         ]
       }
     ]

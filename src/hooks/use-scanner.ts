@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
 
 interface UseScannerProps {
   onScanSuccess: (decodedText: string) => void;
@@ -11,7 +10,7 @@ interface UseScannerProps {
 export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+  const html5QrCodeRef = useRef<any | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -28,57 +27,66 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
 
   useEffect(() => {
     if (hasPermission !== true) return;
+    let cancelled = false;
 
-    if (!html5QrCodeRef.current) {
-      html5QrCodeRef.current = new Html5Qrcode('qr-scanner-container');
-    }
+    const runScanner = async () => {
+      const { Html5Qrcode, Html5QrcodeScannerState } = await import('html5-qrcode');
+      if (cancelled) return;
 
-    const qr = html5QrCodeRef.current;
+      if (!html5QrCodeRef.current) {
+        html5QrCodeRef.current = new Html5Qrcode('qr-scanner-container');
+      }
 
-    const startScanner = async () => {
-      if (qr.getState() === Html5QrcodeScannerState.NOT_STARTED || qr.getState() === Html5QrcodeScannerState.STOPPED) {
-        try {
+      const qr = html5QrCodeRef.current;
+
+      const startScanner = async () => {
+        if (qr.getState() === Html5QrcodeScannerState.NOT_STARTED) {
+          try {
+            setIsScanning(true);
+            await qr.start(
+              { facingMode: 'environment' },
+              { fps: 5 },
+              (decodedText: string) => {
+                console.log("QR code detected:", decodedText);
+                onScanSuccess(decodedText);
+              },
+              () => undefined
+            );
+          } catch (err) {
+            console.error('Scanner start error', err);
+            setIsScanning(false);
+          }
+        }
+      };
+
+      const stopScanner = async () => {
+        if (qr.getState() === Html5QrcodeScannerState.SCANNING) {
+          try {
+            await qr.stop();
+            setIsScanning(false);
+          } catch (err) {
+            console.error("Error stopping scanner:", err);
+          }
+        }
+      };
+
+      if (!isPaused) {
+        if (qr.getState() === Html5QrcodeScannerState.PAUSED) {
+          qr.resume();
           setIsScanning(true);
-          await qr.start(
-            { facingMode: 'environment' },
-            { fps: 5 },
-            (decodedText: string) => {
-              console.log("QR code detected:", decodedText);
-              onScanSuccess(decodedText);
-            }
-          );
-        } catch (err) {
-          console.error('Scanner start error', err);
-          setIsScanning(false);
+        } else {
+          startScanner();
         }
-      }
-    };
-
-    const stopScanner = async () => {
-      if (qr.getState() === Html5QrcodeScannerState.SCANNING) {
-        try {
-          await qr.stop();
-          setIsScanning(false);
-        } catch (err) {
-          console.error("Error stopping scanner:", err);
-        }
-      }
-    };
-
-    if (!isPaused) {
-      if (qr.getState() === Html5QrcodeScannerState.PAUSED) {
-        qr.resume()
-          .then(() => setIsScanning(true))
-          .catch(err => console.error("Resume failed", err));
       } else {
-        startScanner();
+        stopScanner();
       }
-    } else {
-      stopScanner();
-    }
+    };
+
+    void runScanner();
 
     return () => {
-      stopScanner();
+      cancelled = true;
+      void html5QrCodeRef.current?.stop?.().catch(() => undefined);
     };
   }, [isPaused, hasPermission, onScanSuccess]);
 

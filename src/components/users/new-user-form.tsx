@@ -36,7 +36,7 @@ interface NewUserFormProps {
 
 export function NewUserForm({ onNewUser, sites, contractors, operators, isLoading, currentUserRole, currentUserOperatorId, currentUserContractorId }: NewUserFormProps) {
 
-    const availableRoles = useMemo(() => {
+    const availableRoles = useMemo<UserRole[]>(() => {
         if (currentUserRole === 'Admin') {
             return ['Operator Admin', 'Contractor Admin'];
         }

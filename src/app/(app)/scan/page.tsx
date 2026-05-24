@@ -1,269 +1,310 @@
-
 'use client'
 
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { UserPlus } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, Building2, Camera, RadioTower } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
-import type { User as UserType, Site, AccessRequest, GateActivity, Certificate } from '@/lib/types';
-import { collection, doc, getDoc, addDoc, serverTimestamp, query, where, getDocs, onSnapshot, Timestamp, orderBy, limit } from 'firebase/firestore';
-import { Card, CardContent } from '@/components/ui/card';
+import type { User as UserType, Site, ScanAccessRequest } from '@/lib/types';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Building, AlertTriangle } from 'lucide-react';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
-import { format, isBefore, parseISO, isAfter } from 'date-fns';
 import { ScannerPreview } from '@/components/scan/scanner-preview';
 import { UserFoundDialog } from '@/components/scan/user-found-dialog';
 import { VisitorRegistrationDialog } from '@/components/scan/visitor-registration-dialog';
-import { serverFetchWorkerData } from '@/app/actions/workerActions';
+import { useSession } from '@/providers/session-provider';
+import { fetchScanStatusRequest, listSitesRequest, fetchWorkerRequest } from '@/lib/api';
+import { usePolling } from '@/lib/polling';
+import { ScanDecisionPanel } from '@/components/scan/scan-decision-panel';
+import { Badge } from '@/components/ui/badge';
 
 type DialogState = 'closed' | 'user-found' | 'no-user' | 'visitor-register';
-type LastActivity = 'Check-in' | 'Check-out' | null;
+type LastActivity = 'CheckIn' | 'CheckOut' | null;
 type CertificateStatus = {
-    missing: string[];
-    expired: string[];
+  missing: string[];
+  expired: string[];
 };
 
 type WorkerData = {
-  jobTitle?: string
-}
+  jobTitle?: string;
+};
+
+type ScanStatusResponse = {
+  user: UserType;
+  site: {
+    id: string;
+    name: string;
+    requiredCertificates: string[];
+  };
+  certificateStatus: CertificateStatus;
+  accessStatus: 'approved' | 'denied-no-request' | 'denied-expired' | 'denied-not-started';
+  accessRequest: ScanAccessRequest | null;
+  lastActivity: LastActivity;
+  smartLockEnforced?: boolean;
+  scanRequired?: boolean;
+  accessEnforcementMode?: string;
+  accessEnforcementMessage?: string | null;
+  mobileAppCheckInRequired?: boolean;
+  canCheckIn?: boolean;
+  canCheckOut?: boolean;
+};
 
 export default function ScanPage() {
-    const { firestoreUser: currentSecurityUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Security']);
-    const [scannedUser, setScannedUser] = useState<UserType | null>(null);
-    const [assignedSite, setAssignedSite] = useState<Site | null>(null);
-    const [loadingSite, setLoadingSite] = useState(true);
-    const [dialogState, setDialogState] = useState<DialogState>('closed');
-    const [accessStatus, setAccessStatus] = useState<'approved' | 'denied-no-request' | 'denied-expired' | 'denied-not-started' | null>(null);
-    const [certificateStatus, setCertificateStatus] = useState<CertificateStatus>({ missing: [], expired: [] });
-    const [lastActivity, setLastActivity] = useState<LastActivity>(null);
-    const [isScannerPaused, setIsScannerPaused] = useState(false);
-    const [accessRequest, setAccessRequest] = useState<AccessRequest | null>(null);
-    const [workerData, setWorkerData] = useState<WorkerData | undefined>();
-    
-    const { toast } = useToast();
-    const firestore = useFirestore();
+  const { firestoreUser: currentSecurityUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Security']);
+  const { token } = useSession();
+  const [scannedUser, setScannedUser] = useState<UserType | null>(null);
+  const [assignedSite, setAssignedSite] = useState<Site | null>(null);
+  const [loadingSite, setLoadingSite] = useState(true);
+  const [dialogState, setDialogState] = useState<DialogState>('closed');
+  const [accessStatus, setAccessStatus] = useState<'approved' | 'denied-no-request' | 'denied-expired' | 'denied-not-started' | null>(null);
+  const [certificateStatus, setCertificateStatus] = useState<CertificateStatus>({ missing: [], expired: [] });
+  const [lastActivity, setLastActivity] = useState<LastActivity>(null);
+  const [isScannerPaused, setIsScannerPaused] = useState(false);
+  const [accessRequest, setAccessRequest] = useState<ScanAccessRequest | null>(null);
+  const [workerData, setWorkerData] = useState<WorkerData | undefined>();
+  const [smartLockEnforced, setSmartLockEnforced] = useState(false);
+  const [scanRequired, setScanRequired] = useState(true);
+  const [accessEnforcementMessage, setAccessEnforcementMessage] = useState<string | null>(null);
 
-    // Fetch the security user's assigned site
-    useEffect(() => {
-        if (!firestore || !currentSecurityUser?.assignedSiteId) {
-            setLoadingSite(false);
-            return;
-        };
+  const { toast } = useToast();
 
-        setLoadingSite(true);
-        const siteDocRef = doc(firestore, "sites", currentSecurityUser.assignedSiteId);
-        const siteUnsub = onSnapshot(siteDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-                setAssignedSite({ id: docSnap.id, ...docSnap.data() } as Site);
-            } else {
-                setAssignedSite(null);
-                toast({ variant: 'destructive', title: 'Site Error', description: 'Assigned site not found.' });
-            }
-            setLoadingSite(false);
-        });
-
-        return () => siteUnsub();
-    }, [firestore, currentSecurityUser, toast]);
-
-    const handleScanSuccess = async (userId: string) => {
-        if (!firestore || !assignedSite) return;
-        setIsScannerPaused(true);
-
-        try {
-            const userRef = doc(firestore, "users", userId);
-            const userSnap = await getDoc(userRef);
-
-            if (userSnap.exists()) {
-                const user = { id: userSnap.id, ...userSnap.data() } as UserType;
-                setScannedUser(user);
-                
-                // Fetch job title
-                if (user.idNumber) {
-                    const workerInfo = await serverFetchWorkerData({ workerId: user.idNumber });
-                    if (workerInfo) {
-                       setWorkerData({ jobTitle: workerInfo.jobTitle });
-                    }
-                }
-
-                // 1. Check for approved and valid access request
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                const requestsQuery = query(
-                    collection(firestore, "accessRequests"),
-                    where("workerIds", "array-contains", user.id),
-                    where("siteId", "==", assignedSite.id),
-                    where("status", "==", "Approved")
-                );
-                const requestsSnap = await getDocs(requestsQuery);
-                setAccessRequest(null);
-
-                if (requestsSnap.empty) {
-                    setAccessStatus('denied-no-request');
-                } else {
-                    let isValidRequestFound = false;
-                    for (const requestDoc of requestsSnap.docs) {
-                        const request = requestDoc.data() as AccessRequest;
-                        const validFrom = request.validFrom ? parseISO(request.validFrom) : null;
-                        const expiresAt = request.expiresAt ? (request.expiresAt === 'Permanent' ? 'Permanent' : parseISO(request.expiresAt)) : null;
-
-                        if (validFrom && (isAfter(today, validFrom) || format(today, 'yyyy-MM-dd') === request.validFrom)) {
-                           if (expiresAt === 'Permanent' || (expiresAt instanceof Date && (isBefore(today, expiresAt) || format(today, 'yyyy-MM-dd') === request.expiresAt))) {
-                                isValidRequestFound = true;
-                                setAccessStatus('approved');
-                                setAccessRequest({ ...request, id: requestDoc.id});
-                                break;
-                           } else if (expiresAt instanceof Date) {
-                                setAccessStatus('denied-expired');
-                           }
-                        } else {
-                           setAccessStatus('denied-not-started');
-                        }
-                    }
-                    if (!isValidRequestFound && accessStatus !== 'denied-expired' && accessStatus !== 'denied-not-started') {
-                        setAccessStatus('denied-no-request');
-                    }
-                }
-                
-                // 2. Check for required certificates
-                const requiredCerts = assignedSite.requiredCertificates || [];
-                const userCerts = user.certificates || [];
-                const missing: string[] = [];
-                const expired: string[] = [];
-
-                requiredCerts.forEach(requiredCertName => {
-                    const userCert = userCerts.find(c => c.name === requiredCertName);
-                    if (!userCert) {
-                        missing.push(requiredCertName);
-                    } else if (userCert.expiryDate && isBefore(parseISO(userCert.expiryDate), new Date())) {
-                        expired.push(requiredCertName);
-                    }
-                });
-                setCertificateStatus({ missing, expired });
-
-                // 3. Check user's last activity
-                const activityQuery = query(
-                    collection(firestore, 'gateActivity'),
-                    where('userId', '==', user.id),
-                    orderBy('timestamp', 'desc'),
-                    limit(1)
-                );
-                const activitySnap = await getDocs(activityQuery);
-                if (!activitySnap.empty) {
-                    const lastEvent = activitySnap.docs[0].data() as GateActivity;
-                    setLastActivity(lastEvent.type);
-                } else {
-                    setLastActivity(null); // No previous activity
-                }
-
-                setDialogState('user-found');
-
-            } else {
-                toast({ variant: 'destructive', title: 'Unknown User', description: `User ID "${userId}" not found.`});
-                setIsScannerPaused(false); // Resume scanner if user not found
-            }
-        } catch (e) {
-             console.error(e);
-             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch user details.'});
-             setDialogState('closed');
-             setIsScannerPaused(false);
-        }
+  const normalizeSite = useCallback((site: any): Site => {
+    return {
+      id: site.id,
+      name: site.name,
+      operatorId: site.operator?.id ?? site.operatorId ?? '',
+      managerIds: site.managerIds ?? [],
+      requiredCertificates: site.requiredCertificates ?? [],
     };
-    
-    const handleCloseDialog = () => {
-        setDialogState('closed');
-        setScannedUser(null);
-        setAccessStatus(null);
-        setLastActivity(null);
-        setCertificateStatus({ missing: [], expired: [] });
-        setIsScannerPaused(false);
-        setAccessRequest(null);
+  }, []);
+
+  const fetchAssignedSite = useCallback(async () => {
+    if (!token || !currentSecurityUser?.assignedSiteId) {
+      setAssignedSite(null);
+      setLoadingSite(false);
+      return;
+    }
+
+    setLoadingSite(true);
+    try {
+      const sitesData = await listSitesRequest(token);
+      const mappedSites = sitesData.map(normalizeSite);
+      const site = mappedSites.find((item) => item.id === currentSecurityUser.assignedSiteId) ?? null;
+      if (!site) {
+        setAssignedSite(null);
+        toast({ variant: 'destructive', title: 'Site Error', description: 'Assigned site not found.' });
+      } else {
+        setAssignedSite(site);
+      }
+    } catch (error) {
+      console.error('Failed to fetch assigned site', error);
+      toast({ variant: 'destructive', title: 'Site Error', description: 'Could not load assigned site details.' });
+      setAssignedSite(null);
+    } finally {
+      setLoadingSite(false);
+    }
+  }, [token, currentSecurityUser?.assignedSiteId, normalizeSite, toast]);
+
+  useEffect(() => {
+    void fetchAssignedSite();
+  }, [fetchAssignedSite]);
+
+  usePolling(() => {
+    void fetchAssignedSite();
+  }, 30000);
+
+  const refreshScanStatus = useCallback(async () => {
+    if (!token || !assignedSite || !scannedUser) return;
+    try {
+      const status = await fetchScanStatusRequest(token, scannedUser.id, assignedSite.id);
+      setAccessStatus(status.accessStatus);
+      setCertificateStatus(status.certificateStatus);
+      setAccessRequest(status.accessRequest);
+      setLastActivity(status.lastActivity ?? null);
+      setSmartLockEnforced(Boolean(status.smartLockEnforced));
+      setScanRequired(status.scanRequired !== false);
+      setAccessEnforcementMessage(status.accessEnforcementMessage ?? null);
+      setAssignedSite((prev) => {
+        if (!prev || prev.id !== status.site.id) return prev;
+        return {
+          ...prev,
+          name: status.site.name,
+          requiredCertificates: status.site.requiredCertificates,
+        };
+      });
+    } catch (error) {
+      console.error('Failed to refresh scan status', error);
+    }
+  }, [token, assignedSite, scannedUser]);
+
+  usePolling(() => {
+    if (dialogState === 'user-found') {
+      void refreshScanStatus();
+    }
+  }, 15000);
+
+  const handleScanSuccess = async (userId: string) => {
+    if (!token || !assignedSite) return;
+    setIsScannerPaused(true);
+
+    try {
+      const status: ScanStatusResponse = await fetchScanStatusRequest(token, userId, assignedSite.id);
+      setScannedUser(status.user);
+      setAccessStatus(status.accessStatus);
+      setCertificateStatus(status.certificateStatus);
+      setAccessRequest(status.accessRequest);
+      setLastActivity(status.lastActivity ?? null);
+      setSmartLockEnforced(Boolean(status.smartLockEnforced));
+      setScanRequired(status.scanRequired !== false);
+      setAccessEnforcementMessage(status.accessEnforcementMessage ?? null);
+      setAssignedSite((prev) => {
+        if (!prev || prev.id !== status.site.id) return prev;
+        return {
+          ...prev,
+          name: status.site.name,
+          requiredCertificates: status.site.requiredCertificates,
+        };
+      });
+
+      if (status.user.idNumber) {
+        try {
+          const workerInfo = await fetchWorkerRequest(token, status.user.idNumber);
+          setWorkerData({ jobTitle: workerInfo.jobTitle });
+        } catch (error) {
+          console.error('Failed to fetch worker data', error);
+          setWorkerData(undefined);
+        }
+      } else {
         setWorkerData(undefined);
-    }
-    
-    if (authLoading) {
-        return (
-            <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-10rem)] text-center p-4 space-y-6">
-                <Skeleton className="w-full max-w-md h-16" />
-                <Skeleton className="w-full max-w-md aspect-video" />
-                <Skeleton className="h-10 w-48" />
-            </div>
-        )
-    }
+      }
 
-    if (!isAuthorized) {
-        return <UnauthorizedComponent />;
+      setDialogState('user-found');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not fetch user details.';
+      if (message.toLowerCase().includes('not found')) {
+        toast({ variant: 'destructive', title: 'Unknown User', description: `User ID "${userId}" not found.` });
+        setDialogState('no-user');
+        setIsScannerPaused(true);
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch user details.' });
+        setIsScannerPaused(false);
+      }
     }
+  };
 
+  const handleCloseDialog = () => {
+    setDialogState('closed');
+    setScannedUser(null);
+    setAccessStatus(null);
+    setLastActivity(null);
+    setCertificateStatus({ missing: [], expired: [] });
+    setIsScannerPaused(false);
+    setAccessRequest(null);
+    setWorkerData(undefined);
+    setSmartLockEnforced(false);
+    setScanRequired(true);
+    setAccessEnforcementMessage(null);
+  };
+
+  if (authLoading) {
     return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-10rem)] text-center p-4 space-y-6">
-        <div className="w-full max-w-md mx-auto space-y-4">
-            <Card className="flex items-center justify-between p-3 bg-muted/50">
-                <div className="flex items-center gap-3">
-                    <Building className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-semibold">Site:</span>
-                </div>
-                {loadingSite ? (
-                    <Skeleton className="h-6 w-48" />
-                ) : (
-                    <span className="font-bold text-lg">{assignedSite?.name || 'No Site Assigned'}</span>
-                )}
-            </Card>
+      <div className="grid min-h-[calc(100vh-10rem)] gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+        <Skeleton className="h-[30rem] w-full" />
+        <Skeleton className="h-[30rem] w-full" />
+      </div>
+    );
+  }
 
-            <ScannerPreview 
-                onScanSuccess={handleScanSuccess} 
-                isPaused={isScannerPaused}
+  if (!isAuthorized) {
+    return <UnauthorizedComponent />;
+  }
+
+  return (
+    <div className="space-y-4 md:space-y-5">
+      <header className="flex flex-col gap-4 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Gate Security Workstation</h1>
+          <p className="text-sm text-muted-foreground">Scan identity, evaluate access, and record controlled movement.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="rounded-md px-3 py-1">
+            <RadioTower className="mr-1.5 h-3.5 w-3.5" />
+            Live
+          </Badge>
+          <Badge variant="outline" className="rounded-md px-3 py-1">
+            <Building2 className="mr-1.5 h-3.5 w-3.5" />
+            {loadingSite ? 'Loading site' : assignedSite?.name ?? 'No site'}
+          </Badge>
+        </div>
+      </header>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+        <Card className="overflow-hidden border-slate-200">
+          <div className="border-b border-slate-200 bg-slate-950 px-5 py-4 text-white">
+            <div className="flex items-center gap-2 text-sm text-slate-300">
+              <Camera className="h-4 w-4" />
+              QR scanner
+            </div>
+            <h2 className="mt-1 text-xl font-semibold">Identity capture</h2>
+          </div>
+          <div className="p-4">
+            <ScannerPreview onScanSuccess={handleScanSuccess} isPaused={isScannerPaused} />
+            <div className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-muted-foreground">
+              Position the QR code inside the frame. The backend evaluates request validity, certificate status, and current presence.
+            </div>
+          </div>
+        </Card>
+
+        <ScanDecisionPanel
+          assignedSite={assignedSite}
+          scannedUser={scannedUser}
+          accessStatus={accessStatus}
+          certificateStatus={certificateStatus}
+          lastActivity={lastActivity}
+          accessRequest={accessRequest}
+          workerData={workerData}
+          smartLockEnforced={smartLockEnforced}
+          scanRequired={scanRequired}
+          accessEnforcementMessage={accessEnforcementMessage}
+          canRegisterVisitor={!!assignedSite && !loadingSite}
+          onRegisterVisitor={() => setDialogState('visitor-register')}
+        />
+      </div>
+
+      <Dialog open={dialogState !== 'closed'} onOpenChange={(open) => !open && handleCloseDialog()}>
+        <DialogContent className="sm:max-w-2xl">
+          {dialogState === 'user-found' && scannedUser && assignedSite && (
+            <UserFoundDialog
+              scannedUser={scannedUser}
+              accessStatus={accessStatus}
+              certificateStatus={certificateStatus}
+              lastActivity={lastActivity}
+              assignedSite={assignedSite}
+              accessRequest={accessRequest}
+              workerData={workerData}
+              smartLockEnforced={smartLockEnforced}
+              scanRequired={scanRequired}
+              accessEnforcementMessage={accessEnforcementMessage}
+              onClose={handleCloseDialog}
             />
-        </div>
-       
-        <div className="space-y-2">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Gate Scanning</h1>
-            <p className="text-muted-foreground max-w-md mx-auto">
-                Position a user's QR code inside the frame to scan.
-            </p>
-        </div>
-
-        <div className="space-x-4">
-            <Button size="lg" onClick={() => setDialogState('visitor-register')} disabled={!assignedSite || loadingSite}>
-                <UserPlus className="mr-2 h-5 w-5" />
-                Register New Visitor
-            </Button>
-        </div>
-
-        <Dialog open={dialogState !== 'closed'} onOpenChange={(open) => !open && handleCloseDialog()}>
-            <DialogContent className="sm:max-w-md">
-                 {dialogState === 'user-found' && scannedUser && (
-                    <UserFoundDialog 
-                        scannedUser={scannedUser}
-                        accessStatus={accessStatus}
-                        certificateStatus={certificateStatus}
-                        lastActivity={lastActivity}
-                        assignedSite={assignedSite!}
-                        accessRequest={accessRequest}
-                        workerData={workerData}
-                        onClose={handleCloseDialog}
-                    />
-                 )}
-                 {dialogState === 'visitor-register' && assignedSite && (
-                     <VisitorRegistrationDialog
-                        assignedSite={assignedSite}
-                        onClose={handleCloseDialog}
-                     />
-                 )}
-                 {dialogState === 'no-user' && (
-                     <Alert variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>Unknown User</AlertTitle>
-                        <AlertDescription>
-                            This QR code is not associated with any user. They can be registered as a new visitor.
-                        </AlertDescription>
-                     </Alert>
-                 )}
-            </DialogContent>
-        </Dialog>
+          )}
+          {dialogState === 'visitor-register' && assignedSite && (
+            <VisitorRegistrationDialog
+              assignedSite={assignedSite}
+              onClose={handleCloseDialog}
+            />
+          )}
+          {dialogState === 'no-user' && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Unknown User</AlertTitle>
+              <AlertDescription>
+                This QR code is not associated with any user. They can be registered as a new visitor.
+              </AlertDescription>
+            </Alert>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

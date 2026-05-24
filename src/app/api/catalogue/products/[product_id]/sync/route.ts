@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 
 type RouteContext = {
-  params: {
+  params: Promise<{
     product_id: string;
-  };
+  }>;
 };
 
-export async function POST(req: Request, { params }: RouteContext) {
-  const { product_id } = params;
+export async function POST(_req: Request, { params }: RouteContext) {
+  const { product_id } = await params;
 
   try {
     // Placeholder for the actual product syncing logic.

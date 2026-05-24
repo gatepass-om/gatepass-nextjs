@@ -1,19 +1,7 @@
-
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { useFirestore } from "@/firebase";
-import {
-  collection,
-  onSnapshot,
-  doc,
-  setDoc,
-  deleteDoc,
-  updateDoc,
-  query,
-  where,
-} from "firebase/firestore";
-import type { User, Site, Contractor, Operator, UserRole } from "@/lib/types";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import type { User, Site, Contractor, Operator } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { UsersTable } from "@/components/users/users-table";
 import { NewUserForm } from "@/components/users/new-user-form";
@@ -22,18 +10,21 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { sendEmail } from "@/ai/flows/send-email-flow";
-import {
-  serverCreateUser,
-  serverUpdateUser,
-  serverDeleteUser,
-} from "@/app/actions/userActions";
 import { useAuthProtection } from "@/hooks/use-auth-protection";
+import { useSession } from "@/providers/session-provider";
+import {
+  listUsersRequest,
+  listSitesRequest,
+  listContractorsRequest,
+  listOperatorsRequest,
+  createUserRequest,
+  updateUserRequest,
+  deleteUserRequest,
+} from "@/lib/api";
 
 export default function UsersPage() {
   const {
@@ -42,6 +33,7 @@ export default function UsersPage() {
     isAuthorized,
     UnauthorizedComponent,
   } = useAuthProtection(["Admin", "Operator Admin", "Contractor Admin"]);
+  const { token } = useSession();
   const [users, setUsers] = useState<User[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
@@ -49,172 +41,138 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [isNewUserFormOpen, setIsNewUserFormOpen] = useState(false);
   const { toast } = useToast();
-  const firestore = useFirestore();
 
   const canCreateUser = useMemo(() => {
-    return ['Admin', 'Operator Admin', 'Contractor Admin'].includes(firestoreUser?.role as string);
+    return ["Admin", "Operator Admin", "Contractor Admin"].includes(
+      firestoreUser?.role as string
+    );
   }, [firestoreUser?.role]);
 
+  const normalizeSite = useCallback((site: any): Site => {
+    return {
+      id: site.id,
+      name: site.name,
+      operatorId: site.operator?.id ?? site.operatorId ?? "",
+      managerIds: site.managerIds ?? [],
+      requiredCertificates: site.requiredCertificates ?? [],
+    };
+  }, []);
 
-  useEffect(() => {
-    if (!firestore) {
+  const fetchData = useCallback(async () => {
+    if (!token || !firestoreUser) {
       if (!authLoading) setLoading(false);
       return;
     }
     setLoading(true);
-    
-    const unsubs: (() => void)[] = [];
-    
-    const role = firestoreUser?.role;
-    const operatorId = firestoreUser?.operatorId;
-    const contractorId = firestoreUser?.contractorId;
 
-    let usersQuery;
-    switch (role) {
-      case 'Admin':
-        usersQuery = collection(firestore, "users");
-        break;
-      case 'Operator Admin':
-        usersQuery = query(collection(firestore, "users"), where('operatorId', '==', operatorId));
-        break;
-      case 'Contractor Admin':
-        usersQuery = query(collection(firestore, "users"), where('contractorId', '==', contractorId));
-        break;
-      default:
-        // For other roles, don't fetch any users from this page
-        usersQuery = query(collection(firestore, "users"), where('id', '==', ''));
-    }
-    
-    unsubs.push(onSnapshot(usersQuery, (snapshot) => {
-        const usersData = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as User)
-        );
-        setUsers(usersData);
-        setLoading(false);
-    }));
+    try {
+      const [sitesData, contractorsData, operatorsData] = await Promise.all([
+        listSitesRequest(
+          token,
+          firestoreUser.role === "Operator Admin" && firestoreUser.operatorId
+            ? { operatorId: firestoreUser.operatorId }
+            : undefined
+        ),
+        listContractorsRequest(token),
+        listOperatorsRequest(token),
+      ]);
 
-    unsubs.push(onSnapshot(collection(firestore, "sites"), (snapshot) => {
-        const sitesData = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Site)
-        );
-        setSites(sitesData);
-    }));
-    
-    unsubs.push(onSnapshot(collection(firestore, "contractors"), (snapshot) => {
-        const contractorsData = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Contractor)
-        );
-        setContractors(contractorsData);
-    }));
+      const mappedSites = (sitesData as any[]).map(normalizeSite);
+      setSites(mappedSites);
+      setContractors(contractorsData as Contractor[]);
+      setOperators(operatorsData as Operator[]);
 
-    unsubs.push(onSnapshot(collection(firestore, "operators"), (snapshot) => {
-        const operatorsData = snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Operator)
-        );
-        setOperators(operatorsData);
-    }));
+      let userFilters: { operatorId?: string; contractorId?: string } = {};
+      if (firestoreUser.role === "Operator Admin") {
+        if (firestoreUser.operatorId) {
+          userFilters.operatorId = firestoreUser.operatorId;
+        } else {
+          setUsers([]);
+          setLoading(false);
+          return;
+        }
+      }
+      if (firestoreUser.role === "Contractor Admin") {
+        if (firestoreUser.contractorId) {
+          userFilters.contractorId = firestoreUser.contractorId;
+        } else {
+          setUsers([]);
+          setLoading(false);
+          return;
+        }
+      }
 
-    return () => unsubs.forEach(unsub => unsub());
-  }, [firestore, authLoading, firestoreUser?.role, firestoreUser?.operatorId, firestoreUser?.contractorId]);
-
-  const generateTempPassword = () => {
-    return Math.random().toString(36).slice(-8);
-  };
-
-  const handleAddUser = async (
-    newUser: Omit<User, 'id' | 'status' | 'idCardImageUrl' | 'idNumber' | 'certificates' | 'notes'>
-  ) => {
-    if (!firestore) {
+      const usersData = await listUsersRequest(token, userFilters);
+      setUsers(usersData as User[]);
+    } catch (error) {
+      console.error("Failed to load users data", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Database not available.",
+        title: "Loading Failed",
+        description: "Could not load users and supporting data.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [token, firestoreUser, authLoading, normalizeSite, toast]);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  const handleAddUser = async (
+    newUser: Omit<
+      User,
+      "id" | "status" | "idCardImageUrl" | "idNumber" | "certificates" | "notes"
+    >
+  ) => {
+    if (!token || !firestoreUser) {
+      toast({
+        variant: "destructive",
+        title: "Session expired",
+        description: "Please log in again to continue.",
       });
       return;
     }
-    const tempPassword = generateTempPassword();
+
+    let operatorId = newUser.operatorId;
+    let contractorId = newUser.contractorId;
+
+    if (firestoreUser.role === "Operator Admin") {
+      operatorId = firestoreUser.operatorId;
+    }
+    if (firestoreUser.role === "Contractor Admin") {
+      contractorId = firestoreUser.contractorId;
+    }
 
     try {
-      const authResult = await serverCreateUser({
-        email: newUser.email!,
-        password: tempPassword,
-        displayName: newUser.name,
-      });
-
-      if (!authResult.success || !authResult.uid) {
-        throw new Error(
-          authResult.error || "Failed to create user in Firebase Auth."
-        );
-      }
-
-      const authUserUid = authResult.uid;
-      const userRef = doc(firestore, "users", authUserUid);
-      
-      let operatorId = newUser.operatorId;
-      let contractorId = newUser.contractorId;
-      let company = newUser.company;
-
-      if (firestoreUser?.role === 'Operator Admin') {
-          operatorId = firestoreUser.operatorId;
-          const operator = operators.find(op => op.id === operatorId);
-          company = operator?.name;
-      } else if (newUser.role === 'Operator Admin' || newUser.role === 'Manager') {
-        const operator = operators.find(op => op.id === operatorId);
-        company = operator?.name;
-      }
-      
-      if (firestoreUser?.role === 'Contractor Admin') {
-          contractorId = firestoreUser.contractorId;
-          const contractor = contractors.find(c => c.id === contractorId);
-          company = contractor?.name;
-      } else if (newUser.role === 'Contractor Admin' || newUser.role === 'Supervisor' || newUser.role === 'Worker') {
-        const contractor = contractors.find(c => c.id === contractorId);
-        company = contractor?.name;
-      }
-
-      const userData: Partial<User> = {
+      const response = await createUserRequest(token, {
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
-        company: company || "",
-        operatorId: operatorId || "",
-        contractorId: contractorId || "",
-        assignedSiteId: newUser.assignedSiteId || "",
-        status: "Inactive",
-      };
+        operatorId: operatorId || undefined,
+        contractorId: contractorId || undefined,
+        assignedSiteId: newUser.assignedSiteId ?? undefined,
+        company: newUser.company ?? undefined,
+      });
 
-      // Remove undefined fields before setting doc
-      Object.keys(userData).forEach(key => (userData as any)[key] === undefined && delete (userData as any)[key]);
-
-      await setDoc(userRef, userData);
-
+      const createdUser = response.user;
+      setIsNewUserFormOpen(false);
       toast({
         title: "User Created",
-        description: `${newUser.name} has been created with an inactive status.`,
+        description: `${createdUser.name} has been created.`,
       });
-      setIsNewUserFormOpen(false);
 
-      if (newUser.role !== 'Visitor') {
-        const emailResult = await sendEmail({
-          to: newUser.email!,
-          subject: "Welcome to GatePass - Your Account has been Created",
-          body: `<h1>Welcome, ${newUser.name}!</h1><p>An account has been created for you.</p><p>Your temporary password is: <strong>${tempPassword}</strong></p><p>Please log in and change your password to activate your account.</p>`,
+      if (!response.emailSent && response.tempPassword) {
+        toast({
+          variant: "destructive",
+          title: "Welcome Email Failed",
+          description: `Share this temporary password manually: ${response.tempPassword}`,
+          duration: 9000,
         });
-
-        if (emailResult.success) {
-          toast({
-            title: "Welcome Email Sent",
-            description: `Instructions have been sent to ${newUser.email}.`,
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Email Failed",
-            description: `Could not send welcome email. Please provide the temporary password manually: ${tempPassword}`,
-            duration: 9000,
-          });
-        }
       }
+
+      void fetchData();
     } catch (error: any) {
       console.error("Error adding user: ", error);
       toast({
@@ -225,57 +183,56 @@ export default function UsersPage() {
     }
   };
 
- const handleUpdateUser = async (
+  const handleUpdateUser = async (
     userId: string,
     originalUser: User,
     updatedData: Omit<User, "id">
   ) => {
-    if (!firestore) {
-      toast({ variant: "destructive", title: "Error", description: "Database not available." });
+    if (!token) {
+      toast({
+        variant: "destructive",
+        title: "Session expired",
+        description: "Please log in again to continue.",
+      });
       return false;
     }
 
     try {
-      if (updatedData.email && updatedData.email !== originalUser.email) {
-        await serverUpdateUser({ uid: userId, email: updatedData.email });
-      }
-      if (updatedData.name !== originalUser.name) {
-        await serverUpdateUser({ uid: userId, displayName: updatedData.name });
-      }
-
-      const userRef = doc(firestore, "users", userId);
-      const updatePayload = {...updatedData};
-      // Remove undefined fields before setting doc
-      Object.keys(updatePayload).forEach(key => (updatePayload as any)[key] === undefined && delete (updatePayload as any)[key]);
-
-      await updateDoc(userRef, updatePayload as { [key: string]: any });
-
-      toast({ title: "User Updated", description: `${updatedData.name}'s profile has been updated.` });
+      const updated = await updateUserRequest(token, userId, updatedData);
+      setUsers((prev) => prev.map((user) => (user.id === userId ? updated : user)));
+      toast({
+        title: "User Updated",
+        description: `${updated.name}'s profile has been updated.`,
+      });
       return true;
     } catch (error: any) {
       console.error("Error updating user:", error);
-      toast({ variant: "destructive", title: "Update Failed", description: error.message || "Could not update user." });
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: error.message || "Could not update user.",
+      });
       return false;
     }
   };
 
-
   const handleDeleteUser = async (userId: string, userName: string) => {
-    if (!firestore) return;
+    if (!token) {
+      toast({
+        variant: "destructive",
+        title: "Session expired",
+        description: "Please log in again to continue.",
+      });
+      return;
+    }
 
     try {
-      const result = await serverDeleteUser({ uid: userId });
-      if (result.success) {
-        await deleteDoc(doc(firestore, "users", userId));
-        toast({
-          title: "User Deleted",
-          description: `${userName} has been permanently removed.`,
-        });
-      } else {
-        throw new Error(
-          result.error || "Failed to delete user from authentication."
-        );
-      }
+      await deleteUserRequest(token, userId);
+      setUsers((prev) => prev.filter((user) => user.id !== userId));
+      toast({
+        title: "User Deleted",
+        description: `${userName} has been permanently removed.`,
+      });
     } catch (error: any) {
       console.error("Error deleting user: ", error);
       toast({
@@ -304,30 +261,30 @@ export default function UsersPage() {
           </p>
         </div>
         {canCreateUser && (
-            <Dialog open={isNewUserFormOpen} onOpenChange={setIsNewUserFormOpen}>
+          <Dialog open={isNewUserFormOpen} onOpenChange={setIsNewUserFormOpen}>
             <DialogTrigger asChild>
-                <Button>
+              <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Create User
-                </Button>
+              </Button>
             </DialogTrigger>
             <DialogContent className="max-w-full sm:max-w-2xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
+              <DialogHeader>
                 <DialogTitle>Create New User Profile</DialogTitle>
-                </DialogHeader>
-                <NewUserForm
-                  onNewUser={handleAddUser}
-                  sites={sites}
-                  contractors={contractors}
-                  operators={operators}
-                  isLoading={loading}
-                  currentUserRole={firestoreUser.role}
-                  currentUserId={firestoreUser.id}
-                  currentUserOperatorId={firestoreUser.operatorId}
-                  currentUserContractorId={firestoreUser.contractorId}
-                />
+              </DialogHeader>
+              <NewUserForm
+                onNewUser={handleAddUser}
+                sites={sites}
+                contractors={contractors}
+                operators={operators}
+                isLoading={loading}
+                currentUserRole={firestoreUser.role}
+                currentUserId={firestoreUser.id}
+                currentUserOperatorId={firestoreUser.operatorId ?? undefined}
+                currentUserContractorId={firestoreUser.contractorId ?? undefined}
+              />
             </DialogContent>
-            </Dialog>
+          </Dialog>
         )}
       </header>
       <UsersTable

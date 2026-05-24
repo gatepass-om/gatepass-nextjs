@@ -1,46 +1,53 @@
 
 'use client';
-import { useState, useEffect, useMemo } from 'react';
-import { useFirestore } from '@/firebase';
-import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
-import type { Site, GateActivity, User, Operator, Contractor } from '@/lib/types';
+import type { Site, Operator } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RecentActivityTable } from '@/components/dashboard/recent-activity-table';
 import { OnSiteByCompanyChart } from '@/components/dashboard/on-site-by-company-chart';
 import { OnSiteByNationalityChart } from '@/components/dashboard/on-site-by-nationality-chart';
+import { fetchDashboardSummaryRequest, listOperatorsRequest, listSitesRequest, type DashboardSummary } from '@/lib/api';
+import { useSession } from '@/providers/session-provider';
+import { usePolling } from '@/lib/polling';
+import { OperationsCommandStrip } from '@/components/dashboard/operations-command-strip';
+import { OperationsActionQueue } from '@/components/dashboard/operations-action-queue';
+import { SiteOccupancyList } from '@/components/dashboard/site-occupancy-list';
 
 export default function DashboardPage() {
     const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Manager', 'Security', 'Supervisor']);
-    const firestore = useFirestore();
+    const { token } = useSession();
     const [sites, setSites] = useState<Site[]>([]);
     const [operators, setOperators] = useState<Operator[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
-    const [gateActivity, setGateActivity] = useState<GateActivity[]>([]);
+    const [summary, setSummary] = useState<DashboardSummary | null>(null);
     const [loadingData, setLoadingData] = useState(true);
+    const [loadingSummary, setLoadingSummary] = useState(true);
     const [selectedOperatorId, setSelectedOperatorId] = useState<string>('all');
     const [selectedSiteId, setSelectedSiteId] = useState<string>('all');
 
-    const canViewFullDashboard = firestoreUser && ['Admin', 'Operator Admin', 'Manager'].includes(firestoreUser.role);
-    const isAdmin = firestoreUser?.role === 'Admin';
+    const userRole = firestoreUser?.role;
+    const userId = firestoreUser?.id;
+    const userOperatorId = firestoreUser?.operatorId;
+    const canViewFullDashboard = !!userRole && ['Admin', 'Operator Admin', 'Manager'].includes(userRole);
+    const isAdmin = userRole === 'Admin';
 
 
     const filteredSites = useMemo(() => {
         if (selectedOperatorId === 'all') {
-             if (firestoreUser?.role === 'Operator Admin') {
-                return sites.filter(s => s.operatorId === firestoreUser.operatorId);
+             if (userRole === 'Operator Admin') {
+                return sites.filter(s => s.operatorId === userOperatorId);
             }
-            if (firestoreUser?.role === 'Manager') {
-                return sites.filter(s => firestoreUser.id && s.managerIds.includes(firestoreUser.id));
+            if (userRole === 'Manager') {
+                return sites.filter(s => userId && s.managerIds.includes(userId));
             }
             return sites;
         }
         
         return sites.filter(s => s.operatorId === selectedOperatorId);
 
-    }, [sites, selectedOperatorId, firestoreUser]);
+    }, [sites, selectedOperatorId, userId, userOperatorId, userRole]);
 
     // When operator changes, reset the site filter
     useEffect(() => {
@@ -48,85 +55,73 @@ export default function DashboardPage() {
     }, [selectedOperatorId]);
 
 
-     useEffect(() => {
-        if (!firestore || !firestoreUser) {
+    const fetchReferenceData = useCallback(async () => {
+        if (!token || !userRole) {
             setLoadingData(false);
             return;
         }
+
         setLoadingData(true);
-        const unsubs: (()=>void)[] = [];
-
-        // Fetch all base data needed for filtering
-        const fetchBaseData = async () => {
-            if (isAdmin) {
-                unsubs.push(onSnapshot(collection(firestore, "operators"), snap => setOperators(snap.docs.map(d => ({id: d.id, ...d.data()} as Operator)))));
-            }
-
-            let sitesQuery;
-            if (firestoreUser.role === 'Operator Admin') {
-                sitesQuery = query(collection(firestore, "sites"), where('operatorId', '==', firestoreUser.operatorId));
-            } else if (firestoreUser.role === 'Manager') {
-                sitesQuery = query(collection(firestore, 'sites'), where('managerIds', 'array-contains', firestoreUser.id));
-            } else { // Admin or other roles
-                sitesQuery = collection(firestore, "sites");
-            }
-            const sitesSnapshot = await getDocs(sitesQuery);
-            const sitesData = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
-            setSites(sitesData);
-            
-            // Fetch all users to map names to activity
-            const usersSnapshot = await getDocs(collection(firestore, 'users'));
-            const usersData = usersSnapshot.docs.map(doc => ({...doc.data(), id: doc.id} as User));
-            setUsers(usersData);
-
-            setLoadingData(false);
-        };
-        
-        fetchBaseData();
-
-        const setupActivityListener = () => {
-            let activityQuery;
-            
-            if (selectedSiteId !== 'all') {
-                activityQuery = query(collection(firestore, "gateActivity"), where('siteId', '==', selectedSiteId));
-            } 
-            else if (selectedOperatorId !== 'all') {
-                const operatorSiteIds = sites.filter(s => s.operatorId === selectedOperatorId).map(s => s.id);
-                if (operatorSiteIds.length > 0) {
-                    activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', operatorSiteIds));
-                }
-            } 
-            else {
-                let siteIdsToFilter: string[] = [];
-                if (firestoreUser.role === 'Manager' && firestoreUser.id) {
-                    siteIdsToFilter = sites.filter(s => s.managerIds.includes(firestoreUser.id!)).map(s => s.id);
-                } else if (firestoreUser.role === 'Operator Admin') {
-                    siteIdsToFilter = sites.filter(s => s.operatorId === firestoreUser.operatorId).map(s => s.id);
-                } else if (firestoreUser.role === 'Admin') {
-                     activityQuery = collection(firestore, "gateActivity");
-                }
-
-                if (siteIdsToFilter.length > 0 && !activityQuery) {
-                    activityQuery = query(collection(firestore, 'gateActivity'), where('siteId', 'in', siteIdsToFilter));
-                }
-            }
-            
-            if (activityQuery) {
-                unsubs.push(onSnapshot(activityQuery, (snapshot) => {
-                    const activityData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GateActivity));
-                    setGateActivity(activityData);
-                }));
+        try {
+            let sitesData = [] as Site[];
+            if (userRole === 'Operator Admin' && userOperatorId) {
+                sitesData = await listSitesRequest(token, { operatorId: userOperatorId });
             } else {
-                setGateActivity([]);
+                sitesData = await listSitesRequest(token);
             }
-        };
 
-        // Call this after base data might have changed.
-        setupActivityListener();
+            const mappedSites = sitesData.map((site) => ({
+                id: site.id,
+                name: site.name,
+                operatorId: (site as any).operator?.id ?? site.operatorId,
+                managerIds: site.managerIds ?? [],
+                requiredCertificates: site.requiredCertificates ?? [],
+            })) as Site[];
 
+            setSites(mappedSites);
 
-        return () => unsubs.forEach(unsub => unsub());
-    }, [firestore, firestoreUser, selectedSiteId, selectedOperatorId, isAdmin]); // Rerun when filters change
+            if (isAdmin) {
+                const operatorsData = await listOperatorsRequest(token);
+                setOperators(operatorsData as Operator[]);
+            }
+        } catch (error) {
+            console.error('Failed to fetch dashboard reference data', error);
+        } finally {
+            setLoadingData(false);
+        }
+    }, [token, userRole, userOperatorId, isAdmin]);
+
+    const fetchSummary = useCallback(async () => {
+        if (!token || !userRole || !canViewFullDashboard) {
+            setLoadingSummary(false);
+            return;
+        }
+
+        setLoadingSummary(true);
+        try {
+            const nextSummary = await fetchDashboardSummaryRequest(token, {
+                operatorId: selectedOperatorId,
+                siteId: selectedSiteId,
+            });
+            setSummary(nextSummary);
+        } catch (error) {
+            console.error('Failed to fetch dashboard summary', error);
+        } finally {
+            setLoadingSummary(false);
+        }
+    }, [canViewFullDashboard, selectedOperatorId, selectedSiteId, token, userRole]);
+
+    useEffect(() => {
+        fetchReferenceData();
+    }, [fetchReferenceData]);
+
+    useEffect(() => {
+        fetchSummary();
+    }, [fetchSummary]);
+
+    usePolling(() => {
+        void fetchSummary();
+    }, 15000);
     
     if (loading) {
         return <div>Loading...</div>;
@@ -148,11 +143,11 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="space-y-4 md:space-y-5">
+      <header className="flex flex-col gap-4 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between">
         <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">Live overview of gate activity and security status.</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Operations Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Command view for personnel presence, approvals, and gate movement.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
             {isAdmin && (
@@ -193,13 +188,25 @@ export default function DashboardPage() {
       </header>
 
       {canViewFullDashboard && (
-        <div className="space-y-4 md:space-y-6">
-            <StatsCards siteId={selectedSiteId} operatorId={selectedOperatorId} />
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <OnSiteByCompanyChart className="lg:col-span-4" operatorId={selectedOperatorId} siteId={selectedSiteId} />
-                <OnSiteByNationalityChart className="lg:col-span-3" operatorId={selectedOperatorId} siteId={selectedSiteId} />
+        <div className="space-y-4 md:space-y-5">
+            <OperationsCommandStrip summary={summary} isLoading={loadingSummary} />
+            <StatsCards summary={summary} isLoading={loadingSummary} />
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+                <div className="grid gap-4 lg:grid-cols-7">
+                    <OnSiteByCompanyChart
+                        className="lg:col-span-4"
+                        data={userRole === 'Admin' && selectedOperatorId === 'all' ? summary?.operators ?? [] : summary?.contractors ?? []}
+                        groupByOperator={userRole === 'Admin' && selectedOperatorId === 'all'}
+                        isLoading={loadingSummary}
+                    />
+                    <OnSiteByNationalityChart className="lg:col-span-3" data={summary?.nationalities ?? []} isLoading={loadingSummary} />
+                </div>
+                <div className="space-y-4">
+                    <OperationsActionQueue summary={summary} isLoading={loadingSummary} />
+                    <SiteOccupancyList sites={summary?.sites ?? []} totalOnSite={summary?.totalOnSite ?? 0} isLoading={loadingSummary} />
+                </div>
             </div>
-            <RecentActivityTable activity={gateActivity} users={users} sites={sites} isLoading={loadingData} />
+            <RecentActivityTable activity={summary?.recentActivity ?? []} isLoading={loadingSummary} />
         </div>
       )}
 

@@ -10,25 +10,35 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { AccessRequest, User, Certificate as CertificateType, Site } from "@/lib/types";
+import type { AccessRequest, User } from "@/lib/types";
 import { format, isBefore, parseISO } from 'date-fns';
-import { Briefcase, Building, Calendar, Contact, FileBadge, Hash, MessageSquare, ShieldAlert, ShieldCheck, User as UserIcon, Users } from "lucide-react";
+import { Briefcase, Building, CalendarClock, CheckCircle2, Contact, FileCheck2, Hash, ShieldAlert, ShieldCheck, ShieldX, Trash2, Users } from "lucide-react";
 import { useWorkerData } from "@/hooks/use-worker-data";
-import { useFirestore } from "@/firebase";
-import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 import { Textarea } from "../ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useState } from "react";
 
 interface RequestDetailsDialogProps {
   request: AccessRequest;
-  allUsers: User[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onDelete?: (request: AccessRequest) => void | Promise<void>;
+  onApprove?: (request: AccessRequest) => void;
+  onDeny?: (requestId: string) => void;
 }
 
 const isCertificateExpired = (expiryDate?: string) => {
@@ -36,9 +46,8 @@ const isCertificateExpired = (expiryDate?: string) => {
     return isBefore(parseISO(expiryDate), new Date());
 };
 
-const WorkerDetails = ({ worker, site }: { worker: User, site: Site | null}) => {
-    const { workerData, loading } = useWorkerData(worker.idNumber);
-    const requiredCerts = site?.requiredCertificates || [];
+const WorkerDetails = ({ worker, requiredCerts }: { worker: User; requiredCerts: string[] }) => {
+    const { workerData, loading } = useWorkerData(worker.idNumber ?? undefined);
 
     const userCerts = worker.certificates || [];
     const userCertNames = userCerts.map(c => c.name);
@@ -47,7 +56,14 @@ const WorkerDetails = ({ worker, site }: { worker: User, site: Site | null}) => 
 
     return (
         <div className="p-3 rounded-md bg-muted/50 border flex flex-col gap-3">
-            <div className="font-semibold">{worker.name}</div>
+            <div className="flex items-center justify-between gap-2">
+                <div className="font-semibold">{worker.name}</div>
+                {worker.presence?.status && (
+                    <Badge variant={worker.presence.status === 'OnSite' ? 'default' : 'secondary'}>
+                        {worker.presence.status === 'OnSite' ? 'On Site' : 'Off Site'}
+                    </Badge>
+                )}
+            </div>
             <div className="text-sm text-muted-foreground flex items-center gap-2">
                 <Briefcase className="h-4 w-4" />
                 <span>{loading ? 'Loading...' : workerData?.jobTitle || 'N/A'}</span>
@@ -92,37 +108,78 @@ const WorkerDetails = ({ worker, site }: { worker: User, site: Site | null}) => 
 };
 
 
-export function RequestDetailsDialog({ request, allUsers, open, onOpenChange }: RequestDetailsDialogProps) {
+export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, onApprove, onDeny }: RequestDetailsDialogProps) {
+  const workersInRequest = request.workers ?? [];
+  const requiredCerts = request.siteRequiredCertificates ?? [];
+  const [isDeleting, setIsDeleting] = useState(false);
+  const workerCount = request.workerCount ?? request.workerIds?.length ?? workersInRequest.length;
+  const hasPendingDecision = request.status === 'Pending';
+  const certificateIssues = workersInRequest.reduce((count, worker) => {
+    const certNames = (worker.certificates ?? []).map((cert) => cert.name);
+    return count + requiredCerts.filter((cert) => !certNames.includes(cert)).length;
+  }, 0);
 
-  const firestore = useFirestore();
-  const [siteDetails, setSiteDetails] = useState<Site | null>(null);
-
-  useEffect(() => {
-    if (!firestore || !request?.siteId) return;
-    const siteRef = doc(firestore, 'sites', request.siteId);
-    getDoc(siteRef).then(docSnap => {
-        if (docSnap.exists()) {
-            setSiteDetails({id: docSnap.id, ...docSnap.data()} as Site);
-        }
-    })
-  }, [firestore, request?.siteId])
-
-  const workersInRequest = request.workerIds.map(id => allUsers.find(u => u.id === id)).filter(Boolean) as User[];
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(request);
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Failed to delete access request', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
   
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-xl w-[90vw] overflow-y-auto">
+      <SheetContent className="w-[92vw] overflow-y-auto sm:max-w-3xl">
         <SheetHeader>
-          <SheetTitle>Access Request Details</SheetTitle>
-          <SheetDescription>
-            Read-only view of the request submitted by {request.supervisorName}.
-          </SheetDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <SheetTitle>{request.siteName}</SheetTitle>
+              <SheetDescription>
+                Request from {request.contractorName} submitted by {request.supervisorName}.
+              </SheetDescription>
+            </div>
+            <Badge className={request.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-50' : request.status === 'Denied' ? 'bg-rose-50 text-rose-700 hover:bg-rose-50' : 'bg-amber-50 text-amber-700 hover:bg-amber-50'}>
+              {request.status}
+            </Badge>
+          </div>
         </SheetHeader>
-        <div className="space-y-6 py-6">
-            
-            <div className="space-y-4 p-4 rounded-lg border bg-background">
-                <h3 className="font-semibold text-lg">Contract Information</h3>
+        <div className="space-y-5 py-6">
+            <div className="grid gap-3 sm:grid-cols-4">
+                <div className="rounded-md border border-slate-200 p-3">
+                    <div className="text-xs uppercase text-muted-foreground">Workers</div>
+                    <div className="mt-1 text-2xl font-semibold">{workerCount}</div>
+                </div>
+                <div className="rounded-md border border-slate-200 p-3">
+                    <div className="text-xs uppercase text-muted-foreground">On site</div>
+                    <div className="mt-1 text-2xl font-semibold">{request.onSiteCount ?? 0}</div>
+                </div>
+                <div className="rounded-md border border-slate-200 p-3">
+                    <div className="text-xs uppercase text-muted-foreground">Certificate holds</div>
+                    <div className="mt-1 text-2xl font-semibold">{certificateIssues}</div>
+                </div>
+                <div className="rounded-md border border-slate-200 p-3">
+                    <div className="text-xs uppercase text-muted-foreground">Decision</div>
+                    <div className="mt-1 text-sm font-semibold">{request.status}</div>
+                </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-slate-200 bg-background p-4">
+                <h3 className="flex items-center gap-2 text-base font-semibold"><CalendarClock className="h-4 w-4" /> Workflow Timeline</h3>
+                <div className="grid gap-3 md:grid-cols-3">
+                    <TimelineItem icon={FileCheck2} title="Submitted" value={formatDateTime(request.requestedAt)} active />
+                    <TimelineItem icon={request.status === 'Denied' ? ShieldX : ShieldCheck} title="Decision" value={request.status === 'Pending' ? 'Awaiting approval' : request.status} active={request.status !== 'Pending'} />
+                    <TimelineItem icon={CheckCircle2} title="Access Window" value={request.status === 'Approved' ? `${formatDate(request.validFrom)} to ${request.expiresAt === 'Permanent' ? 'Permanent' : formatDate(request.expiresAt)}` : 'Not issued'} active={request.status === 'Approved'} />
+                </div>
+            </div>
+
+            <div className="space-y-4 rounded-lg border border-slate-200 bg-background p-4">
+                <h3 className="text-base font-semibold">Contract Information</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="grid w-full items-center gap-1.5">
                         <Label htmlFor="operatorName">Operator</Label>
@@ -149,22 +206,116 @@ export function RequestDetailsDialog({ request, allUsers, open, onOpenChange }: 
                 )}
             </div>
 
-            <div className="space-y-4 p-4 rounded-lg border bg-background">
-                <h3 className="font-semibold text-lg flex items-center gap-2"><Users className="h-5 w-5"/>Personnel ({workersInRequest.length})</h3>
+            <div className="space-y-4 rounded-lg border border-slate-200 bg-background p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="flex items-center gap-2 text-base font-semibold"><Users className="h-5 w-5"/>Personnel Readiness ({workersInRequest.length})</h3>
+                    <Badge variant="outline">{requiredCerts.length} required certificates</Badge>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {workersInRequest.map(worker => (
-                        <WorkerDetails key={worker.id} worker={worker} site={siteDetails} />
-                    ))}
+                    {workersInRequest.length > 0 ? workersInRequest.map(worker => (
+                        <WorkerDetails key={worker.id} worker={worker} requiredCerts={requiredCerts} />
+                    )) : (
+                        <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground md:col-span-2">No worker details returned for this request.</div>
+                    )}
                 </div>
             </div>
 
         </div>
-        <SheetFooter>
+        <SheetFooter className="gap-2 sm:gap-0">
+          {hasPendingDecision && onDeny && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                onDeny(request.id);
+                onOpenChange(false);
+              }}
+            >
+              <ShieldX className="mr-2 h-4 w-4" />
+              Deny
+            </Button>
+          )}
+          {hasPendingDecision && onApprove && (
+            <Button
+              onClick={() => {
+                onApprove(request);
+                onOpenChange(false);
+              }}
+            >
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              Approve
+            </Button>
+          )}
+          {onDelete && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="sm:mr-auto" disabled={isDeleting}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Request
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete access request?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove the request for {request.siteName}. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+                    {isDeleting ? 'Deleting...' : 'Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
   );
+}
+
+function formatDateTime(value?: string) {
+    if (!value) return 'N/A';
+    try {
+        return format(parseISO(value), 'dd MMM yyyy, HH:mm');
+    } catch {
+        return 'Invalid date';
+    }
+}
+
+function formatDate(value?: string) {
+    if (!value) return 'N/A';
+    try {
+        return format(parseISO(value), 'dd MMM yyyy');
+    } catch {
+        return 'Invalid date';
+    }
+}
+
+function TimelineItem({
+    icon: Icon,
+    title,
+    value,
+    active,
+}: {
+    icon: typeof FileCheck2;
+    title: string;
+    value: string;
+    active: boolean;
+}) {
+    return (
+        <div className="rounded-md border border-slate-200 p-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+                <span className={cn('flex h-7 w-7 items-center justify-center rounded-md', active ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-500')}>
+                    <Icon className="h-4 w-4" />
+                </span>
+                {title}
+            </div>
+            <div className="mt-2 text-sm text-muted-foreground">{value}</div>
+        </div>
+    );
 }
 
 // Add icon prop to Input component's interface
