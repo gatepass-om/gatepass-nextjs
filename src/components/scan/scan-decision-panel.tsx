@@ -61,21 +61,21 @@ export function ScanDecisionPanel({
   const isOnSite = lastActivity === 'CheckIn';
 
   return (
-    <Card className="border-slate-200">
-      <CardHeader className="border-b border-slate-200 pb-4">
+    <Card className="border-border">
+      <CardHeader className="border-b border-border pb-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle className="text-lg">Decision Console</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">Operational decision state for the active scan.</p>
           </div>
-          <Badge className={isApproved ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-50' : scannedUser ? 'bg-rose-50 text-rose-700 hover:bg-rose-50' : 'bg-slate-100 text-slate-700 hover:bg-slate-100'}>
+          <Badge className={isApproved ? 'bg-success/15 text-success border border-success/30 hover:bg-success/15' : scannedUser ? 'bg-danger/15 text-danger border border-danger/30 hover:bg-danger/15' : 'bg-muted text-muted-foreground border border-border hover:bg-muted'}>
             {smartLockEnforced ? <BadgeCheck className="mr-1.5 h-3.5 w-3.5" /> : isApproved ? <ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> : scannedUser ? <ShieldX className="mr-1.5 h-3.5 w-3.5" /> : <IdCard className="mr-1.5 h-3.5 w-3.5" />}
             {smartLockEnforced ? 'Smart lock enforced' : getAccessMessage(accessStatus)}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4 p-5">
-        <div className="rounded-md border border-slate-200 p-3">
+        <div className="rounded-md border border-border p-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Building2 className="h-4 w-4" />
             Assigned site
@@ -94,8 +94,8 @@ export function ScanDecisionPanel({
                 </AlertDescription>
               </Alert>
             )}
-            <div className="flex items-start gap-3 rounded-md border border-slate-200 p-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-slate-950 text-sm font-semibold text-white">
+            <div className="flex items-start gap-3 rounded-md border border-border p-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
                 {scannedUser.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}
               </div>
               <div className="min-w-0">
@@ -106,14 +106,14 @@ export function ScanDecisionPanel({
             </div>
 
             <div className="grid gap-2 sm:grid-cols-2">
-              <div className="rounded-md border border-slate-200 p-3">
+              <div className="rounded-md border border-border p-3">
                 <div className="text-xs uppercase text-muted-foreground">Presence</div>
                 <div className="mt-1 flex items-center gap-2 font-medium">
-                  {isOnSite ? <LogIn className="h-4 w-4 text-cyan-700" /> : <LogOut className="h-4 w-4 text-slate-500" />}
+                  {isOnSite ? <LogIn className="h-4 w-4 text-accent" /> : <LogOut className="h-4 w-4 text-muted-foreground" />}
                   {scanRequired ? (isOnSite ? 'On site' : 'Off site') : 'Not tracked by scan'}
                 </div>
               </div>
-              <div className="rounded-md border border-slate-200 p-3">
+              <div className="rounded-md border border-border p-3">
                 <div className="text-xs uppercase text-muted-foreground">Request</div>
                 <div className="mt-1 flex items-center gap-2 font-medium">
                   <CalendarClock className="h-4 w-4 text-muted-foreground" />

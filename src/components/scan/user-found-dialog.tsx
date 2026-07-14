@@ -96,7 +96,7 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
               <Building className="h-4 w-4" /> <span>{scannedUser.company || 'N/A'}</span>
             </div>
              {lastActivity && (
-                 <Badge variant={lastActivity === 'CheckIn' ? 'default' : 'secondary'} className={lastActivity === 'CheckIn' ? 'bg-blue-500/20 text-blue-700 border-transparent hover:bg-blue-500/30' : 'bg-gray-500/20 text-gray-700 border-transparent hover:bg-gray-500/30'}>
+                 <Badge variant={lastActivity === 'CheckIn' ? 'default' : 'secondary'} className={lastActivity === 'CheckIn' ? 'bg-primary/20 text-primary border-transparent hover:bg-primary/30' : 'bg-muted text-muted-foreground border-transparent hover:bg-muted/80'}>
                     {lastActivity === 'CheckIn' ? 'Currently On-Site' : 'Currently Off-Site'}
                 </Badge>
             )}
@@ -112,7 +112,7 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
                 </AlertDescription>
               </Alert>
            )}
-           <Badge className={`w-full justify-center text-base py-1 px-3 ${isAccessGranted ? 'bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30' : 'bg-red-500/20 text-red-700 border-transparent hover:bg-red-500/30'}`}>
+           <Badge className={`w-full justify-center text-base py-1 px-3 ${isAccessGranted ? 'bg-success/20 text-success border-transparent hover:bg-success/30' : 'bg-danger/20 text-danger border-transparent hover:bg-danger/30'}`}>
               {isAccessGranted ? <Check className="mr-2 h-5 w-5" /> : <ShieldX className="mr-2 h-5 w-5" />}
               {isAccessGranted ? 'Access Approved' : 'Access Denied'}
             </Badge>

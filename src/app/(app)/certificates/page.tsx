@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,7 +16,7 @@ import { FileBadge, Loader2, Plus, Trash2, Pencil, MoreHorizontal } from 'lucide
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useSession } from '@/providers/session-provider';
 import { createCertificateTypeRequest, deleteCertificateTypeRequest, listCertificateTypesRequest, updateCertificateTypeRequest } from '@/lib/api';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -25,9 +25,10 @@ const formSchema = z.object({
 });
 
 export default function CertificatesPage() {
-    const { firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin']);
+    const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin']);
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingCert, setEditingCert] = useState<CertificateType | null>(null);
     const [editedName, setEditedName] = useState('');
@@ -40,7 +41,7 @@ export default function CertificatesPage() {
     });
 
     useEffect(() => {
-        if (!token || !firestoreUser) return;
+        if (!token || !currentUser) return;
         setLoading(true);
         listCertificateTypesRequest(token)
             .then((certs) => {
@@ -51,7 +52,7 @@ export default function CertificatesPage() {
                 toast({ variant: "destructive", title: "Load Error", description: "Could not load certificate types." });
             })
             .finally(() => setLoading(false));
-    }, [token, firestoreUser, toast]);
+    }, [token, currentUser, toast]);
 
     const handleAddCertificate = async (values: z.infer<typeof formSchema>) => {
         if (!token) {
@@ -65,6 +66,7 @@ export default function CertificatesPage() {
             setCertificateTypes((updated as CertificateType[]).sort((a, b) => a.name.localeCompare(b.name)));
             toast({ title: "Certificate Type Added", description: `"${trimmed}" has been added.` });
             form.reset();
+            setIsAddOpen(false);
         } catch (error: any) {
             console.error("Error adding certificate type: ", error);
             toast({ variant: "destructive", title: "Creation Error", description: error.message || "Could not add certificate type." });
@@ -103,7 +105,7 @@ export default function CertificatesPage() {
         }
     };
     
-    if (authLoading || !firestoreUser) {
+    if (authLoading || !currentUser) {
         return <div>Loading...</div>;
     }
 
@@ -114,19 +116,71 @@ export default function CertificatesPage() {
     return (
         <>
         <div className="space-y-4 md:space-y-6">
-            <header>
-                <h1 className="text-3xl font-bold tracking-tight">Certificate Management</h1>
-                <p className="text-muted-foreground">Manage the types of certificates available in the system.</p>
+            <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Certificate Management</h1>
+                    <p className="text-muted-foreground">Manage the types of certificates available in the system.</p>
+                </div>
+                <Dialog
+                    open={isAddOpen}
+                    onOpenChange={(open) => {
+                        setIsAddOpen(open);
+                        if (!open) form.reset();
+                    }}
+                >
+                    <DialogTrigger asChild>
+                        <Button>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add certificate type
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-lg">
+                        <DialogHeader>
+                            <DialogTitle>Add New Certificate Type</DialogTitle>
+                            <DialogDescription>Create a new type of certificate that can be used across the application.</DialogDescription>
+                        </DialogHeader>
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(handleAddCertificate)} className="space-y-4">
+                                <div className="max-h-[75vh] space-y-4 overflow-y-auto">
+                                    <FormField
+                                        control={form.control}
+                                        name="name"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Certificate Name</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="e.g., Hot Work Permit" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <DialogFooter>
+                                    <Button type="button" variant="ghost" onClick={() => setIsAddOpen(false)} disabled={form.formState.isSubmitting}>
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                                        {form.formState.isSubmitting ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Plus className="mr-2 h-4 w-4" />
+                                        )}
+                                        Add Certificate
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </Form>
+                    </DialogContent>
+                </Dialog>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Available Certificate Types</CardTitle>
-                            <CardDescription>This is a list of all certificate types that can be required by sites or attached to user profiles.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Available Certificate Types</CardTitle>
+                    <CardDescription>This is a list of all certificate types that can be required by sites or attached to user profiles.</CardDescription>
+                </CardHeader>
+                <CardContent>
                              <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -206,41 +260,6 @@ export default function CertificatesPage() {
                             </Table>
                         </CardContent>
                     </Card>
-                </div>
-                <div className="lg:col-span-1">
-                     <Card>
-                        <CardHeader>
-                            <CardTitle>Add New Certificate Type</CardTitle>
-                            <CardDescription>Create a new type of certificate that can be used across the application.</CardDescription>
-                        </CardHeader>
-                        <Form {...form}>
-                            <form onSubmit={form.handleSubmit(handleAddCertificate)}>
-                                <CardContent className="space-y-4">
-                                    <FormField
-                                        control={form.control}
-                                        name="name"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Certificate Name</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="e.g., Hot Work Permit" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </CardContent>
-                                <CardFooter>
-                                    <Button type="submit">
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Add Certificate
-                                    </Button>
-                                </CardFooter>
-                            </form>
-                        </Form>
-                    </Card>
-                </div>
-            </div>
         </div>
 
         <Dialog

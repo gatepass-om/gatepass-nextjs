@@ -8,6 +8,8 @@ import type { Operator, Contractor, User, Site, AccessRequest } from '@/lib/type
 import { OperatorsTable } from '@/components/companies/operators-table';
 import { ContractorsTable } from '@/components/companies/contractors-table';
 import { NewCompanyForm } from '@/components/companies/new-company-form';
+import { Button } from '@/components/ui/button';
+import { Building2, HardHat } from 'lucide-react';
 import { useSession } from '@/providers/session-provider';
 import {
   listOperatorsRequest,
@@ -23,21 +25,37 @@ import {
   deleteContractorRequest,
 } from '@/lib/api';
 import { usePolling } from '@/lib/polling';
+import { useRouter } from 'next/navigation';
+
+const getHomepageForRole = (role: User['role']) => {
+  switch (role) {
+    case 'Contractor Admin':
+      return '/access-requests';
+    case 'Worker':
+      return '/profile';
+    default:
+      return '/dashboard';
+  }
+};
 
 export default function CompaniesPage() {
-  const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin']);
-  const { token } = useSession();
+  const { currentUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin']);
+  const { token, startImpersonation } = useSession();
+  const router = useRouter();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  
+  const [isOperatorFormOpen, setIsOperatorFormOpen] = useState(false);
+  const [isContractorFormOpen, setIsContractorFormOpen] = useState(false);
+
   const { toast } = useToast();
+  const canManageCompanies = currentUser?.role === 'Admin';
 
   const fetchData = useCallback(async () => {
-    if (!token || !firestoreUser?.id) return;
+    if (!token || !currentUser?.id) return;
     setLoadingData(true);
 
     try {
@@ -66,7 +84,7 @@ export default function CompaniesPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [token, firestoreUser?.id, toast]);
+  }, [token, currentUser?.id, toast]);
 
   useEffect(() => {
     void fetchData();
@@ -76,9 +94,9 @@ export default function CompaniesPage() {
     void fetchData();
   }, 20000);
 
-  const handleAddCompany = async (name: string, type: 'operator' | 'contractor') => {
+  const handleAddCompany = async (name: string, type: 'operator' | 'contractor'): Promise<boolean> => {
     const trimmed = name.trim();
-    if (!token || !trimmed) return;
+    if (!token || !trimmed) return false;
     try {
       if (type === 'operator') {
         await createOperatorRequest(token, { name: trimmed });
@@ -87,9 +105,11 @@ export default function CompaniesPage() {
       }
       toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} Created`, description: `Company "${trimmed}" has been added.` });
       void fetchData();
+      return true;
     } catch (error: any) {
       console.error(`Error adding ${type}:`, error);
       toast({ variant: "destructive", title: "Creation Failed", description: error.message || `Could not create the new ${type}.` });
+      return false;
     }
   };
 
@@ -143,7 +163,25 @@ export default function CompaniesPage() {
     }
   };
 
-  if (loading || !firestoreUser) {
+  const handleImpersonateUser = async (user: User) => {
+    try {
+      const impersonated = await startImpersonation(user.id);
+      toast({
+        title: "Impersonation Started",
+        description: `You are now viewing GatePass as ${impersonated.name}.`,
+      });
+      router.push(getHomepageForRole(impersonated.role));
+    } catch (error: any) {
+      console.error('Error starting impersonation:', error);
+      toast({
+        variant: "destructive",
+        title: "Impersonation Failed",
+        description: error.message || "Could not start impersonation.",
+      });
+    }
+  };
+
+  if (loading || !currentUser) {
     return <div>Loading...</div>;
   }
 
@@ -153,33 +191,69 @@ export default function CompaniesPage() {
   
   return (
     <div className="space-y-4 md:space-y-6">
-       <header>
-        <h1 className="text-3xl font-bold tracking-tight">Company Management</h1>
-        <p className="text-muted-foreground">Overview of Operator and Contractor companies in the system.</p>
+       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Company Management</h1>
+          <p className="text-muted-foreground">
+            {canManageCompanies
+              ? 'Overview of Operator and Contractor companies in the system.'
+              : 'Contractor companies connected to your operator sites and access requests.'}
+          </p>
+        </div>
+        {canManageCompanies && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => setIsOperatorFormOpen(true)}>
+              <Building2 className="mr-2 h-4 w-4" />
+              New operator
+            </Button>
+            <Button onClick={() => setIsContractorFormOpen(true)}>
+              <HardHat className="mr-2 h-4 w-4" />
+              New contractor
+            </Button>
+          </div>
+        )}
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <NewCompanyForm companyType="operator" onAddCompany={handleAddCompany} />
-          <NewCompanyForm companyType="contractor" onAddCompany={handleAddCompany} />
-      </div>
+      {canManageCompanies && (
+        <>
+          <NewCompanyForm
+            companyType="operator"
+            onAddCompany={handleAddCompany}
+            open={isOperatorFormOpen}
+            onOpenChange={setIsOperatorFormOpen}
+          />
+          <NewCompanyForm
+            companyType="contractor"
+            onAddCompany={handleAddCompany}
+            open={isContractorFormOpen}
+            onOpenChange={setIsContractorFormOpen}
+          />
+        </>
+      )}
 
       <div className="space-y-6">
-        <OperatorsTable
-            operators={operators}
-            users={users}
-            sites={sites}
-            isLoading={loadingData}
-            onRenameOperator={handleRenameOperator}
-            onDeleteOperator={handleDeleteOperator}
-        />
-        <ContractorsTable
-            contractors={contractors}
-            users={users}
-            accessRequests={requests}
-            isLoading={loadingData}
-            onRenameContractor={handleRenameContractor}
-            onDeleteContractor={handleDeleteContractor}
-        />
+        {canManageCompanies && (
+	        <OperatorsTable
+	            operators={operators}
+	            users={users}
+	            sites={sites}
+	            isLoading={loadingData}
+	            onRenameOperator={handleRenameOperator}
+	            onDeleteOperator={handleDeleteOperator}
+              onImpersonateUser={handleImpersonateUser}
+              canManage={canManageCompanies}
+	        />
+        )}
+	        <ContractorsTable
+	            contractors={contractors}
+	            users={users}
+	            accessRequests={requests}
+	            isLoading={loadingData}
+	            onRenameContractor={canManageCompanies ? handleRenameContractor : undefined}
+	            onDeleteContractor={canManageCompanies ? handleDeleteContractor : undefined}
+              onImpersonateUser={canManageCompanies ? handleImpersonateUser : undefined}
+              canManage={canManageCompanies}
+	        />
       </div>
     </div>
   );

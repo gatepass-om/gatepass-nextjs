@@ -22,11 +22,29 @@ export type SmartAccessProvider = {
   name: string;
   integrationKey: string;
   providerKind: string;
+  baseUrl?: string | null;
   supportsOnlineProvisioning: boolean;
   supportsRemoteCommands: boolean;
   supportsEventIngestion: boolean;
   supportsStatusPolling: boolean;
   supportsOfflineMobileSync: boolean;
+};
+
+export type DiscoveredSmartAccessDoor = {
+  externalId: string;
+  name: string;
+  model?: string | null;
+  rawType?: string | null;
+};
+
+export type TestSmartAccessProviderResult = {
+  canConnect: boolean;
+  credentialsAccepted: boolean;
+  minimalFunctionalityReady: boolean;
+  status: string;
+  message: string;
+  checks: string[];
+  doors: DiscoveredSmartAccessDoor[];
 };
 
 export type PhysicalAsset = {
@@ -157,12 +175,48 @@ export type DeviceCommand = {
   commandType: string;
   status: string;
   requestedAtUtc: string;
+  sentAtUtc?: string | null;
   completedAtUtc?: string | null;
+  externalCommandId?: string | null;
+  resultPayloadJson?: string | null;
   failureReason?: string | null;
 };
 
 export function listSmartAccessProviders(token: string) {
   return apiRequest<SmartAccessProvider[]>('/smart-access/providers', { token });
+}
+
+export function createSmartAccessProvider(token: string, input: {
+  tenantId?: string | null;
+  name: string;
+  integrationKey: string;
+  providerKind: number | string;
+  supportsOnlineProvisioning: boolean;
+  supportsRemoteCommands: boolean;
+  supportsEventIngestion: boolean;
+  supportsStatusPolling: boolean;
+  supportsOfflineMobileSync: boolean;
+  baseUrl?: string | null;
+  configurationJson?: string | null;
+}) {
+  return apiRequest<SmartAccessProvider>('/smart-access/providers', {
+    method: 'POST',
+    token,
+    body: { ...input },
+  });
+}
+
+export function testSmartAccessProvider(token: string, input: {
+  integrationKey: string;
+  providerKind: number | string;
+  baseUrl?: string | null;
+  configurationJson?: string | null;
+}) {
+  return apiRequest<TestSmartAccessProviderResult>('/smart-access/providers/test', {
+    method: 'POST',
+    token,
+    body: { ...input },
+  });
 }
 
 export function listSmartAccessAssets(token: string, input?: ListParams) {
@@ -177,12 +231,75 @@ export function listSmartAccessPoints(token: string, input?: ListParams) {
   return apiRequest<PhysicalAccessPoint[]>(`/smart-access/access-points${buildQuery(input)}`, { token });
 }
 
+export function createSmartAccessPoint(token: string, input: {
+  siteId: string;
+  accessZoneId?: string | null;
+  physicalAssetId?: string | null;
+  name: string;
+  accessPointType: number | string;
+  externalReference?: string | null;
+  supportsEntry: boolean;
+  supportsExit: boolean;
+}) {
+  return apiRequest<PhysicalAccessPoint>('/smart-access/access-points', {
+    method: 'POST',
+    token,
+    body: { ...input },
+  });
+}
+
 export function listSmartAccessDevices(token: string, input?: ListParams) {
   return apiRequest<AccessControlDevice[]>(`/smart-access/devices${buildQuery(input)}`, { token });
 }
 
+export function createSmartAccessDevice(token: string, input: {
+  smartAccessProviderId: string;
+  siteId: string;
+  physicalAssetId?: string | null;
+  physicalAccessPointId?: string | null;
+  name: string;
+  deviceKind: number | string;
+  model: string;
+  serialNumber: string;
+  controllerIdentifier?: string | null;
+  externalDeviceId?: string | null;
+  firmwareVersion?: string | null;
+  isBatteryFree: boolean;
+  supportsRemoteCommands: boolean;
+  supportsStatusPolling: boolean;
+  supportsOfflineSync: boolean;
+}) {
+  return apiRequest<AccessControlDevice>('/smart-access/devices', {
+    method: 'POST',
+    token,
+    body: { ...input },
+  });
+}
+
 export function listSmartAccessPolicyMappings(token: string, input?: ListParams) {
   return apiRequest<AccessPolicyMapping[]>(`/smart-access/policy-mappings${buildQuery(input)}`, { token });
+}
+
+export function createSmartAccessPolicyMapping(token: string, input: {
+  siteId: string;
+  name: string;
+  description?: string | null;
+  smartAccessProviderId?: string | null;
+  accessZoneId?: string | null;
+  physicalAccessPointId?: string | null;
+  physicalAssetId?: string | null;
+  appliesToWorkers: boolean;
+  appliesToVisitors: boolean;
+  isDefaultForApprovedRequests: boolean;
+  requiresManualProvisioning: boolean;
+  priority: number;
+  isExclusive: boolean;
+}) {
+  return apiRequest<AccessPolicyMapping>('/smart-access/policy-mappings', {
+    method: 'POST',
+    token,
+    body: { ...input },
+  });
 }
 
 export function listSmartAccessAssignments(token: string, input?: { siteId?: string }) {
@@ -206,4 +323,42 @@ export function listSmartAccessEvents(token: string, input?: { siteId?: string }
 
 export function listSmartAccessCommands(token: string, input?: { siteId?: string }) {
   return apiRequest<DeviceCommand[]>(`/smart-access/commands${buildQuery(input)}`, { token });
+}
+
+export function createSmartAccessCommand(token: string, input: {
+  smartAccessProviderId: string;
+  siteId: string;
+  physicalAccessPointId?: string | null;
+  accessControlDeviceId?: string | null;
+  commandType: 'Unlock' | 'Relock' | 'Sync' | 'RefreshStatus' | 'RevokeCredential' | string;
+  payloadJson?: string;
+}) {
+  return apiRequest<DeviceCommand>('/smart-access/commands', {
+    method: 'POST',
+    token,
+    body: input,
+  });
+}
+
+export function importSmartAccessEvent(token: string, input: {
+  smartAccessProviderId: string;
+  siteId: string;
+  userId?: string | null;
+  accessRequestId?: string | null;
+  physicalAssetId?: string | null;
+  physicalAccessPointId?: string | null;
+  accessControlDeviceId?: string | null;
+  eventType: 'AccessGranted' | 'AccessDenied' | 'UnlockSucceeded' | 'UnlockFailed' | 'ForcedOpen' | 'TamperAlarm' | 'DeviceOffline' | 'DeviceOnline' | 'SyncCompleted' | 'SyncFailed' | 'CredentialUpdated' | 'HealthAlert' | string;
+  severity?: 'Info' | 'Warning' | 'Critical' | string;
+  occurredAtUtc?: string;
+  externalEventId?: string;
+  correlationKey?: string;
+  message?: string;
+  rawPayloadJson?: string;
+}) {
+  return apiRequest<DeviceEvent>('/smart-access/events/import', {
+    method: 'POST',
+    token,
+    body: input,
+  });
 }

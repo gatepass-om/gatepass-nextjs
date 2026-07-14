@@ -4,7 +4,6 @@
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -28,7 +27,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface NewSiteFormProps {
-    onNewSite: (site: Omit<Site, 'id'>) => void;
+    onNewSite: (site: Omit<Site, 'id'>) => Promise<boolean>;
     users: User[];
     certificateTypes: CertificateType[];
     operators: Operator[];
@@ -37,6 +36,7 @@ interface NewSiteFormProps {
     isLoadingOperators: boolean;
     currentUserRole: UserRole;
     currentUserOperatorId?: string | null;
+    closeDialog: () => void;
 }
 
 export function NewSiteForm({
@@ -49,6 +49,7 @@ export function NewSiteForm({
     isLoadingOperators,
     currentUserRole,
     currentUserOperatorId,
+    closeDialog,
 }: NewSiteFormProps) {
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -62,7 +63,7 @@ export function NewSiteForm({
 
     const managers = users.filter(u => u.role === 'Manager' || u.role === 'Admin' || u.role === 'Operator Admin');
 
-    function onSubmit(values: FormValues) {
+    async function onSubmit(values: FormValues) {
         if (currentUserRole === 'Admin' && !values.operatorId) {
             form.setError("operatorId", { message: "Please select an operator." });
             return;
@@ -71,25 +72,23 @@ export function NewSiteForm({
             ? currentUserOperatorId || ""
             : values.operatorId || "";
 
-        onNewSite({
+        const success = await onNewSite({
             name: values.name,
             operatorId,
             managerIds: values.managerIds,
             requiredCertificates: values.requiredCertificates || [],
         });
 
-        form.reset();
+        if (success) {
+            form.reset();
+            closeDialog();
+        }
     }
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Create a New Site</CardTitle>
-                <CardDescription>Enter the site details below.</CardDescription>
-            </CardHeader>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <CardContent className="space-y-6">
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-4">
+                <div className="space-y-6 max-h-[70vh] overflow-y-auto px-1 pr-4">
                         <FormField control={form.control} name="name" render={({ field }) => (
                             <FormItem><FormLabel>Site Name</FormLabel><FormControl><Input placeholder="e.g., Main Headquarters" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
@@ -297,12 +296,16 @@ export function NewSiteForm({
                                 </FormItem>
                             )}
                         />
-                    </CardContent>
-                    <CardFooter>
-                        <Button type="submit">Create Site</Button>
-                    </CardFooter>
-                </form>
-            </Form>
-        </Card>
+                </div>
+                <div className="flex justify-end gap-2 pt-8">
+                    <Button type="button" variant="ghost" onClick={closeDialog} disabled={form.formState.isSubmitting}>
+                        Cancel
+                    </Button>
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                        {form.formState.isSubmitting ? 'Creating...' : 'Create Site'}
+                    </Button>
+                </div>
+            </form>
+        </Form>
     )
 }

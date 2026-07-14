@@ -28,11 +28,11 @@ import {
 
 export default function UsersPage() {
   const {
-    firestoreUser,
+    currentUser,
     loading: authLoading,
     isAuthorized,
     UnauthorizedComponent,
-  } = useAuthProtection(["Admin", "Operator Admin", "Contractor Admin"]);
+  } = useAuthProtection(["Admin", "Operator Admin", "Contractor Admin", "Manager"]);
   const { token } = useSession();
   const [users, setUsers] = useState<User[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
@@ -44,9 +44,10 @@ export default function UsersPage() {
 
   const canCreateUser = useMemo(() => {
     return ["Admin", "Operator Admin", "Contractor Admin"].includes(
-      firestoreUser?.role as string
+      currentUser?.role as string
     );
-  }, [firestoreUser?.role]);
+  }, [currentUser?.role]);
+  const canMutateUsers = canCreateUser;
 
   const normalizeSite = useCallback((site: any): Site => {
     return {
@@ -59,7 +60,7 @@ export default function UsersPage() {
   }, []);
 
   const fetchData = useCallback(async () => {
-    if (!token || !firestoreUser) {
+    if (!token || !currentUser) {
       if (!authLoading) setLoading(false);
       return;
     }
@@ -69,8 +70,8 @@ export default function UsersPage() {
       const [sitesData, contractorsData, operatorsData] = await Promise.all([
         listSitesRequest(
           token,
-          firestoreUser.role === "Operator Admin" && firestoreUser.operatorId
-            ? { operatorId: firestoreUser.operatorId }
+          currentUser.role === "Operator Admin" && currentUser.operatorId
+            ? { operatorId: currentUser.operatorId }
             : undefined
         ),
         listContractorsRequest(token),
@@ -83,18 +84,18 @@ export default function UsersPage() {
       setOperators(operatorsData as Operator[]);
 
       let userFilters: { operatorId?: string; contractorId?: string } = {};
-      if (firestoreUser.role === "Operator Admin") {
-        if (firestoreUser.operatorId) {
-          userFilters.operatorId = firestoreUser.operatorId;
+      if (currentUser.role === "Operator Admin") {
+        if (currentUser.operatorId) {
+          userFilters.operatorId = currentUser.operatorId;
         } else {
           setUsers([]);
           setLoading(false);
           return;
         }
       }
-      if (firestoreUser.role === "Contractor Admin") {
-        if (firestoreUser.contractorId) {
-          userFilters.contractorId = firestoreUser.contractorId;
+      if (currentUser.role === "Contractor Admin") {
+        if (currentUser.contractorId) {
+          userFilters.contractorId = currentUser.contractorId;
         } else {
           setUsers([]);
           setLoading(false);
@@ -114,7 +115,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, firestoreUser, authLoading, normalizeSite, toast]);
+  }, [token, currentUser, authLoading, normalizeSite, toast]);
 
   useEffect(() => {
     void fetchData();
@@ -126,7 +127,7 @@ export default function UsersPage() {
       "id" | "status" | "idCardImageUrl" | "idNumber" | "certificates" | "notes"
     >
   ) => {
-    if (!token || !firestoreUser) {
+    if (!token || !currentUser) {
       toast({
         variant: "destructive",
         title: "Session expired",
@@ -138,11 +139,11 @@ export default function UsersPage() {
     let operatorId = newUser.operatorId;
     let contractorId = newUser.contractorId;
 
-    if (firestoreUser.role === "Operator Admin") {
-      operatorId = firestoreUser.operatorId;
+    if (currentUser.role === "Operator Admin") {
+      operatorId = currentUser.operatorId;
     }
-    if (firestoreUser.role === "Contractor Admin") {
-      contractorId = firestoreUser.contractorId;
+    if (currentUser.role === "Contractor Admin") {
+      contractorId = currentUser.contractorId;
     }
 
     try {
@@ -243,7 +244,7 @@ export default function UsersPage() {
     }
   };
 
-  if (authLoading || !firestoreUser) {
+  if (authLoading || !currentUser) {
     return <div>Loading...</div>;
   }
 
@@ -278,10 +279,10 @@ export default function UsersPage() {
                 contractors={contractors}
                 operators={operators}
                 isLoading={loading}
-                currentUserRole={firestoreUser.role}
-                currentUserId={firestoreUser.id}
-                currentUserOperatorId={firestoreUser.operatorId ?? undefined}
-                currentUserContractorId={firestoreUser.contractorId ?? undefined}
+                currentUserRole={currentUser.role}
+                currentUserId={currentUser.id}
+                currentUserOperatorId={currentUser.operatorId ?? undefined}
+                currentUserContractorId={currentUser.contractorId ?? undefined}
               />
             </DialogContent>
           </Dialog>
@@ -295,7 +296,8 @@ export default function UsersPage() {
         isLoading={loading}
         onDeleteUser={handleDeleteUser}
         onUpdateUser={handleUpdateUser}
-        currentUser={firestoreUser}
+        currentUser={currentUser}
+        canMutateUsers={canMutateUsers}
       />
     </div>
   );

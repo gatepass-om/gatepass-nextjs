@@ -1,5 +1,6 @@
 
 'use client';
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -10,12 +11,15 @@ import {
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import type { Contractor, User, AccessRequest } from '@/lib/types';
-import { Loader2, ClipboardList, User as UserIcon, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Loader2, ClipboardList, User as UserIcon, MoreHorizontal, Pencil, Trash2, UserCheck, Eye } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import {
@@ -35,15 +39,21 @@ interface ContractorsTableProps {
   isLoading?: boolean;
   onRenameContractor?: (contractorId: string, name: string) => void;
   onDeleteContractor?: (contractorId: string, name: string) => void;
+  onImpersonateUser?: (user: User) => void;
+  canManage?: boolean;
 }
 
-export function ContractorsTable({ contractors, users, accessRequests, isLoading = false, onRenameContractor, onDeleteContractor }: ContractorsTableProps) {
+export function ContractorsTable({ contractors, users, accessRequests, isLoading = false, onRenameContractor, onDeleteContractor, onImpersonateUser, canManage = true }: ContractorsTableProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null);
   const [editedName, setEditedName] = useState('');
   
   const getContractorPersonnelCount = (contractorId: string) => {
     return users.filter(u => u.contractorId === contractorId && (u.role === 'Worker' || u.role === 'Supervisor')).length;
+  }
+
+  const getContractorPersonnel = (contractorId: string) => {
+    return users.filter(u => u.contractorId === contractorId && (u.role === 'Contractor Admin' || u.role === 'Supervisor' || u.role === 'Worker'));
   }
 
   const getActiveRequestCount = (contractorId: string) => {
@@ -71,9 +81,15 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
               {isLoading ? (
                 <TableRow><TableCell colSpan={4} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
               ) : contractors.length > 0 ? (
-                contractors.map((contractor) => (
-                  <TableRow key={contractor.id}>
-                    <TableCell className="font-medium whitespace-nowrap">{contractor.name}</TableCell>
+	                contractors.map((contractor) => {
+                    const personnel = getContractorPersonnel(contractor.id);
+                    return (
+	                  <TableRow key={contractor.id}>
+                    <TableCell className="font-medium whitespace-nowrap">
+                      <Link href={`/companies/contractors/${contractor.id}`} className="hover:underline">
+                        {contractor.name}
+                      </Link>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <UserIcon className="h-4 w-4 text-muted-foreground" />
@@ -94,8 +110,35 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                             <span className="sr-only">More actions</span>
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
+	                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/companies/contractors/${contractor.id}`}>
+                                <Eye className="mr-2 h-4 w-4" /> View details
+                              </Link>
+                            </DropdownMenuItem>
+	                          {personnel.length > 0 && (
+	                            <DropdownMenuSub>
+	                              <DropdownMenuSubTrigger>
+	                                <UserCheck className="mr-2 h-4 w-4" /> Impersonate
+	                              </DropdownMenuSubTrigger>
+	                              <DropdownMenuSubContent className="w-64">
+	                                {personnel.map((person) => (
+	                                  <DropdownMenuItem
+	                                    key={person.id}
+	                                    onSelect={() => onImpersonateUser?.(person)}
+	                                    disabled={person.status === 'Inactive'}
+	                                  >
+	                                    <div className="min-w-0">
+	                                      <div className="truncate text-sm font-medium">{person.name}</div>
+	                                      <div className="truncate text-xs text-muted-foreground">{person.role}</div>
+	                                    </div>
+	                                  </DropdownMenuItem>
+	                                ))}
+	                              </DropdownMenuSubContent>
+	                            </DropdownMenuSub>
+	                          )}
+	                          {canManage && (
+                            <DropdownMenuItem
                             onSelect={() => {
                               setEditingContractor(contractor);
                               setEditedName(contractor.name);
@@ -104,6 +147,8 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                           >
                             <Pencil className="mr-2 h-4 w-4" /> Rename
                           </DropdownMenuItem>
+                          )}
+                          {canManage && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <DropdownMenuItem
@@ -130,11 +175,13 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
-                  </TableRow>
-                ))
+	                  </TableRow>
+                    );
+                  })
               ) : (
                 <TableRow><TableCell colSpan={4} className="h-24 text-center">No contractors found.</TableCell></TableRow>
               )}

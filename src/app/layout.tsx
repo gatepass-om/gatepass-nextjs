@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { SessionProvider } from '@/providers/session-provider';
+import { LiveEventsProvider } from '@/providers/live-events-provider';
 
 export const metadata: Metadata = {
   title: 'GatePass',
@@ -22,7 +23,9 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
           <SessionProvider>
-            {children}
+            <LiveEventsProvider>
+              {children}
+            </LiveEventsProvider>
           </SessionProvider>
           <Toaster />
       </body>

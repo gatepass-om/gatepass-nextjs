@@ -4,6 +4,8 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { QrCode } from '@/components/qr-code';
+import { WorkerBadge } from '@/components/worker-badge';
+import { WorkerDocuments } from '@/components/workers/worker-documents';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -174,9 +176,17 @@ export default function ProfilePage() {
                             Time-limited credential — valid for 15 minutes. Auto-refreshes before expiry.
                         </CardDescription>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={refreshQr} disabled={qrLoading}>
-                        <RefreshCw className={`h-4 w-4 ${qrLoading ? 'animate-spin' : ''}`} />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <WorkerBadge
+                            name={user.name}
+                            subtitle={user.role}
+                            workerCode={user.idNumber ?? null}
+                            qrToken={qrToken}
+                        />
+                        <Button variant="ghost" size="sm" onClick={refreshQr} disabled={qrLoading}>
+                            <RefreshCw className={`h-4 w-4 ${qrLoading ? 'animate-spin' : ''}`} />
+                        </Button>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-4 p-4 sm:p-8">
@@ -200,6 +210,8 @@ export default function ProfilePage() {
             </CardContent>
         </Card>
       </div>
+
+       <WorkerDocuments workerId={user.id} canManage={user.role !== 'Worker'} />
 
        {user.certificates && user.certificates.length > 0 && (
           <Card>

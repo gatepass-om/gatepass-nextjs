@@ -14,7 +14,7 @@ import React, { useMemo } from "react";
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }),
-  role: z.enum(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor']),
+  role: z.enum(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Consultant', 'Inspector']),
   assignedSiteId: z.string().optional(),
   contractorId: z.string().optional(),
   operatorId: z.string().optional(),
@@ -41,7 +41,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
             return ['Operator Admin', 'Contractor Admin'];
         }
         if (currentUserRole === 'Operator Admin') {
-            return ['Manager', 'Security', 'Worker'];
+            return ['Manager', 'Security', 'Worker', 'Consultant', 'Inspector'];
         }
         if (currentUserRole === 'Contractor Admin') {
             return ['Supervisor', 'Worker'];
@@ -98,7 +98,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
             company: companyName,
         };
         
-        if (values.role === 'Security') {
+        if (values.role === 'Security' || values.role === 'Inspector') {
             newUser.assignedSiteId = values.assignedSiteId;
         }
 
@@ -233,7 +233,7 @@ export function NewUserForm({ onNewUser, sites, contractors, operators, isLoadin
                 )}
             </div>
 
-            {selectedRole === "Security" && (
+            {(selectedRole === "Security" || selectedRole === "Inspector") && (
               <FormField
                 control={form.control}
                 name="assignedSiteId"

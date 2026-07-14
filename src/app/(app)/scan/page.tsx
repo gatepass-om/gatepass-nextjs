@@ -13,7 +13,7 @@ import { ScannerPreview } from '@/components/scan/scanner-preview';
 import { UserFoundDialog } from '@/components/scan/user-found-dialog';
 import { VisitorRegistrationDialog } from '@/components/scan/visitor-registration-dialog';
 import { useSession } from '@/providers/session-provider';
-import { fetchScanStatusRequest, listSitesRequest, fetchWorkerRequest } from '@/lib/api';
+import { fetchScanStatusRequest, fetchScanByTokenRequest, listSitesRequest, fetchWorkerRequest } from '@/lib/api';
 import { usePolling } from '@/lib/polling';
 import { ScanDecisionPanel } from '@/components/scan/scan-decision-panel';
 import { Badge } from '@/components/ui/badge';
@@ -50,7 +50,7 @@ type ScanStatusResponse = {
 };
 
 export default function ScanPage() {
-  const { firestoreUser: currentSecurityUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Security']);
+  const { currentUser: currentSecurityUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Security', 'Inspector', 'Admin']);
   const { token } = useSession();
   const [scannedUser, setScannedUser] = useState<UserType | null>(null);
   const [assignedSite, setAssignedSite] = useState<Site | null>(null);
@@ -143,12 +143,17 @@ export default function ScanPage() {
     }
   }, 15000);
 
-  const handleScanSuccess = async (userId: string) => {
+  const handleScanSuccess = async (scannedValue: string) => {
     if (!token || !assignedSite) return;
     setIsScannerPaused(true);
 
     try {
-      const status: ScanStatusResponse = await fetchScanStatusRequest(token, userId, assignedSite.id);
+      // A live QR credential is a signed JWT (header.payload.signature); a legacy/static badge encodes the raw
+      // worker id. Resolve the live token server-side so it re-checks compliance at scan time.
+      const looksLikeLiveToken = scannedValue.split('.').length === 3;
+      const status: ScanStatusResponse = looksLikeLiveToken
+        ? await fetchScanByTokenRequest(token, scannedValue, assignedSite.id)
+        : await fetchScanStatusRequest(token, scannedValue, assignedSite.id);
       setScannedUser(status.user);
       setAccessStatus(status.accessStatus);
       setCertificateStatus(status.certificateStatus);
@@ -182,7 +187,7 @@ export default function ScanPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not fetch user details.';
       if (message.toLowerCase().includes('not found')) {
-        toast({ variant: 'destructive', title: 'Unknown User', description: `User ID "${userId}" not found.` });
+        toast({ variant: 'destructive', title: 'Unknown User', description: `Scanned code "${scannedValue}" could not be resolved.` });
         setDialogState('no-user');
         setIsScannerPaused(true);
       } else {
@@ -221,7 +226,7 @@ export default function ScanPage() {
 
   return (
     <div className="space-y-4 md:space-y-5">
-      <header className="flex flex-col gap-4 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between">
+      <header className="flex flex-col gap-4 border-b border-border pb-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Gate Security Workstation</h1>
           <p className="text-sm text-muted-foreground">Scan identity, evaluate access, and record controlled movement.</p>
@@ -239,9 +244,9 @@ export default function ScanPage() {
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
-        <Card className="overflow-hidden border-slate-200">
-          <div className="border-b border-slate-200 bg-slate-950 px-5 py-4 text-white">
-            <div className="flex items-center gap-2 text-sm text-slate-300">
+        <Card className="overflow-hidden border-border">
+          <div className="border-b border-border bg-muted/40 px-5 py-4 text-foreground">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Camera className="h-4 w-4" />
               QR scanner
             </div>
@@ -249,7 +254,7 @@ export default function ScanPage() {
           </div>
           <div className="p-4">
             <ScannerPreview onScanSuccess={handleScanSuccess} isPaused={isScannerPaused} />
-            <div className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-muted-foreground">
+            <div className="mt-3 rounded-md bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
               Position the QR code inside the frame. The backend evaluates request validity, certificate status, and current presence.
             </div>
           </div>
@@ -266,7 +271,7 @@ export default function ScanPage() {
           smartLockEnforced={smartLockEnforced}
           scanRequired={scanRequired}
           accessEnforcementMessage={accessEnforcementMessage}
-          canRegisterVisitor={!!assignedSite && !loadingSite}
+          canRegisterVisitor={currentSecurityUser?.role === 'Admin' && !!assignedSite && !loadingSite}
           onRegisterVisitor={() => setDialogState('visitor-register')}
         />
       </div>

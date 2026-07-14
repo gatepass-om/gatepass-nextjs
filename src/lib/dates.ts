@@ -5,9 +5,5 @@ export function toDate(value: unknown): Date | null {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? null : date;
   }
-  if (typeof value === 'object' && typeof (value as { toDate?: unknown }).toDate === 'function') {
-    const date = (value as { toDate: () => Date }).toDate();
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
   return null;
 }

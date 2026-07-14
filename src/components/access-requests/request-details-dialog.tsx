@@ -144,32 +144,32 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
                 Request from {request.contractorName} submitted by {request.supervisorName}.
               </SheetDescription>
             </div>
-            <Badge className={request.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-50' : request.status === 'Denied' ? 'bg-rose-50 text-rose-700 hover:bg-rose-50' : 'bg-amber-50 text-amber-700 hover:bg-amber-50'}>
+            <Badge className={request.status === 'Approved' ? 'bg-success/15 text-success border border-success/30 hover:bg-success/15' : request.status === 'Denied' ? 'bg-danger/15 text-danger border border-danger/30 hover:bg-danger/15' : 'bg-warning/15 text-warning border border-warning/30 hover:bg-warning/15'}>
               {request.status}
             </Badge>
           </div>
         </SheetHeader>
         <div className="space-y-5 py-6">
             <div className="grid gap-3 sm:grid-cols-4">
-                <div className="rounded-md border border-slate-200 p-3">
+                <div className="rounded-md border border-border p-3">
                     <div className="text-xs uppercase text-muted-foreground">Workers</div>
                     <div className="mt-1 text-2xl font-semibold">{workerCount}</div>
                 </div>
-                <div className="rounded-md border border-slate-200 p-3">
+                <div className="rounded-md border border-border p-3">
                     <div className="text-xs uppercase text-muted-foreground">On site</div>
                     <div className="mt-1 text-2xl font-semibold">{request.onSiteCount ?? 0}</div>
                 </div>
-                <div className="rounded-md border border-slate-200 p-3">
+                <div className="rounded-md border border-border p-3">
                     <div className="text-xs uppercase text-muted-foreground">Certificate holds</div>
                     <div className="mt-1 text-2xl font-semibold">{certificateIssues}</div>
                 </div>
-                <div className="rounded-md border border-slate-200 p-3">
+                <div className="rounded-md border border-border p-3">
                     <div className="text-xs uppercase text-muted-foreground">Decision</div>
                     <div className="mt-1 text-sm font-semibold">{request.status}</div>
                 </div>
             </div>
 
-            <div className="space-y-3 rounded-lg border border-slate-200 bg-background p-4">
+            <div className="space-y-3 rounded-lg border border-border bg-background p-4">
                 <h3 className="flex items-center gap-2 text-base font-semibold"><CalendarClock className="h-4 w-4" /> Workflow Timeline</h3>
                 <div className="grid gap-3 md:grid-cols-3">
                     <TimelineItem icon={FileCheck2} title="Submitted" value={formatDateTime(request.requestedAt)} active />
@@ -178,7 +178,7 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
                 </div>
             </div>
 
-            <div className="space-y-4 rounded-lg border border-slate-200 bg-background p-4">
+            <div className="space-y-4 rounded-lg border border-border bg-background p-4">
                 <h3 className="text-base font-semibold">Contract Information</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="grid w-full items-center gap-1.5">
@@ -206,7 +206,7 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
                 )}
             </div>
 
-            <div className="space-y-4 rounded-lg border border-slate-200 bg-background p-4">
+            <div className="space-y-4 rounded-lg border border-border bg-background p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="flex items-center gap-2 text-base font-semibold"><Users className="h-5 w-5"/>Personnel Readiness ({workersInRequest.length})</h3>
                     <Badge variant="outline">{requiredCerts.length} required certificates</Badge>
@@ -306,9 +306,9 @@ function TimelineItem({
     active: boolean;
 }) {
     return (
-        <div className="rounded-md border border-slate-200 p-3">
+        <div className="rounded-md border border-border p-3">
             <div className="flex items-center gap-2 text-sm font-medium">
-                <span className={cn('flex h-7 w-7 items-center justify-center rounded-md', active ? 'bg-cyan-50 text-cyan-700' : 'bg-slate-100 text-slate-500')}>
+                <span className={cn('flex h-7 w-7 items-center justify-center rounded-md', active ? 'bg-accent/15 text-accent' : 'bg-muted text-muted-foreground')}>
                     <Icon className="h-4 w-4" />
                 </span>
                 {title}

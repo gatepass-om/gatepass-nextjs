@@ -6,6 +6,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { EmptyRow, StatusBadge } from './common';
 
 export function CommandsTable({ commands }: { commands: DeviceCommand[] }) {
+  const summarizeResult = (command: DeviceCommand) => {
+    if (command.failureReason) return command.failureReason;
+    if (!command.resultPayloadJson) return command.externalCommandId ?? '-';
+    try {
+      const parsed = JSON.parse(command.resultPayloadJson);
+      if (parsed?.operationResult?.type) return String(parsed.operationResult.type);
+      if (parsed?.status) return String(parsed.status);
+      if (parsed?.command) return `${parsed.command}: ${parsed.status ?? 'sent'}`;
+    } catch {
+      return command.resultPayloadJson.slice(0, 96);
+    }
+    return command.resultPayloadJson.slice(0, 96);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -17,18 +31,20 @@ export function CommandsTable({ commands }: { commands: DeviceCommand[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>Requested</TableHead>
+              <TableHead>Completed</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Failure</TableHead>
+              <TableHead>Provider Response</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {commands.length === 0 ? <EmptyRow colSpan={4} label="No device commands found." /> : commands.map((command) => (
+            {commands.length === 0 ? <EmptyRow colSpan={5} label="No device commands found." /> : commands.map((command) => (
               <TableRow key={command.id}>
                 <TableCell>{new Date(command.requestedAtUtc).toLocaleString()}</TableCell>
+                <TableCell>{command.completedAtUtc ? new Date(command.completedAtUtc).toLocaleString() : '-'}</TableCell>
                 <TableCell>{command.commandType}</TableCell>
                 <TableCell><StatusBadge value={command.status} /></TableCell>
-                <TableCell>{command.failureReason ?? '-'}</TableCell>
+                <TableCell className="max-w-[360px] truncate">{summarizeResult(command)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

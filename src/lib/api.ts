@@ -1,15 +1,31 @@
-import type { AccessRequest, User, WorkerProfile } from './types';
+import type { AccessDecisionEvaluation, AccessRequest, AccessRuleConfig, ContractorDetail, DecisionReasonOption, OperatorDetail, Tenant, User, WorkerProfile } from './types';
 
-const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4005').replace(/\/$/, '');
+export const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4005').replace(/\/$/, '');
+
+// The session provider registers a refresh hook here so token-bearing requests can transparently recover from a
+// 401 (expired access token) without every caller wiring up its own refresh logic.
+type SessionBridge = { refresh: () => Promise<string | null> };
+let sessionBridge: SessionBridge | null = null;
+export function setSessionBridge(bridge: SessionBridge | null) {
+  sessionBridge = bridge;
+}
+
+// Lets non-apiRequest callers (notably the SSE stream, which manages its own fetch) trigger the same shared silent
+// refresh on a 401 and obtain the rotated access token.
+export async function refreshAccessToken(): Promise<string | null> {
+  return sessionBridge ? sessionBridge.refresh() : null;
+}
 
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: Record<string, unknown>;
   token?: string | null;
+  // Send/receive cookies (the httpOnly refresh cookie). Only the /auth endpoints need this.
+  withCredentials?: boolean;
 };
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}) {
-  const { method = 'GET', body, token } = options;
+export async function apiRequest<T>(path: string, options: RequestOptions = {}, isRetry = false): Promise<T> {
+  const { method = 'GET', body, token, withCredentials } = options;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -22,12 +38,21 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}) 
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    credentials: withCredentials ? 'include' : 'same-origin',
   });
 
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
+    // Transparently recover from an expired access token: perform one shared silent refresh, then retry once.
+    // Auth endpoints are excluded (they manage tokens themselves) and isRetry guards against loops.
+    if (response.status === 401 && token && !isRetry && !path.startsWith('/auth') && sessionBridge) {
+      const refreshedToken = await sessionBridge.refresh();
+      if (refreshedToken && refreshedToken !== token) {
+        return apiRequest<T>(path, { ...options, token: refreshedToken }, true);
+      }
+    }
     const message = data?.error || 'Request failed';
     throw new Error(message);
   }
@@ -37,6 +62,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}) 
 
 export type LoginResponse = {
   token: string;
+  expiresAt?: string;
+  expiresAtUtc?: string;
   user: User;
 };
 
@@ -64,6 +91,9 @@ export type DashboardSummary = {
   pendingRequests: number;
   approvedRequests: number;
   deniedRequests: number;
+  clearedWorkers: number;
+  workersWithExpiringCertificates: number;
+  flaggedWorkers: number;
   sites: DashboardBreakdown[];
   operators: DashboardBreakdown[];
   contractors: DashboardBreakdown[];
@@ -75,6 +105,7 @@ export async function loginRequest(input: { email: string; password: string }) {
   return apiRequest<LoginResponse>('/auth/login', {
     method: 'POST',
     body: input,
+    withCredentials: true,
   });
 }
 
@@ -84,6 +115,31 @@ export async function activateRequest(input: { token: string; newPassword: strin
     method: 'POST',
     token,
     body: { newPassword },
+    withCredentials: true,
+  });
+}
+
+// Exchanges the httpOnly refresh cookie for a fresh access token (rotating the refresh cookie).
+export async function refreshSessionRequest() {
+  return apiRequest<LoginResponse>('/auth/refresh', {
+    method: 'POST',
+    withCredentials: true,
+  });
+}
+
+// Revokes the current refresh token server-side and clears the cookie.
+export async function logoutRequest() {
+  await apiRequest<null>('/auth/logout', {
+    method: 'POST',
+    withCredentials: true,
+  });
+}
+
+export async function impersonateUserRequest(token: string, userId: string) {
+  return apiRequest<LoginResponse>('/auth/impersonate', {
+    method: 'POST',
+    token,
+    body: { userId },
   });
 }
 
@@ -145,12 +201,61 @@ export async function deleteSiteRequest(token: string, siteId: string) {
   });
 }
 
+export interface SiteSmartAccess {
+  siteId: string;
+  hasSmartAccessConfigured: boolean;
+  providers: { id: string; name: string; integrationKey: string }[];
+  entrances: {
+    id: string;
+    name: string;
+    accessPointType: number;
+    supportsEntry: boolean;
+    supportsExit: boolean;
+    isActive: boolean;
+    locks: { id: string; name: string; model: string; externalDeviceId?: string }[];
+  }[];
+  unassignedDevices: { id: string; name: string; model: string; externalDeviceId?: string }[];
+}
+
+export async function getSiteSmartAccessRequest(token: string, siteId: string) {
+  return apiRequest<SiteSmartAccess>(`/sites/${siteId}/smart-access`, { token });
+}
+
+export async function createSiteEntranceRequest(token: string, siteId: string, input: {
+  name: string;
+  accessPointType?: number;
+  supportsEntry?: boolean;
+  supportsExit?: boolean;
+}) {
+  return apiRequest<any>(`/sites/${siteId}/entrances`, { method: 'POST', token, body: input });
+}
+
+export async function assignDeviceToSiteRequest(token: string, siteId: string, input: {
+  deviceId: string;
+  entranceId?: string | null;
+}) {
+  return apiRequest<any>(`/sites/${siteId}/assign-device`, { method: 'POST', token, body: input });
+}
+
+export async function provisionSiteCredentialsRequest(token: string, siteId: string) {
+  return apiRequest<{ approvedRequests: number; provisioned: number; failed: number }>(
+    `/sites/${siteId}/provision-credentials`, { method: 'POST', token });
+}
+
 export async function listOperatorsRequest(token: string) {
   return apiRequest<any[]>('/companies/operators', { token });
 }
 
+export async function getOperatorDetailRequest(token: string, operatorId: string) {
+  return apiRequest<OperatorDetail>(`/companies/operators/${operatorId}`, { token });
+}
+
 export async function listContractorsRequest(token: string) {
   return apiRequest<any[]>('/companies/contractors', { token });
+}
+
+export async function getContractorDetailRequest(token: string, contractorId: string) {
+  return apiRequest<ContractorDetail>(`/companies/contractors/${contractorId}`, { token });
 }
 
 export async function createOperatorRequest(token: string, input: { name: string }) {
@@ -199,6 +304,45 @@ export async function deleteContractorRequest(token: string, contractorId: strin
   });
 }
 
+export async function listTenantsRequest(token: string, input?: { includeInactive?: boolean }) {
+  const params = new URLSearchParams();
+  if (input?.includeInactive) params.set('includeInactive', 'true');
+  const query = params.toString();
+  return apiRequest<Tenant[]>(`/platform/tenants${query ? `?${query}` : ''}`, { token });
+}
+
+export async function getAccessRulesRequest(token: string, tenantId: string) {
+  return apiRequest<AccessRuleConfig>(`/platform/tenants/${tenantId}/access-rules`, { token });
+}
+
+export async function updateAccessRulesRequest(
+  token: string,
+  tenantId: string,
+  input: { certificateExpiryGraceDays: number; toleratedReasons: number[] }
+) {
+  return apiRequest<AccessRuleConfig>(`/platform/tenants/${tenantId}/access-rules`, {
+    method: 'PUT',
+    token,
+    body: input,
+  });
+}
+
+export async function listAccessRuleOptionsRequest(token: string) {
+  return apiRequest<DecisionReasonOption[]>('/platform/access-rules/options', { token });
+}
+
+export async function evaluateAccessDecisionRequest(
+  token: string,
+  tenantId: string,
+  input: { userId: string; siteId: string; evaluatedAtUtc?: string }
+) {
+  return apiRequest<AccessDecisionEvaluation>(`/platform/tenants/${tenantId}/access-rules/evaluate`, {
+    method: 'POST',
+    token,
+    body: input,
+  });
+}
+
 export async function listUsersRequest(token: string, input?: { role?: string; operatorId?: string; contractorId?: string }) {
   const params = new URLSearchParams();
   if (input?.role) params.set('role', input.role);
@@ -239,6 +383,20 @@ export async function listGateActivityFilteredRequest(
 export async function fetchScanStatusRequest(token: string, userId: string, siteId: string) {
   const params = new URLSearchParams({ siteId });
   const status = await apiRequest<any>(`/scan/${userId}/status?${params.toString()}`, { token });
+  return mapScanStatus(status);
+}
+
+// Resolve a scanned LIVE QR credential token (the "live, not static" badge) to its worker and live verdict in one call.
+export async function fetchScanByTokenRequest(token: string, qrToken: string, siteId: string) {
+  const status = await apiRequest<any>(`/scan/resolve`, {
+    method: 'POST',
+    token,
+    body: { token: qrToken, siteId },
+  });
+  return mapScanStatus(status);
+}
+
+function mapScanStatus(status: any) {
   if (status.user) return status;
 
   const accessStatus = status.hasApprovedAccess
@@ -428,6 +586,8 @@ export async function updateAccessRequest(token: string, requestId: string, inpu
   expiresAt?: string;
   permanent?: boolean;
   notes?: string;
+  // Required by the backend when denying — recorded on the request's audit trail.
+  decisionReason?: string;
 }) {
   return apiRequest<AccessRequest>(`/access-requests/${requestId}`, {
     method: 'PATCH',
@@ -445,6 +605,64 @@ export async function deleteAccessRequest(token: string, requestId: string) {
 
 export async function fetchWorkerRequest(token: string, workerId: string) {
   return apiRequest<WorkerProfile>(`/workers/${workerId}`, { token });
+}
+
+export type WorkerDocument = {
+  id: string;
+  workerId: string;
+  documentType: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  certificateTypeId?: string | null;
+  uploadedByUserId?: string | null;
+  uploadedAtUtc: string;
+};
+
+// Multipart upload — apiRequest JSON-encodes, so this uses fetch directly with FormData (the browser sets the
+// multipart boundary; we must NOT set Content-Type ourselves).
+export async function uploadWorkerDocument(
+  token: string,
+  workerId: string,
+  file: File,
+  documentType: string,
+  certificateTypeId?: string
+) {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('documentType', documentType);
+  if (certificateTypeId) form.append('certificateTypeId', certificateTypeId);
+  const response = await fetch(`${BACKEND_URL}/workers/${workerId}/documents`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!response.ok) throw new Error('Document upload failed.');
+  return (await response.json()) as WorkerDocument;
+}
+
+export async function listWorkerDocuments(token: string, workerId: string) {
+  return apiRequest<WorkerDocument[]>(`/workers/${workerId}/documents`, { token });
+}
+
+export async function downloadWorkerDocument(token: string, documentId: string, fileName: string) {
+  const response = await fetch(`${BACKEND_URL}/documents/${documentId}/download`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('Document download failed.');
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function deleteWorkerDocument(token: string, documentId: string) {
+  return apiRequest<void>(`/documents/${documentId}`, { method: 'DELETE', token });
 }
 
 export type QrCredentialResponse = {
@@ -554,4 +772,50 @@ export async function acknowledgeAlert(authToken: string, alertId: string, note?
     token: authToken,
     body: { note },
   });
+}
+
+export type AuditLogEntry = {
+  id: string;
+  actorUserId?: string | null;
+  actorRole?: string | null;
+  actionType: string;
+  entityType: string;
+  entityId?: string | null;
+  summary: string;
+  clientIp?: string | null;
+  occurredAtUtc: string;
+};
+
+export async function fetchAuditLog(
+  authToken: string,
+  params?: { entityType?: string; entityId?: string; actorUserId?: string; take?: number }
+) {
+  const qs = new URLSearchParams();
+  if (params?.entityType) qs.set('entityType', params.entityType);
+  if (params?.entityId) qs.set('entityId', params.entityId);
+  if (params?.actorUserId) qs.set('actorUserId', params.actorUserId);
+  if (params?.take) qs.set('take', String(params.take));
+  const query = qs.toString() ? `?${qs}` : '';
+  return apiRequest<AuditLogEntry[]>(`/audit${query}`, { token: authToken });
+}
+
+// Authenticated CSV download (the access token is in-memory, so we fetch with the Bearer header then save a blob).
+export async function downloadComplianceCsv(authToken: string, params?: { asOf?: string; siteId?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.asOf) qs.set('asOf', params.asOf);
+  if (params?.siteId) qs.set('siteId', params.siteId);
+  const query = qs.toString() ? `?${qs}` : '';
+  const response = await fetch(`${BACKEND_URL}/audit/compliance-report.csv${query}`, {
+    headers: { Authorization: `Bearer ${authToken}` },
+  });
+  if (!response.ok) throw new Error('Failed to download compliance report.');
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `compliance-report-${(params?.asOf ?? new Date().toISOString()).slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }

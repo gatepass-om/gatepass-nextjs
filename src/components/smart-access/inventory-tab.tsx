@@ -2,19 +2,27 @@
 
 import type { AccessControlDevice } from '@/lib/smart-access-api';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EmptyRow, StatusBadge } from './common';
+import { RefreshCw } from 'lucide-react';
 
 export function InventoryTab({
   devices,
   loading,
   selectedSiteName,
+  canTestSync,
+  runningSync,
+  onTestSync,
 }: {
   devices: AccessControlDevice[];
   loading: boolean;
   selectedSiteName: string;
+  canTestSync?: boolean;
+  runningSync?: boolean;
+  onTestSync?: (device: AccessControlDevice) => void;
 }) {
   return (
     <Card>
@@ -32,10 +40,11 @@ export function InventoryTab({
                 <TableHead>Serial</TableHead>
                 <TableHead>Connectivity</TableHead>
                 <TableHead>Capabilities</TableHead>
+                {canTestSync && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {devices.length === 0 ? <EmptyRow colSpan={5} label="No smart access devices found." /> : devices.map((device) => (
+              {devices.length === 0 ? <EmptyRow colSpan={canTestSync ? 6 : 5} label="No smart access devices found." /> : devices.map((device) => (
                 <TableRow key={device.id}>
                   <TableCell className="font-medium">{device.name}</TableCell>
                   <TableCell>{device.deviceKind}</TableCell>
@@ -46,6 +55,19 @@ export function InventoryTab({
                     {device.supportsStatusPolling && <Badge variant="outline">Polling</Badge>}
                     {device.supportsOfflineSync && <Badge variant="outline">Offline Sync</Badge>}
                   </TableCell>
+                  {canTestSync && (
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onTestSync?.(device)}
+                        disabled={runningSync || device.isActive === false}
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Test sync
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

@@ -9,20 +9,33 @@ import type { AccessRequest, Site, Operator, Contractor } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthProtection } from "@/hooks/use-auth-protection";
 import { ApprovalDialog } from "@/components/access-requests/approval-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { FilePlus2 } from "lucide-react";
 import { useSession } from "@/providers/session-provider";
 import { listAccessRequestsRequest, listSitesRequest, listOperatorsRequest, listContractorsRequest, updateAccessRequest, deleteAccessRequest } from "@/lib/api";
 import { usePolling } from "@/lib/polling";
+import { useLiveEvents } from "@/hooks/use-live-events";
 import { RequestWorkflowStrip } from "@/components/access-requests/request-workflow-strip";
 
 export default function AccessRequestsPage() {
-  const { firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Worker', 'Supervisor']);
+  const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Worker', 'Supervisor', 'Consultant']);
   const { token } = useSession();
   const { toast } = useToast();
 
-  const isManager = useMemo(() => firestoreUser?.role === 'Manager' || firestoreUser?.role === 'Operator Admin' || firestoreUser?.role === 'Admin', [firestoreUser?.role]);
-  const isSupervisor = useMemo(() => firestoreUser?.role === 'Supervisor' || firestoreUser?.role === 'Contractor Admin' || firestoreUser?.role === 'Admin', [firestoreUser?.role]);
-  const isWorker = useMemo(() => firestoreUser?.role === 'Worker', [firestoreUser?.role]);
-  const canDelete = useMemo(() => ['Admin', 'Operator Admin', 'Manager'].includes(firestoreUser?.role ?? ''), [firestoreUser?.role]);
+  const isManager = useMemo(() => currentUser?.role === 'Manager' || currentUser?.role === 'Operator Admin' || currentUser?.role === 'Admin', [currentUser?.role]);
+  const isSupervisor = useMemo(() => currentUser?.role === 'Supervisor' || currentUser?.role === 'Contractor Admin' || currentUser?.role === 'Admin', [currentUser?.role]);
+  const isWorker = useMemo(() => currentUser?.role === 'Worker', [currentUser?.role]);
+  const canDelete = useMemo(() => ['Admin', 'Operator Admin', 'Manager'].includes(currentUser?.role ?? ''), [currentUser?.role]);
 
   const [myRequests, setMyRequests] = useState<AccessRequest[]>([]);
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
@@ -32,16 +45,18 @@ export default function AccessRequestsPage() {
   const [loading, setLoading] = useState(true);
 
   const [approvalRequest, setApprovalRequest] = useState<AccessRequest | null>(null);
+  const [denyRequest, setDenyRequest] = useState<AccessRequest | null>(null);
+  const [denyReason, setDenyReason] = useState('');
+  const [denyBusy, setDenyBusy] = useState(false);
+  const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
 
   const defaultTab = useMemo(() => {
-    if (isSupervisor) return "group-request";
     if (isManager) return "approve";
-    if (isWorker) return "my-requests-log";
     return "my-requests-log";
-  }, [isSupervisor, isManager, isWorker]);
+  }, [isManager]);
 
   const fetchRequests = useCallback(async () => {
-    if (!token || !firestoreUser) {
+    if (!token || !currentUser) {
       setLoading(false);
       return;
     }
@@ -68,28 +83,28 @@ export default function AccessRequestsPage() {
 
       let requestList: AccessRequest[] = [];
       if (isWorker) {
-        requestList = await listAccessRequestsRequest(token, { workerId: firestoreUser.id });
-      } else if (firestoreUser.role === 'Supervisor') {
-        requestList = await listAccessRequestsRequest(token, { supervisorId: firestoreUser.id });
+        requestList = await listAccessRequestsRequest(token, { workerId: currentUser.id });
+      } else if (currentUser.role === 'Supervisor') {
+        requestList = await listAccessRequestsRequest(token, { supervisorId: currentUser.id });
       } else {
         requestList = await listAccessRequestsRequest(token);
       }
 
       const managedSiteIds = (() => {
-        if (firestoreUser.role === 'Admin') {
+        if (currentUser.role === 'Admin') {
           return mappedSites.map((site) => site.id);
         }
-        if (firestoreUser.role === 'Operator Admin') {
-          return mappedSites.filter((site) => site.operatorId === firestoreUser.operatorId).map((site) => site.id);
+        if (currentUser.role === 'Operator Admin') {
+          return mappedSites.filter((site) => site.operatorId === currentUser.operatorId).map((site) => site.id);
         }
-        if (firestoreUser.role === 'Manager') {
-          return mappedSites.filter((site) => site.managerIds.includes(firestoreUser.id)).map((site) => site.id);
+        if (currentUser.role === 'Manager') {
+          return mappedSites.filter((site) => site.managerIds.includes(currentUser.id)).map((site) => site.id);
         }
         return mappedSites.map((site) => site.id);
       })();
 
       let scopedRequests = requestList;
-      if (['Manager', 'Operator Admin'].includes(firestoreUser.role)) {
+      if (['Manager', 'Operator Admin'].includes(currentUser.role)) {
         scopedRequests = requestList.filter((request) => managedSiteIds.includes(request.siteId));
       }
 
@@ -106,33 +121,55 @@ export default function AccessRequestsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, firestoreUser, isWorker, isManager]);
+  }, [token, currentUser, isWorker, isManager]);
 
   useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
 
+  // Live: a created/approved/denied/expired request anywhere in scope refreshes the queue immediately.
+  useLiveEvents(useCallback((event) => {
+    if (event.type === 'AccessRequestChanged') {
+      void fetchRequests();
+    }
+  }, [fetchRequests]));
   usePolling(() => {
     void fetchRequests();
-  }, 15000);
+  }, 45000);
 
   const handleOpenApprovalDialog = (request: AccessRequest) => {
     setApprovalRequest(request);
   };
 
-  const handleDenyRequest = async (requestId: string) => {
-    if (!token) {
-      toast({ variant: "destructive", title: "Session expired", description: "Please log in again to continue." });
+  // Open the deny dialog so a reason can be captured. The backend requires a decisionReason when denying (it's
+  // recorded on the request's audit trail), so we never deny without one.
+  const handleOpenDenyDialog = (requestId: string) => {
+    const request = pendingRequests.find((r) => r.id === requestId)
+      ?? myRequests.find((r) => r.id === requestId)
+      ?? null;
+    setDenyReason('');
+    setDenyRequest(request);
+  };
+
+  const handleConfirmDeny = async () => {
+    if (!token || !denyRequest) return;
+    if (!denyReason.trim()) {
+      toast({ variant: 'destructive', title: 'Reason required', description: 'Enter a reason for denying this request.' });
       return;
     }
 
+    setDenyBusy(true);
     try {
-      await updateAccessRequest(token, requestId, { status: 'Denied' });
-      toast({ title: `Request Denied`, description: `The request has been denied.` });
+      await updateAccessRequest(token, denyRequest.id, { status: 'Denied', decisionReason: denyReason.trim() });
+      toast({ title: 'Request Denied', description: 'The request has been denied with a recorded reason.' });
+      setDenyRequest(null);
+      setDenyReason('');
       void fetchRequests();
     } catch (error) {
-      console.error(`Error denying request:`, error);
-      toast({ variant: "destructive", title: "Action Failed", description: "Could not update the request status." });
+      console.error('Error denying request:', error);
+      toast({ variant: 'destructive', title: 'Action Failed', description: 'Could not deny the request.' });
+    } finally {
+      setDenyBusy(false);
     }
   };
 
@@ -176,7 +213,7 @@ export default function AccessRequestsPage() {
     }
   };
 
-  if (authLoading || !firestoreUser) {
+  if (authLoading || !currentUser) {
     return <div>Loading...</div>;
   }
 
@@ -191,9 +228,6 @@ export default function AccessRequestsPage() {
       tabs.push({ value: "my-requests-log", label: "Requests Log" });
     }
 
-    if (isSupervisor) {
-      tabs.push({ value: "group-request", label: "Create Group Request" });
-    }
     if (isManager) {
       tabs.push({ value: "approve", label: "Approve Requests" });
     }
@@ -204,9 +238,39 @@ export default function AccessRequestsPage() {
 
   return (
     <div className="space-y-4 md:space-y-5">
-      <header className="flex flex-col gap-1 border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Access Request Workflow</h1>
-        <p className="text-sm text-muted-foreground">Create, review, approve, and track governed access windows.</p>
+      <header className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Access Request Workflow</h1>
+          <p className="text-sm text-muted-foreground">Create, review, approve, and track governed access windows.</p>
+        </div>
+        {isSupervisor && (
+          <Dialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen}>
+            <Button onClick={() => setIsNewRequestOpen(true)}>
+              <FilePlus2 className="mr-2 h-4 w-4" />
+              New request
+            </Button>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Submit Group Access Request</DialogTitle>
+                <DialogDescription>
+                  Fill out the contract details and provide the list of workers requiring access.
+                </DialogDescription>
+              </DialogHeader>
+              <SupervisorRequestForm
+                supervisor={currentUser}
+                operators={operators}
+                sites={sites}
+                contractors={contractors}
+                isLoading={loading}
+                onCancel={() => setIsNewRequestOpen(false)}
+                onSuccess={() => {
+                  setIsNewRequestOpen(false);
+                  void fetchRequests();
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </header>
       <RequestWorkflowStrip requests={myRequests} pendingRequests={pendingRequests} isLoading={loading} />
       <Tabs defaultValue={defaultTab} key={defaultTab}>
@@ -226,18 +290,6 @@ export default function AccessRequestsPage() {
           </TabsContent>
         )}
 
-        {isSupervisor && (
-          <TabsContent value="group-request">
-            <SupervisorRequestForm
-              supervisor={firestoreUser}
-              operators={operators}
-              sites={sites}
-              contractors={contractors}
-              isLoading={loading}
-            />
-          </TabsContent>
-        )}
-
         {isManager && (
           <TabsContent value="approve">
             <RequestsTable
@@ -246,7 +298,7 @@ export default function AccessRequestsPage() {
               requests={pendingRequests}
               showActions={true}
               onApprove={handleOpenApprovalDialog}
-              onDeny={handleDenyRequest}
+              onDeny={handleOpenDenyDialog}
               onDelete={canDelete ? handleDeleteRequest : undefined}
               isLoading={loading}
             />
@@ -261,6 +313,35 @@ export default function AccessRequestsPage() {
           onConfirm={handleConfirmApproval}
         />
       )}
+
+      <Dialog open={!!denyRequest} onOpenChange={(open) => { if (!open) { setDenyRequest(null); setDenyReason(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Deny access request</DialogTitle>
+            <DialogDescription>
+              Record why this request is being denied. The reason is returned to the requester and kept on the audit trail.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="deny-reason">Reason</Label>
+            <Textarea
+              id="deny-reason"
+              value={denyReason}
+              onChange={(e) => setDenyReason(e.target.value)}
+              placeholder="e.g. Missing valid HSE induction certificate."
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setDenyRequest(null); setDenyReason(''); }} disabled={denyBusy}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDeny} disabled={denyBusy || !denyReason.trim()}>
+              {denyBusy ? 'Denying…' : 'Deny request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

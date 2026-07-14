@@ -27,7 +27,7 @@ const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   idNumber: z.string().optional(),
   nationality: z.string().optional(),
-  role: z.enum(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor']),
+  role: z.enum(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Consultant', 'Inspector']),
   status: z.enum(['Active', 'Inactive']),
   notes: z.string().optional(),
   certificates: z.array(z.object({
@@ -56,7 +56,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
     const [loadingCerts, setLoadingCerts] = useState(true);
     const { token } = useSession();
     const { toast } = useToast();
-    const roles: UserRole[] = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor'];
+    const roles: UserRole[] = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Consultant', 'Inspector'];
     const statuses: UserStatus[] = ['Active', 'Inactive'];
 
     const form = useForm<FormValues>({
@@ -128,7 +128,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
         const selectedOperator = operators.find(o => o.id === values.operatorId);
 
         const isContractorRole = ['Worker', 'Supervisor', 'Contractor Admin'].includes(values.role);
-        const isOperatorRole = ['Manager', 'Operator Admin', 'Admin'].includes(values.role);
+        const isOperatorRole = ['Manager', 'Operator Admin', 'Admin', 'Consultant', 'Inspector'].includes(values.role);
 
         const contractorIdValue = isContractorRole
             ? values.contractorId || null

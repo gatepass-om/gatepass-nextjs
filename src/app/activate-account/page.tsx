@@ -50,7 +50,7 @@ export default function ActivateAccountPage() {
 
     try {
       const result = await activateRequest({ token, newPassword: values.newPassword });
-      setSession(result.token, result.user);
+      setSession(result.token, result.user, result.expiresAt);
       toast({ title: 'Account Activated!', description: 'Your password has been updated.' });
       router.push('/dashboard');
     } catch (error: any) {

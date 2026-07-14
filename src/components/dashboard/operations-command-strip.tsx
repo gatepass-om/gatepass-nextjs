@@ -1,21 +1,31 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { DashboardSummary } from '@/lib/api';
-import { AlertTriangle, CheckCircle2, Clock3, ShieldAlert, UsersRound } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, MapPin, Radio, ShieldAlert, UsersRound, type LucideIcon } from 'lucide-react';
 
 type OperationsCommandStripProps = {
   summary: DashboardSummary | null;
   isLoading?: boolean;
 };
 
-function getOperationalState(summary: DashboardSummary | null) {
-  if (!summary) return { label: 'Syncing', className: 'bg-slate-100 text-slate-700 border-slate-200', icon: Clock3 };
-  if (summary.deniedRequests > 0) return { label: 'Review denials', className: 'bg-rose-50 text-rose-700 border-rose-200', icon: ShieldAlert };
-  if (summary.pendingRequests > 0) return { label: 'Approval queue', className: 'bg-amber-50 text-amber-700 border-amber-200', icon: AlertTriangle };
-  return { label: 'Normal', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 };
+type OperationalState = {
+  label: string;
+  className: string;
+  icon: LucideIcon;
+};
+
+function getOperationalState(summary: DashboardSummary | null): OperationalState {
+  if (!summary) {
+    return { label: 'Syncing', className: 'bg-muted/60 text-muted-foreground border-border', icon: Clock3 };
+  }
+  if (summary.deniedRequests > 0) {
+    return { label: 'Review denials', className: 'bg-destructive/15 text-destructive border-destructive/30', icon: ShieldAlert };
+  }
+  if (summary.pendingRequests > 0) {
+    return { label: 'Approval queue', className: 'bg-warning/15 text-warning border-warning/30', icon: AlertTriangle };
+  }
+  return { label: 'Normal', className: 'bg-success/15 text-success border-success/30', icon: CheckCircle2 };
 }
 
 export function OperationsCommandStrip({ summary, isLoading = false }: OperationsCommandStripProps) {
@@ -25,45 +35,75 @@ export function OperationsCommandStrip({ summary, isLoading = false }: Operation
   const movementCount = summary?.recentActivity.length ?? 0;
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem_18rem]">
-      <Card className="overflow-hidden border-slate-200 bg-slate-950 text-white shadow-sm">
-        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-2">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem_15rem]">
+      <div className="ops-panel relative overflow-hidden p-6">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/10 blur-2xl"
+        />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className={`border ${state.className}`}>
-                <StateIcon className="mr-1.5 h-3.5 w-3.5" />
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${state.className}`}>
+                <StateIcon className="h-3.5 w-3.5" />
                 {state.label}
-              </Badge>
-              <span className="text-xs text-slate-300">Live operations summary</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Radio className="h-3.5 w-3.5 text-accent" />
+                Live operations summary
+              </span>
             </div>
             <div>
-              <h2 className="text-2xl font-semibold leading-tight">GatePass Operations</h2>
-              <p className="mt-1 max-w-2xl text-sm text-slate-300">
+              <p className="eyebrow">Command Overview</p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">GatePass Operations</h2>
+              <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
                 Personnel presence, access approvals, and gate movement in the selected operational scope.
               </p>
             </div>
           </div>
-          <div className="flex items-end gap-3">
-            <UsersRound className="mb-1 h-7 w-7 text-cyan-300" />
-            <div className="text-right">
-              {isLoading ? <Skeleton className="ml-auto h-9 w-20 bg-white/20" /> : <div className="text-4xl font-bold">{summary?.totalOnSite ?? 0}</div>}
-              <div className="text-xs uppercase tracking-wide text-slate-300">on site now</div>
+          <div className="flex items-end gap-3 sm:flex-col sm:items-end sm:gap-1">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-inset ring-primary/30">
+                <UsersRound className="h-6 w-6" />
+              </div>
+              <div className="text-right">
+                {isLoading ? (
+                  <Skeleton className="ml-auto h-10 w-20" />
+                ) : (
+                  <div className="text-4xl font-bold tabular-nums text-foreground">{summary?.totalOnSite ?? 0}</div>
+                )}
+                <div className="eyebrow mt-0.5">On Site Now</div>
+              </div>
             </div>
           </div>
         </div>
-      </Card>
+      </div>
 
-      <Card className="border-slate-200 p-5">
-        <div className="text-sm text-muted-foreground">Active sites</div>
-        {isLoading ? <Skeleton className="mt-3 h-8 w-16" /> : <div className="mt-2 text-3xl font-semibold">{activeSites}</div>}
-        <p className="mt-1 text-xs text-muted-foreground">Sites with current occupancy</p>
-      </Card>
+      <div className="ops-panel p-5">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-accent" />
+          <p className="eyebrow">Active Sites</p>
+        </div>
+        {isLoading ? (
+          <Skeleton className="mt-3 h-9 w-16" />
+        ) : (
+          <div className="metric-value mt-2">{activeSites}</div>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">Sites with current occupancy</p>
+      </div>
 
-      <Card className="border-slate-200 p-5">
-        <div className="text-sm text-muted-foreground">Recent movements</div>
-        {isLoading ? <Skeleton className="mt-3 h-8 w-16" /> : <div className="mt-2 text-3xl font-semibold">{movementCount}</div>}
-        <p className="mt-1 text-xs text-muted-foreground">Latest gate events in scope</p>
-      </Card>
+      <div className="ops-panel p-5">
+        <div className="flex items-center gap-2">
+          <Radio className="h-4 w-4 text-primary" />
+          <p className="eyebrow">Recent Movements</p>
+        </div>
+        {isLoading ? (
+          <Skeleton className="mt-3 h-9 w-16" />
+        ) : (
+          <div className="metric-value mt-2">{movementCount}</div>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">Latest gate events in scope</p>
+      </div>
     </div>
   );
 }

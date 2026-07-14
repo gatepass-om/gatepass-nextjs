@@ -4,10 +4,10 @@
 import { z } from "zod";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronsUpDown, PlusCircle, Trash2, UserCheck, Loader2, FileBadge, ShieldAlert } from "lucide-react";
+import { PlusCircle, Trash2, Loader2, FileBadge, ShieldAlert } from "lucide-react";
 
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
+import { DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -54,9 +54,11 @@ interface SupervisorRequestFormProps {
     sites: Site[];
     contractors: Contractor[];
     isLoading: boolean;
+    onSuccess?: () => void;
+    onCancel?: () => void;
 }
 
-export function SupervisorRequestForm({ supervisor, operators, sites, contractors, isLoading }: SupervisorRequestFormProps) {
+export function SupervisorRequestForm({ supervisor, operators, sites, contractors, isLoading, onSuccess, onCancel }: SupervisorRequestFormProps) {
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { token } = useSession();
@@ -196,6 +198,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
             });
             form.reset();
             form.control._reset();
+            onSuccess?.();
 
         } catch (error: any) {
             console.error("Error submitting group access request:", error);
@@ -206,14 +209,9 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
     }
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Submit Group Access Request</CardTitle>
-                <CardDescription>Fill out the contract details and provide the list of workers requiring access.</CardDescription>
-            </CardHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <CardContent className="space-y-6">
+                    <div className="max-h-[75vh] space-y-6 overflow-y-auto px-1 py-1 pr-2">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                            <FormField
                                 control={form.control}
@@ -305,9 +303,9 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                            {fields.map((field, index) => {
                              const worker = form.watch(`workers.${index}`);
                              return (
-                              <div key={field.id} className={cn("flex flex-col gap-3 p-4 rounded-md border", {
-                                "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800": worker.status === 'found',
-                                "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800": worker.status === 'not_found',
+                              <div key={field.id} className={cn("flex flex-col gap-3 p-4 rounded-md border border-border bg-muted/40", {
+                                "border-success/40 bg-success/10": worker.status === 'found',
+                                "border-destructive/40 bg-destructive/10": worker.status === 'not_found',
                               })}>
                                 <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-start gap-4">
                                   <FormField
@@ -381,14 +379,19 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                             render={()=>(<FormMessage/>)}
                         />
 
-                    </CardContent>
-                    <CardFooter>
+                    </div>
+                    <DialogFooter className="pt-4">
+                        {onCancel && (
+                            <Button type="button" variant="ghost" onClick={onCancel} disabled={isSubmitting}>
+                                Cancel
+                            </Button>
+                        )}
                         <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {isSubmitting ? "Submitting..." : "Submit Group Request"}
                         </Button>
-                    </CardFooter>
+                    </DialogFooter>
                 </form>
             </Form>
-        </Card>
     )
 }

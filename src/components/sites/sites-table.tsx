@@ -13,7 +13,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { Site, User, CertificateType, Operator, UserRole } from '@/lib/types';
-import { Loader2, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Loader2, MoreHorizontal, Pencil, Trash2, DoorOpen } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import {
   Tooltip,
@@ -26,6 +26,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { EditSiteForm } from './edit-site-form';
+import { SiteSmartAccessDialog } from './site-smart-access-dialog';
 
 interface SitesTableProps {
   sites: Site[];
@@ -52,6 +53,7 @@ export function SitesTable({
 }: SitesTableProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
+  const [smartAccessSite, setSmartAccessSite] = useState<Site | null>(null);
 
   const getManagerName = (userId: string) => {
     return users.find(u => u.id === userId)?.name || 'Unknown User';
@@ -133,6 +135,9 @@ export function SitesTable({
                                   <DropdownMenuItem onSelect={() => handleEditClick(site)}>
                                       <Pencil className="mr-2 h-4 w-4" /> Edit
                                   </DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => setSmartAccessSite(site)}>
+                                      <DoorOpen className="mr-2 h-4 w-4" /> Manage access
+                                  </DropdownMenuItem>
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                       <DropdownMenuItem
@@ -205,6 +210,15 @@ export function SitesTable({
               )}
           </DialogContent>
       </Dialog>
+
+      {smartAccessSite && (
+        <SiteSmartAccessDialog
+          siteId={smartAccessSite.id}
+          siteName={smartAccessSite.name}
+          open={!!smartAccessSite}
+          onOpenChange={(open) => !open && setSmartAccessSite(null)}
+        />
+      )}
     </>
   );
 }

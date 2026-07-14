@@ -2,7 +2,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { SitesTable } from "@/components/sites/sites-table";
 import { NewSiteForm } from "@/components/sites/new-site-form";
 import type { Site, User, CertificateType, Operator } from '@/lib/types';
@@ -21,7 +29,7 @@ import {
 import { usePolling } from '@/lib/polling';
 
 export default function SitesPage() {
-  const { firestoreUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin']);
+  const { currentUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin']);
   const { token } = useSession();
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -29,23 +37,24 @@ export default function SitesPage() {
   const [operators, setOperators] = useState<Operator[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [loadingOperators, setLoadingOperators] = useState(true);
+  const [isNewSiteFormOpen, setIsNewSiteFormOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
-    if (!token || !firestoreUser) return;
+    if (!token || !currentUser) return;
     setLoadingData(true);
     try {
       const [sitesData, usersData, certsData] = await Promise.all([
         listSitesRequest(
           token,
-          firestoreUser.role === 'Operator Admin' && firestoreUser.operatorId
-            ? { operatorId: firestoreUser.operatorId }
+          currentUser.role === 'Operator Admin' && currentUser.operatorId
+            ? { operatorId: currentUser.operatorId }
             : undefined
         ),
         listUsersRequest(
           token,
-          firestoreUser.role === 'Operator Admin' && firestoreUser.operatorId
-            ? { operatorId: firestoreUser.operatorId }
+          currentUser.role === 'Operator Admin' && currentUser.operatorId
+            ? { operatorId: currentUser.operatorId }
             : undefined
         ),
         listCertificateTypesRequest(token),
@@ -66,7 +75,7 @@ export default function SitesPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [token, firestoreUser, toast]);
+  }, [token, currentUser, toast]);
 
   const fetchOperators = useCallback(async () => {
     if (!token) return;
@@ -84,39 +93,39 @@ export default function SitesPage() {
 
   useEffect(() => {
     void fetchData();
-    if (firestoreUser?.role === 'Admin') {
+    if (currentUser?.role === 'Admin') {
       void fetchOperators();
     } else {
       setLoadingOperators(false);
     }
-  }, [fetchData, fetchOperators, firestoreUser?.role]);
+  }, [fetchData, fetchOperators, currentUser?.role]);
 
   usePolling(() => {
     void fetchData();
-    if (firestoreUser?.role === 'Admin') {
+    if (currentUser?.role === 'Admin') {
       void fetchOperators();
     }
   }, 20000);
 
-  const handleAddSite = async (newSite: Omit<Site, 'id'>) => {
-    if (!token || !firestoreUser) {
+  const handleAddSite = async (newSite: Omit<Site, 'id'>): Promise<boolean> => {
+    if (!token || !currentUser) {
       toast({ variant: "destructive", title: "Error", description: "Session expired." });
-      return;
+      return false;
     }
 
     const trimmedName = newSite.name.trim();
     if (!trimmedName) {
       toast({ variant: "destructive", title: "Missing Name", description: "Please provide a site name." });
-      return;
+      return false;
     }
 
-    const operatorId = firestoreUser.role === 'Operator Admin'
-      ? firestoreUser.operatorId
+    const operatorId = currentUser.role === 'Operator Admin'
+      ? currentUser.operatorId
       : newSite.operatorId;
 
     if (!operatorId) {
       toast({ variant: "destructive", title: "Missing Operator", description: "Please select an operator for this site." });
-      return;
+      return false;
     }
 
     const requiredCertificateIds = (newSite.requiredCertificates || [])
@@ -132,9 +141,11 @@ export default function SitesPage() {
       });
       toast({ title: "Site Created", description: `The site "${trimmedName}" has been created.` });
       void fetchData();
+      return true;
     } catch (error: any) {
       console.error("Error adding site: ", error);
       toast({ variant: "destructive", title: "Creation Error", description: error.message || "Could not create the new site." });
+      return false;
     }
   };
 
@@ -182,7 +193,7 @@ export default function SitesPage() {
     }
   };
 
-  if (loading || !firestoreUser) {
+  if (loading || !currentUser) {
     return <div>Loading...</div>;
   }
 
@@ -192,30 +203,22 @@ export default function SitesPage() {
   
   return (
     <div className="space-y-4 md:space-y-6">
-       <header>
-        <h1 className="text-3xl font-bold tracking-tight">Site Management</h1>
-        <p className="text-muted-foreground">Create, view, and manage all operational sites.</p>
-      </header>
-      <Tabs defaultValue="site-list">
-        <TabsList className="grid w-full grid-cols-2 md:w-auto md:max-w-[400px]">
-          <TabsTrigger value="site-list">Site List</TabsTrigger>
-          <TabsTrigger value="new-site">New Site</TabsTrigger>
-        </TabsList>
-        <TabsContent value="site-list">
-            <SitesTable 
-              sites={sites} 
-              users={users}
-              certificateTypes={certificateTypes}
-              operators={operators}
-              isLoading={loadingData}
-              isLoadingOperators={loadingOperators}
-              currentUserRole={firestoreUser.role}
-              onUpdateSite={handleUpdateSite}
-              onDeleteSite={handleDeleteSite}
-            />
-        </TabsContent>
-        <TabsContent value="new-site">
-            <NewSiteForm 
+      <header className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Site Management</h1>
+          <p className="text-muted-foreground">Create, view, and manage all operational sites.</p>
+        </div>
+        <Dialog open={isNewSiteFormOpen} onOpenChange={setIsNewSiteFormOpen}>
+          <Button onClick={() => setIsNewSiteFormOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add site
+          </Button>
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create a New Site</DialogTitle>
+              <DialogDescription>Enter the site details below.</DialogDescription>
+            </DialogHeader>
+            <NewSiteForm
               onNewSite={handleAddSite}
               users={users}
               certificateTypes={certificateTypes}
@@ -223,11 +226,24 @@ export default function SitesPage() {
               isLoadingUsers={loadingData}
               isLoadingCerts={loadingData}
               isLoadingOperators={loadingOperators}
-              currentUserRole={firestoreUser.role}
-              currentUserOperatorId={firestoreUser.operatorId}
+              currentUserRole={currentUser.role}
+              currentUserOperatorId={currentUser.operatorId}
+              closeDialog={() => setIsNewSiteFormOpen(false)}
             />
-        </TabsContent>
-      </Tabs>
+          </DialogContent>
+        </Dialog>
+      </header>
+      <SitesTable
+        sites={sites}
+        users={users}
+        certificateTypes={certificateTypes}
+        operators={operators}
+        isLoading={loadingData}
+        isLoadingOperators={loadingOperators}
+        currentUserRole={currentUser.role}
+        onUpdateSite={handleUpdateSite}
+        onDeleteSite={handleDeleteSite}
+      />
     </div>
   );
 }

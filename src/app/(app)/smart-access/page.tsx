@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RadioTower, RefreshCw, ShieldCheck, Wrench } from 'lucide-react';
+import { RadioTower, RefreshCw, ShieldCheck, Smartphone, SlidersHorizontal, Wrench } from 'lucide-react';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useSession } from '@/providers/session-provider';
 import { useToast } from '@/hooks/use-toast';
 import { usePolling } from '@/lib/polling';
+import { useLiveEvents } from '@/hooks/use-live-events';
 import { listSitesRequest } from '@/lib/api';
 import type { Site } from '@/lib/types';
 import {
@@ -19,6 +20,7 @@ import {
   type PhysicalAccessPoint,
   type PhysicalAsset,
   type SmartAccessProvider,
+  createSmartAccessCommand,
   listSmartAccessAssets,
   listSmartAccessAssignments,
   listSmartAccessCommands,
@@ -39,6 +41,8 @@ import { InventoryTab } from '@/components/smart-access/inventory-tab';
 import { ProvisioningTab } from '@/components/smart-access/provisioning-tab';
 import { EventsTable } from '@/components/smart-access/events-table';
 import { CommandsTable } from '@/components/smart-access/commands-table';
+import { SmartAccessOperationsPanel } from '@/components/smart-access/operations-panel';
+import { SmartAccessSetupTab } from '@/components/smart-access/setup-tab';
 
 type SmartAccessState = {
   providers: SmartAccessProvider[];
@@ -67,11 +71,10 @@ const emptyState: SmartAccessState = {
 };
 
 export default function SmartAccessPage() {
-  const { firestoreUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection([
+  const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection([
     'Admin',
     'Operator Admin',
     'Manager',
-    'Security',
   ]);
   const { token } = useSession();
   const { toast } = useToast();
@@ -80,16 +83,18 @@ export default function SmartAccessPage() {
   const [data, setData] = useState<SmartAccessState>(emptyState);
   const [loadingData, setLoadingData] = useState(true);
   const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
+  const [runningAction, setRunningAction] = useState<'sync' | null>(null);
+  const [isOperationsOpen, setIsOperationsOpen] = useState(false);
 
   const siteFilter = selectedSiteId === 'all' ? undefined : selectedSiteId;
 
   const fetchData = useCallback(async () => {
-    if (!token || !firestoreUser) return;
+    if (!token || !currentUser) return;
     setLoadingData(true);
 
     try {
-      const sitesInput = firestoreUser.role === 'Operator Admin' && firestoreUser.operatorId
-        ? { operatorId: firestoreUser.operatorId }
+      const sitesInput = currentUser.role === 'Operator Admin' && currentUser.operatorId
+        ? { operatorId: currentUser.operatorId }
         : undefined;
       const listInput = siteFilter ? { siteId: siteFilter } : undefined;
 
@@ -126,20 +131,32 @@ export default function SmartAccessPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [firestoreUser, siteFilter, toast, token]);
+  }, [currentUser, siteFilter, toast, token]);
 
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
 
+  // Live: smart-lock events, assignment/sync state, inventory and command updates refresh on arrival.
+  useLiveEvents(useCallback((event) => {
+    if (event.type.startsWith('SmartAccess')) {
+      void fetchData();
+    }
+  }, [fetchData]));
   usePolling(() => {
     void fetchData();
-  }, 15000);
+  }, 45000);
 
   const selectedSiteName = useMemo(() => {
     if (selectedSiteId === 'all') return 'All sites';
     return sites.find((site) => site.id === selectedSiteId)?.name ?? 'Selected site';
   }, [selectedSiteId, sites]);
+
+  const canManageSmartAccess = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin';
+  const canConfigureSmartAccess = currentUser?.role === 'Admin';
+  const syncDevice = useMemo(() => data.devices.find((device) => device.isActive !== false), [data.devices]);
+  const mobileSyncDevices = data.devices.filter((device) => device.supportsOfflineSync || device.isBatteryFree).length;
+  const failedSyncJobs = data.syncJobs.filter((job) => ['Failed', 'RetryScheduled', 'Unsupported'].includes(job.status)).length;
 
   const handleRetry = async (jobId: string) => {
     if (!token) return;
@@ -155,7 +172,41 @@ export default function SmartAccessPage() {
     }
   };
 
-  if (authLoading || !firestoreUser) return <div>Loading...</div>;
+  const handleTestSync = async (device = syncDevice) => {
+    if (!token || !device) return;
+    setRunningAction('sync');
+    try {
+      const command = await createSmartAccessCommand(token, {
+        smartAccessProviderId: device.smartAccessProviderId,
+        siteId: device.siteId,
+        physicalAccessPointId: device.physicalAccessPointId,
+        accessControlDeviceId: device.id,
+        commandType: 'Sync',
+        payloadJson: JSON.stringify({ source: 'frontend-operations-console', action: 'test-sync' }),
+      });
+      toast({
+        title: 'Test Sync Completed',
+        description: `${device.name}: ${command.status} at ${new Date(command.completedAtUtc ?? command.requestedAtUtc).toLocaleString()}`,
+      });
+      setIsOperationsOpen(false);
+      void fetchData();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Test Sync Failed', description: error.message || 'Could not create sync command.' });
+    } finally {
+      setRunningAction(null);
+    }
+  };
+
+  const handleSetupError = (title: string, error: unknown) => {
+    const message = error instanceof Error ? error.message : 'Could not complete setup.';
+    toast({ variant: 'destructive', title, description: message });
+  };
+
+  const handleSetupSuccess = (title: string, description: string) => {
+    toast({ title, description });
+  };
+
+  if (authLoading || !currentUser) return <div>Loading...</div>;
   if (!isAuthorized) return <UnauthorizedComponent />;
 
   return (
@@ -181,26 +232,64 @@ export default function SmartAccessPage() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
+          <Button onClick={() => setIsOperationsOpen(true)}>
+            <SlidersHorizontal className="mr-2 h-4 w-4" />
+            Operations console
+          </Button>
         </div>
       </header>
 
       <div className="grid gap-4 md:grid-cols-4">
         <SummaryCard icon={RadioTower} label="Providers" value={data.providers.length} />
         <SummaryCard icon={ShieldCheck} label="Devices" value={data.devices.length} />
-        <SummaryCard icon={Wrench} label="Assignments" value={data.assignments.length} />
-        <SummaryCard icon={RefreshCw} label="Sync Jobs" value={data.syncJobs.length} />
+        <SummaryCard icon={Smartphone} label="Mobile / Offline" value={mobileSyncDevices} />
+        <SummaryCard icon={Wrench} label={failedSyncJobs ? 'Sync Issues' : 'Assignments'} value={failedSyncJobs || data.assignments.length} />
       </div>
 
+      <SmartAccessOperationsPanel
+        open={isOperationsOpen}
+        onOpenChange={setIsOperationsOpen}
+        devices={data.devices}
+        syncJobs={data.syncJobs}
+        canManage={canManageSmartAccess}
+        runningAction={runningAction}
+        onTestSync={() => void handleTestSync()}
+      />
+
       <Tabs defaultValue="inventory">
-        <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:grid-cols-4">
+        <TabsList className={`grid w-full grid-cols-2 lg:w-auto ${canConfigureSmartAccess ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
+          {canConfigureSmartAccess && <TabsTrigger value="setup">Setup</TabsTrigger>}
           <TabsTrigger value="provisioning">Provisioning</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="commands">Commands</TabsTrigger>
         </TabsList>
         <TabsContent value="inventory">
-          <InventoryTab devices={data.devices} loading={loadingData} selectedSiteName={selectedSiteName} />
+          <InventoryTab
+            devices={data.devices}
+            loading={loadingData}
+            selectedSiteName={selectedSiteName}
+            canTestSync={canManageSmartAccess}
+            runningSync={runningAction === 'sync'}
+            onTestSync={(device) => void handleTestSync(device)}
+          />
         </TabsContent>
+        {canConfigureSmartAccess && (
+          <TabsContent value="setup">
+            <SmartAccessSetupTab
+              token={token}
+              canConfigure={canConfigureSmartAccess}
+              sites={sites}
+              providers={data.providers}
+              accessPoints={data.accessPoints}
+              devices={data.devices}
+              mappings={data.mappings}
+              onCreated={() => void fetchData()}
+              onError={handleSetupError}
+              onSuccess={handleSetupSuccess}
+            />
+          </TabsContent>
+        )}
         <TabsContent value="provisioning">
           <ProvisioningTab
             assignments={data.assignments}

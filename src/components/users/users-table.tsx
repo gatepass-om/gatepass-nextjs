@@ -76,6 +76,7 @@ interface UsersTableProps {
     updatedData: Omit<User, "id">
   ) => Promise<boolean>;
   currentUser: User;
+  canMutateUsers: boolean;
 }
 
 export function UsersTable({
@@ -87,6 +88,7 @@ export function UsersTable({
   onDeleteUser,
   onUpdateUser,
   currentUser,
+  canMutateUsers,
 }: UsersTableProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -156,7 +158,7 @@ export function UsersTable({
   }
 
   const canEditUser = (user: User) => {
-    return !['Worker', 'Supervisor'].includes(user.role);
+    return canMutateUsers && !['Worker', 'Supervisor'].includes(user.role);
   };
 
   return (

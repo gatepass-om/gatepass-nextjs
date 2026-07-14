@@ -20,25 +20,33 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, CheckCircle2, XCircle, ClipboardCheck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useSession } from '@/providers/session-provider';
+import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { fetchPermits, issuePermit, cancelPermit, completePermit, type PermitToWork } from '@/lib/api';
 
 const statusColor: Record<string, string> = {
-    Active: 'bg-green-100 text-green-800',
-    Expired: 'bg-yellow-100 text-yellow-800',
-    Cancelled: 'bg-red-100 text-red-800',
-    Completed: 'bg-blue-100 text-blue-800',
+    Active: 'bg-success/15 text-success border border-success/30',
+    Expired: 'bg-warning/15 text-warning border border-warning/30',
+    Cancelled: 'bg-danger/15 text-danger border border-danger/30',
+    Completed: 'bg-primary/15 text-primary border border-primary/30',
 };
 
 function PermitStatusBadge({ status }: { status: string }) {
     return (
-        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor[status] ?? 'bg-gray-100 text-gray-700'}`}>
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor[status] ?? 'bg-muted text-muted-foreground border border-border'}`}>
             {status}
         </span>
     );
 }
 
 export default function PermitsPage() {
-    const { token, user } = useSession();
+    const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection([
+        'Admin',
+        'Operator Admin',
+        'Manager',
+        'Supervisor',
+        'Worker',
+    ]);
+    const { token } = useSession();
     const [permits, setPermits] = useState<PermitToWork[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -55,14 +63,15 @@ export default function PermitsPage() {
         validToUtc: '',
     });
 
-    const canManage = user?.role && ['Admin', 'OperatorAdmin', 'Manager', 'Supervisor'].includes(user.role);
+    const canManage = currentUser?.role && ['Admin', 'Operator Admin', 'Manager', 'Supervisor'].includes(currentUser.role);
+    const isWorkerReadOnly = currentUser?.role === 'Worker';
 
     const load = async () => {
         if (!token) return;
         setLoading(true);
         setError(null);
         try {
-            const data = await fetchPermits(token);
+            const data = await fetchPermits(token, isWorkerReadOnly && currentUser?.id ? { workerId: currentUser.id } : undefined);
             setPermits(data);
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : 'Failed to load permits.');
@@ -71,7 +80,7 @@ export default function PermitsPage() {
         }
     };
 
-    useEffect(() => { load(); }, [token]);
+    useEffect(() => { load(); }, [token, currentUser?.id, isWorkerReadOnly]);
 
     const handleIssue = async () => {
         if (!token) return;
@@ -118,6 +127,14 @@ export default function PermitsPage() {
             setError(e instanceof Error ? e.message : 'Failed to complete permit.');
         }
     };
+
+    if (authLoading || !currentUser) {
+        return <div>Loading...</div>;
+    }
+
+    if (!isAuthorized) {
+        return <UnauthorizedComponent />;
+    }
 
     return (
         <div className="space-y-4 md:space-y-6">
@@ -254,7 +271,7 @@ export default function PermitsPage() {
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="text-green-700 border-green-300 hover:bg-green-50"
+                                            className="text-success border-success/30 hover:bg-success/10"
                                             onClick={() => handleComplete(permit.id)}
                                         >
                                             <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
