@@ -1,351 +1,540 @@
-
 'use client';
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { StatsCards } from '@/components/dashboard/stats-cards';
-import { useAuthProtection } from '@/hooks/use-auth-protection';
-import type { Site, Operator } from '@/lib/types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { RecentActivityTable } from '@/components/dashboard/recent-activity-table';
-import { OnSiteByCompanyChart } from '@/components/dashboard/on-site-by-company-chart';
-import { OnSiteByNationalityChart } from '@/components/dashboard/on-site-by-nationality-chart';
-import { fetchDashboardSummaryRequest, listOperatorsRequest, listSitesRequest, type DashboardSummary } from '@/lib/api';
-import { listGeoRegions, type GeoRegion } from '@/lib/location-governance-api';
-import { useSession } from '@/providers/session-provider';
-import { usePolling } from '@/lib/polling';
-import { useLiveEvents } from '@/hooks/use-live-events';
-import { OperationsCommandStrip } from '@/components/dashboard/operations-command-strip';
+
+import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Activity, Bell, MapPinned, Radio, Search, SlidersHorizontal } from 'lucide-react';
+import { DashboardTools, type ReportingWindow } from '@/components/dashboard/dashboard-tools';
+import { shouldShowAttendanceAnalytics } from '@/components/dashboard/dashboard-mode';
+import { DataQualityPanel } from '@/components/dashboard/data-quality-panel';
+import { InclusiveAdoptionPanel } from '@/components/dashboard/inclusive-adoption-panel';
+import { ManagementScorecards } from '@/components/dashboard/management-scorecards';
 import { OperationsActionQueue } from '@/components/dashboard/operations-action-queue';
-import { SiteOccupancyList } from '@/components/dashboard/site-occupancy-list';
-import { OpsMap, type OpsZone } from '@/components/maps/ops-map';
-import { Loader2, MapPinned, Radar } from 'lucide-react';
+import { RecentActivityTable } from '@/components/dashboard/recent-activity-table';
+import { RegistrationFunnelPanel } from '@/components/dashboard/registration-funnel-panel';
+import { ReportSchedulesPanel } from '@/components/dashboard/report-schedules-panel';
+import { ShiftRostersPanel } from '@/components/dashboard/shift-rosters-panel';
+import type { OpsZone } from '@/components/maps/ops-map';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuthProtection } from '@/hooks/use-auth-protection';
+import { useLiveEvents } from '@/hooks/use-live-events';
+import {
+  fetchDashboardSummaryRequest,
+  listOperatorsRequest,
+  listSitesRequest,
+  type DashboardSummary,
+} from '@/lib/api';
+import { listGeoRegions, type GeoRegion } from '@/lib/location-governance-api';
+import { usePolling } from '@/lib/polling';
+import type { Operator, Site, UserRole } from '@/lib/types';
+import { useSession } from '@/providers/session-provider';
+
+const DashboardVisuals = dynamic(
+  () => import('@/components/dashboard/dashboard-visuals').then((module) => module.DashboardVisuals),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[680px] w-full rounded-xl" />,
+  },
+);
+
+const OpsMap = dynamic(
+  () => import('@/components/maps/ops-map').then((module) => module.OpsMap),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[340px] w-full rounded-xl" />,
+  },
+);
+
+const DASHBOARD_ROLES: UserRole[] = ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Consultant', 'Contractor Admin'];
+const ROSTER_ROLES: UserRole[] = ['Admin', 'Operator Admin', 'Manager'];
 
 export default function DashboardPage() {
-    const { currentUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Manager', 'Supervisor']);
-    const { token } = useSession();
-    const [sites, setSites] = useState<Site[]>([]);
-    const [operators, setOperators] = useState<Operator[]>([]);
-    const [summary, setSummary] = useState<DashboardSummary | null>(null);
-    const [zones, setZones] = useState<GeoRegion[]>([]);
-    const [loadingZones, setLoadingZones] = useState(true);
-    const [loadingData, setLoadingData] = useState(true);
-    const [loadingSummary, setLoadingSummary] = useState(true);
-    const [selectedOperatorId, setSelectedOperatorId] = useState<string>('all');
-    const [selectedSiteId, setSelectedSiteId] = useState<string>('all');
+  const {
+    currentUser,
+    loading,
+    isAuthorized,
+    UnauthorizedComponent,
+  } = useAuthProtection(DASHBOARD_ROLES);
+  const { token } = useSession();
+  const [sites, setSites] = useState<Site[]>([]);
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [zones, setZones] = useState<GeoRegion[]>([]);
+  const [loadingZones, setLoadingZones] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
+  const [loadingSummary, setLoadingSummary] = useState(true);
+  const [selectedOperatorId, setSelectedOperatorId] = useState('all');
+  const [selectedSiteId, setSelectedSiteId] = useState('all');
+  const showAttendanceAnalytics = useMemo(
+    () => shouldShowAttendanceAnalytics(
+      sites,
+      selectedOperatorId === 'all' ? undefined : selectedOperatorId,
+      selectedSiteId === 'all' ? undefined : selectedSiteId,
+    ),
+    [selectedOperatorId, selectedSiteId, sites],
+  );
+  const [reportingWindow, setReportingWindow] = useState<ReportingWindow>('24h');
+  const [customFromLocal, setCustomFromLocal] = useState(
+    () => toLocalDateTimeValue(new Date(Date.now() - 24 * 60 * 60 * 1000)),
+  );
+  const [customToLocal, setCustomToLocal] = useState(() => toLocalDateTimeValue(new Date()));
 
-    const userRole = currentUser?.role;
-    const userId = currentUser?.id;
-    const userOperatorId = currentUser?.operatorId;
-    const canViewFullDashboard = !!userRole && ['Admin', 'Operator Admin', 'Manager'].includes(userRole);
-    const isAdmin = userRole === 'Admin';
+  const userRole = currentUser?.role;
+  const userId = currentUser?.id;
+  const userOperatorId = currentUser?.operatorId;
+  const isAdmin = userRole === 'Admin';
+  const canManageRosters = !!userRole && ROSTER_ROLES.includes(userRole);
+  const canScheduleReports = summary?.audience.visiblePanels.includes('portfolio') ?? false;
+  const customRangeError = useMemo(
+    () => reportingWindow === 'custom'
+      ? validateCustomRange(customFromLocal, customToLocal)
+      : null,
+    [customFromLocal, customToLocal, reportingWindow],
+  );
 
+  const filteredSites = useMemo(() => {
+    if (selectedOperatorId !== 'all') {
+      return sites.filter((site) => site.operatorId === selectedOperatorId);
+    }
+    if (userRole === 'Operator Admin') {
+      return sites.filter((site) => site.operatorId === userOperatorId);
+    }
+    if (userRole === 'Manager') {
+      return sites.filter((site) => userId && site.managerIds.includes(userId));
+    }
+    return sites;
+  }, [selectedOperatorId, sites, userId, userOperatorId, userRole]);
 
-    const filteredSites = useMemo(() => {
-        if (selectedOperatorId === 'all') {
-             if (userRole === 'Operator Admin') {
-                return sites.filter(s => s.operatorId === userOperatorId);
-            }
-            if (userRole === 'Manager') {
-                return sites.filter(s => userId && s.managerIds.includes(userId));
-            }
-            return sites;
-        }
+  useEffect(() => {
+    setSelectedSiteId('all');
+  }, [selectedOperatorId]);
 
-        return sites.filter(s => s.operatorId === selectedOperatorId);
+  const fetchReferenceData = useCallback(async () => {
+    if (!token || !userRole || !isAuthorized) {
+      setLoadingData(false);
+      return;
+    }
 
-    }, [sites, selectedOperatorId, userId, userOperatorId, userRole]);
+    setLoadingData(true);
+    try {
+      const sitesData = userRole === 'Operator Admin' && userOperatorId
+        ? await listSitesRequest(token, { operatorId: userOperatorId })
+        : await listSitesRequest(token);
 
-    // When operator changes, reset the site filter
-    useEffect(() => {
-        setSelectedSiteId('all');
-    }, [selectedOperatorId]);
+      setSites(sitesData.map((site) => ({
+        id: site.id,
+        name: site.name,
+        operatorId: (site as Site & { operator?: { id?: string } }).operator?.id ?? site.operatorId,
+        managerIds: site.managerIds ?? [],
+        requiredCertificates: site.requiredCertificates ?? [],
+        maximumOccupancy: site.maximumOccupancy ?? undefined,
+      })));
 
+      if (isAdmin) {
+        setOperators(await listOperatorsRequest(token));
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard reference data', error);
+    } finally {
+      setLoadingData(false);
+    }
+  }, [isAdmin, isAuthorized, token, userOperatorId, userRole]);
 
-    const fetchReferenceData = useCallback(async () => {
-        if (!token || !userRole) {
-            setLoadingData(false);
-            return;
-        }
+  const fetchSummary = useCallback(async () => {
+    if (!token || !userRole || !isAuthorized) {
+      setLoadingSummary(false);
+      return;
+    }
+    if (reportingWindow === 'custom' && customRangeError) {
+      setLoadingSummary(false);
+      return;
+    }
 
-        setLoadingData(true);
-        try {
-            let sitesData = [] as Site[];
-            if (userRole === 'Operator Admin' && userOperatorId) {
-                sitesData = await listSitesRequest(token, { operatorId: userOperatorId });
-            } else {
-                sitesData = await listSitesRequest(token);
-            }
+    setLoadingSummary(true);
+    try {
+      const toUtc = reportingWindow === 'custom' ? new Date(customToLocal) : new Date();
+      const windowHours = reportingWindow === '24h' ? 24 : reportingWindow === '7d' ? 168 : 720;
+      const fromUtc = reportingWindow === 'custom'
+        ? new Date(customFromLocal)
+        : new Date(toUtc.getTime() - windowHours * 60 * 60 * 1000);
 
-            const mappedSites = sitesData.map((site) => ({
-                id: site.id,
-                name: site.name,
-                operatorId: (site as any).operator?.id ?? site.operatorId,
-                managerIds: site.managerIds ?? [],
-                requiredCertificates: site.requiredCertificates ?? [],
-            })) as Site[];
+      setSummary(await fetchDashboardSummaryRequest(token, {
+        operatorId: selectedOperatorId,
+        siteId: selectedSiteId,
+        fromUtc: fromUtc.toISOString(),
+        toUtc: toUtc.toISOString(),
+      }));
+    } catch (error) {
+      console.error('Failed to fetch dashboard summary', error);
+    } finally {
+      setLoadingSummary(false);
+    }
+  }, [
+    customFromLocal,
+    customRangeError,
+    customToLocal,
+    isAuthorized,
+    reportingWindow,
+    selectedOperatorId,
+    selectedSiteId,
+    token,
+    userRole,
+  ]);
 
-            setSites(mappedSites);
+  const fetchZones = useCallback(async () => {
+    if (!token || !userRole || !isAuthorized) {
+      setLoadingZones(false);
+      return;
+    }
+    setLoadingZones(true);
+    try {
+      setZones(await listGeoRegions(token, { includeInactive: true }));
+    } catch (error) {
+      console.error('Failed to fetch monitored zones', error);
+    } finally {
+      setLoadingZones(false);
+    }
+  }, [isAuthorized, token, userRole]);
 
-            if (isAdmin) {
-                const operatorsData = await listOperatorsRequest(token);
-                setOperators(operatorsData as Operator[]);
-            }
-        } catch (error) {
-            console.error('Failed to fetch dashboard reference data', error);
-        } finally {
-            setLoadingData(false);
-        }
-    }, [token, userRole, userOperatorId, isAdmin]);
+  useEffect(() => {
+    void fetchReferenceData();
+  }, [fetchReferenceData]);
 
-    const fetchSummary = useCallback(async () => {
-        if (!token || !userRole || !canViewFullDashboard) {
-            setLoadingSummary(false);
-            return;
-        }
+  useEffect(() => {
+    void fetchSummary();
+  }, [fetchSummary]);
 
-        setLoadingSummary(true);
-        try {
-            const nextSummary = await fetchDashboardSummaryRequest(token, {
-                operatorId: selectedOperatorId,
-                siteId: selectedSiteId,
-            });
-            setSummary(nextSummary);
-        } catch (error) {
-            console.error('Failed to fetch dashboard summary', error);
-        } finally {
-            setLoadingSummary(false);
-        }
-    }, [canViewFullDashboard, selectedOperatorId, selectedSiteId, token, userRole]);
+  useEffect(() => {
+    void fetchZones();
+  }, [fetchZones]);
 
-    const fetchZones = useCallback(async () => {
-        if (!token || !userRole || !canViewFullDashboard) {
-            setLoadingZones(false);
-            return;
-        }
-
-        setLoadingZones(true);
-        try {
-            const regions = await listGeoRegions(token, { includeInactive: true });
-            setZones(regions);
-        } catch (error) {
-            console.error('Failed to fetch monitored zones', error);
-        } finally {
-            setLoadingZones(false);
-        }
-    }, [token, userRole, canViewFullDashboard]);
-
-    useEffect(() => {
-        fetchReferenceData();
-    }, [fetchReferenceData]);
-
-    useEffect(() => {
-        fetchSummary();
-    }, [fetchSummary]);
-
-    useEffect(() => {
-        fetchZones();
-    }, [fetchZones]);
-
-    // Live: refresh occupancy / recent activity / request counts the moment the backend reports a relevant change.
-    // Polling drops to a slow safety-net interval since the stream now carries the immediacy.
-    useLiveEvents(
-        useCallback((event) => {
-            if (
-                event.type === 'GateActivityChanged' ||
-                event.type === 'AccessRequestChanged' ||
-                event.type === 'PresenceChanged' ||
-                event.type === 'DashboardRefresh'
-            ) {
-                void fetchSummary();
-            }
-        }, [fetchSummary]),
-        { enabled: canViewFullDashboard }
-    );
-
-    usePolling(() => {
+  useLiveEvents(
+    useCallback((event) => {
+      if (
+        event.type === 'GateActivityChanged'
+        || event.type === 'AccessRequestChanged'
+        || event.type === 'PresenceChanged'
+        || event.type === 'DashboardRefresh'
+      ) {
         void fetchSummary();
-    }, 45000);
+      }
+    }, [fetchSummary]),
+    { enabled: isAuthorized },
+  );
 
-    const opsZones = useMemo<OpsZone[]>(() => {
-        return zones.map((region) => {
-            const hasCenter =
-                region.centerLatitude !== null &&
-                region.centerLatitude !== undefined &&
-                region.centerLongitude !== null &&
-                region.centerLongitude !== undefined;
+  usePolling(() => {
+    void fetchSummary();
+  }, 45_000);
 
-            return {
-                id: region.id,
-                name: region.name,
-                shape: region.shape,
-                center: hasCenter
-                    ? ([region.centerLatitude as number, region.centerLongitude as number] as [number, number])
-                    : null,
-                radiusMeters: region.radiusMeters,
-                polygon: (region.polygon ?? []).map((p) => [p.latitude, p.longitude] as [number, number]),
-                tone:
-                    region.governanceMode === 'Disabled'
-                        ? 'muted'
-                        : region.shape === 'Polygon'
-                            ? 'teal'
-                            : 'primary',
-                meta: region.siteName || region.governanceMode,
-                active: region.isActive,
-            };
-        });
-    }, [zones]);
+  const opsZones = useMemo<OpsZone[]>(() => zones.map((region) => {
+    const hasCenter = region.centerLatitude !== null
+      && region.centerLatitude !== undefined
+      && region.centerLongitude !== null
+      && region.centerLongitude !== undefined;
 
-    const hasMappableZones = useMemo(
-        () => opsZones.some((z) => (z.center && z.center.length === 2) || (z.polygon && z.polygon.length > 0)),
-        [opsZones]
-    );
+    return {
+      id: region.id,
+      name: region.name,
+      shape: region.shape,
+      center: hasCenter
+        ? [region.centerLatitude as number, region.centerLongitude as number]
+        : null,
+      radiusMeters: region.radiusMeters,
+      polygon: (region.polygon ?? []).map(
+        (point) => [point.latitude, point.longitude] as [number, number],
+      ),
+      tone: region.governanceMode === 'Disabled'
+        ? 'muted'
+        : region.shape === 'Polygon'
+          ? 'teal'
+          : 'primary',
+      meta: region.siteName || region.governanceMode,
+      active: region.isActive,
+    };
+  }), [zones]);
 
-    if (loading) {
-        return <div>Loading...</div>;
-    }
+  const hasMappableZones = useMemo(
+    () => opsZones.some(
+      (zone) => (zone.center && zone.center.length === 2)
+        || (zone.polygon && zone.polygon.length > 0),
+    ),
+    [opsZones],
+  );
 
-    if (!isAuthorized) {
-        return <UnauthorizedComponent />;
-    }
-
-  if (!currentUser || !['Admin', 'Operator Admin', 'Manager', 'Supervisor'].includes(currentUser.role)) {
-      return (
-         <div className="space-y-4 md:space-y-6">
-            <header>
-                <h1 className="text-3xl font-bold tracking-tight">Welcome</h1>
-                <p className="text-muted-foreground">Your role does not have a dashboard view.</p>
-            </header>
-         </div>
-      );
+  if (loading) {
+    return <DashboardLoading />;
+  }
+  if (!isAuthorized) {
+    return <UnauthorizedComponent />;
+  }
+  if (!currentUser) {
+    return null;
   }
 
+  const generatedAt = summary?.generatedAtUtc
+    ? new Date(summary.generatedAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  const firstName = currentUser.name.split(/\s+/)[0] || 'there';
+
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 border-b border-border pb-5 md:flex-row md:items-end md:justify-between">
-        <div>
-            <p className="eyebrow">Operations</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Operations Command Center</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Command view for personnel presence, approvals, and gate movement.</p>
+    <div className="dashboard-home -mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[#eaf5f1] p-0 md:-mx-6 md:-my-6 md:p-0 lg:-mx-8 lg:-my-8 lg:p-0">
+      <div className="dashboard-frame mx-auto max-w-[1600px] bg-transparent p-0 shadow-none">
+      <div className="dashboard-reference-topbar">
+        <div className="dashboard-reference-search">
+          <Search className="h-3.5 w-3.5 text-slate-400" />
+          <input aria-label="Search dashboard" placeholder="Search…" />
         </div>
-        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-            <span className="inline-flex w-fit items-center gap-2 self-start rounded-full border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-success sm:self-auto">
-                <span className="status-dot status-dot--live" />
-                Live
+        <div className="flex items-center gap-3">
+          <span className="dashboard-reference-status"><span className="status-dot status-dot--live" />Live</span>
+          <Bell className="h-4 w-4 text-slate-400" />
+          <div className="dashboard-reference-avatar">{firstName.slice(0, 2).toUpperCase()}</div>
+        </div>
+      </div>
+      <header className="dashboard-header flex flex-col gap-5 px-1 pb-5 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0">
+          <p className="dashboard-eyebrow text-emerald-700">Command center · operations</p>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <h1 className="text-[26px] font-semibold tracking-[-.04em] text-slate-900">Good morning, {firstName}</h1>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-emerald-700">
+              <Radio className="h-3 w-3" /> Live
             </span>
-            {isAdmin && (
-                 loadingData ? (
-                    <Skeleton className="h-10 w-full md:w-[200px]" />
-                ) : (
-                    <Select value={selectedOperatorId} onValueChange={setSelectedOperatorId}>
-                        <SelectTrigger className="w-full md:w-[200px]">
-                            <SelectValue placeholder="Select an operator" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Operators</SelectItem>
-                            {operators.map(op => (
-                                <SelectItem key={op.id} value={op.id}>{op.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                )
-            )}
-            {canViewFullDashboard && (
-                loadingData ? (
-                    <Skeleton className="h-10 w-full md:w-[200px]" />
-                ) : (
-                    <Select value={selectedSiteId} onValueChange={setSelectedSiteId} disabled={isAdmin && selectedOperatorId === 'all'}>
-                        <SelectTrigger className="w-full md:w-[200px]">
-                            <SelectValue placeholder="Select a site" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Sites</SelectItem>
-                            {filteredSites.map(site => (
-                                <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                )
-            )}
+          </div>
+          <p className="mt-1.5 text-xs text-slate-500">
+            {generatedAt ? `Updated ${generatedAt}` : 'Syncing live operations'} · A focused view of the work that needs attention.
+          </p>
+        </div>
+
+        <div aria-label="Dashboard filters" className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Select value={reportingWindow} onValueChange={(value) => setReportingWindow(value as ReportingWindow)}>
+            <SelectTrigger aria-label="Reporting window" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm sm:w-[148px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="24h">Last 24 hours</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="custom">Custom range</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {isAdmin ? (
+            loadingData ? (
+              <Skeleton className="h-10 w-full sm:w-[190px]" />
+            ) : (
+              <Select value={selectedOperatorId} onValueChange={setSelectedOperatorId}>
+                <SelectTrigger aria-label="Operator" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm sm:w-[170px]">
+                  <SelectValue placeholder="Operator" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All operators</SelectItem>
+                  {operators.map((operator) => (
+                    <SelectItem key={operator.id} value={operator.id}>{operator.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )
+          ) : null}
+
+          {loadingData ? (
+            <Skeleton className="h-10 w-full sm:w-[190px]" />
+          ) : (
+            <Select
+              value={selectedSiteId}
+              onValueChange={setSelectedSiteId}
+              disabled={isAdmin && selectedOperatorId === 'all'}
+            >
+              <SelectTrigger aria-label="Site" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm sm:w-[170px]">
+                <SelectValue placeholder="Site" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sites</SelectItem>
+                {filteredSites.map((site) => (
+                  <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </header>
 
-      {canViewFullDashboard && (
-        <div className="space-y-6">
-            <OperationsCommandStrip summary={summary} isLoading={loadingSummary} />
-            <StatsCards summary={summary} isLoading={loadingSummary} />
+      {reportingWindow === 'custom' ? (
+          <section aria-label="Custom reporting range" className="dashboard-panel grid gap-3 p-4 sm:grid-cols-2">
+          <label className="grid gap-1 text-xs font-medium text-foreground">
+            From
+            <input
+              type="datetime-local"
+              aria-label="From date and time"
+              value={customFromLocal}
+              onChange={(event) => setCustomFromLocal(event.target.value)}
+              className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-normal"
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-medium text-foreground">
+            To
+            <input
+              type="datetime-local"
+              aria-label="To date and time"
+              value={customToLocal}
+              onChange={(event) => setCustomToLocal(event.target.value)}
+              className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-normal"
+            />
+          </label>
+          {customRangeError ? (
+            <p className="text-xs text-destructive sm:col-span-2" role="alert">{customRangeError}</p>
+          ) : null}
+        </section>
+      ) : null}
 
-            {/* Compliance ledger — cleared workforce, credentials expiring soon, and flagged workers. */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="ops-panel rounded-lg border border-success/30 bg-success/5 p-4">
-                <span className="eyebrow text-success">Cleared workforce</span>
-                <p className="metric-value mt-1 text-2xl font-bold text-success">{summary?.clearedWorkers ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Workers verified through onboarding</p>
-              </div>
-              <div className="ops-panel rounded-lg border border-warning/30 bg-warning/5 p-4">
-                <span className="eyebrow text-warning">Expiring soon</span>
-                <p className="metric-value mt-1 text-2xl font-bold text-warning">{summary?.workersWithExpiringCertificates ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Workers with a certificate lapsing within 30 days</p>
-              </div>
-              <div className="ops-panel rounded-lg border border-danger/30 bg-danger/5 p-4">
-                <span className="eyebrow text-danger">Flagged</span>
-                <p className="metric-value mt-1 text-2xl font-bold text-danger">{summary?.flaggedWorkers ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Clearance returned for correction</p>
-              </div>
-            </div>
-
-            <section className="ops-panel p-5">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                        <MapPinned className="h-4 w-4 text-accent" />
-                        <div>
-                            <h2 className="text-sm font-semibold text-foreground">Monitored Zones</h2>
-                            <p className="text-xs text-muted-foreground">Geofenced operational regions across the selected scope.</p>
-                        </div>
-                    </div>
-                    <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
-                        <Radar className="h-3.5 w-3.5 text-accent" />
-                        {loadingZones ? 'Loading…' : `${opsZones.length} zone${opsZones.length === 1 ? '' : 's'}`}
-                    </span>
-                </div>
-                {loadingZones ? (
-                    <div className="flex h-[520px] w-full items-center justify-center rounded-lg border border-border/70 bg-card/60">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                    </div>
-                ) : hasMappableZones ? (
-                    <OpsMap zones={opsZones} className="h-[520px] w-full rounded-lg overflow-hidden" />
-                ) : (
-                    <div className="flex h-[520px] w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/20 text-center">
-                        <MapPinned className="h-8 w-8 text-muted-foreground/60" />
-                        <p className="text-sm font-medium text-foreground">No mapped zones</p>
-                        <p className="max-w-sm text-xs text-muted-foreground">
-                            No geofenced regions with coordinates are configured for this scope yet.
-                        </p>
-                    </div>
-                )}
-            </section>
-
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-                <div className="grid gap-6 lg:grid-cols-7">
-                    <OnSiteByCompanyChart
-                        className="lg:col-span-4"
-                        data={userRole === 'Admin' && selectedOperatorId === 'all' ? summary?.operators ?? [] : summary?.contractors ?? []}
-                        groupByOperator={userRole === 'Admin' && selectedOperatorId === 'all'}
-                        isLoading={loadingSummary}
-                    />
-                    <OnSiteByNationalityChart className="lg:col-span-3" data={summary?.nationalities ?? []} isLoading={loadingSummary} />
-                </div>
-                <div className="space-y-6">
-                    <OperationsActionQueue summary={summary} isLoading={loadingSummary} />
-                    <SiteOccupancyList sites={summary?.sites ?? []} totalOnSite={summary?.totalOnSite ?? 0} isLoading={loadingSummary} />
-                </div>
-            </div>
-            <RecentActivityTable activity={summary?.recentActivity ?? []} isLoading={loadingSummary} />
+      <Tabs defaultValue="overview" className="space-y-4">
+        <div className="dashboard-controlbar flex flex-wrap items-center justify-between gap-3 border-y border-slate-200/80 py-2">
+          <TabsList className="h-9 w-full justify-start rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:w-auto">
+            <TabsTrigger value="overview" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+              <Activity className="h-3.5 w-3.5" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="planning" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Planning
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+              <MapPinned className="h-3.5 w-3.5" />
+              Insights
+            </TabsTrigger>
+          </TabsList>
+          <DashboardTools
+            summary={summary}
+            showAttendanceAnalytics={showAttendanceAnalytics}
+            operatorId={selectedOperatorId}
+            siteId={selectedSiteId}
+            reportingWindow={reportingWindow}
+            customFromLocal={customFromLocal}
+            customToLocal={customToLocal}
+            onApplyView={(view) => {
+              setSelectedOperatorId(view.operatorId);
+              setSelectedSiteId(view.siteId);
+              setReportingWindow(view.reportingWindow);
+              if (view.customFromLocal) setCustomFromLocal(view.customFromLocal);
+              if (view.customToLocal) setCustomToLocal(view.customToLocal);
+            }}
+          />
         </div>
-      )}
 
-       {!canViewFullDashboard && (
-          <p className="text-muted-foreground">Dashboard view is not available for your role.</p>
-       )}
+        <TabsContent value="overview" className="mt-0 space-y-4">
+          <DashboardVisuals
+            summary={summary}
+            isLoading={loadingSummary}
+            showAttendanceAnalytics={showAttendanceAnalytics}
+          />
+
+          <div className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+            <OperationsActionQueue summary={summary} isLoading={loadingSummary} />
+            <section className="ops-panel overflow-hidden">
+              <header className="flex h-14 items-center justify-between border-b border-border/70 px-5">
+                <div className="flex items-center gap-2">
+                  <MapPinned className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground">Operational map</h2>
+                </div>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {loadingZones ? 'Loading' : `${opsZones.length} zones`}
+                </span>
+              </header>
+              <div className="p-4">
+                {loadingZones ? (
+                  <Skeleton className="h-[340px] w-full rounded-xl" />
+                ) : hasMappableZones ? (
+                  <OpsMap zones={opsZones} className="h-[340px] w-full overflow-hidden rounded-xl" />
+                ) : (
+                  <div className="flex h-[340px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/15">
+                    <p className="text-xs text-muted-foreground">No mapped zones</p>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+
+          {showAttendanceAnalytics ? (
+            <RecentActivityTable activity={summary?.recentActivity ?? []} isLoading={loadingSummary} />
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value="planning" className="mt-0 space-y-4">
+          {token && canScheduleReports ? (
+            <ReportSchedulesPanel token={token} sites={filteredSites} />
+          ) : null}
+          {token && canManageRosters ? (
+            <ShiftRostersPanel token={token} sites={filteredSites} />
+          ) : null}
+          {!canScheduleReports && !canManageRosters ? (
+            <EmptyTab label="No planning tools are available for this role." />
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value="insights" className="mt-0 space-y-4">
+          {summary?.audience.visiblePanels.includes('portfolio') ? (
+            <ManagementScorecards summary={summary} />
+          ) : null}
+          {summary?.audience.visiblePanels.includes('adoption') ? (
+            <>
+              <RegistrationFunnelPanel summary={summary} />
+              <InclusiveAdoptionPanel summary={summary} />
+            </>
+          ) : null}
+          {summary?.audience.visiblePanels.includes('data-quality') ? (
+            <DataQualityPanel summary={summary} />
+          ) : null}
+          {!summary?.audience.visiblePanels.some(
+            (panel) => ['portfolio', 'adoption', 'data-quality'].includes(panel),
+          ) ? (
+            <EmptyTab label="No additional insights are available for this scope." />
+          ) : null}
+        </TabsContent>
+      </Tabs>
+      </div>
     </div>
   );
+}
+
+function DashboardLoading() {
+  return (
+    <div className="space-y-5">
+      <Skeleton className="h-14 w-full" />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <Skeleton key={index} className="h-28 w-full" />
+        ))}
+      </div>
+      <Skeleton className="h-[420px] w-full" />
+    </div>
+  );
+}
+
+function EmptyTab({ label }: { label: string }) {
+  return (
+    <div className="ops-panel flex min-h-48 items-center justify-center p-6">
+      <p className="text-sm text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function toLocalDateTimeValue(date: Date) {
+  const timezoneOffsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+}
+
+function validateCustomRange(fromLocal: string, toLocal: string) {
+  if (!fromLocal || !toLocal) return 'Choose both dates and times.';
+  const from = new Date(fromLocal);
+  const to = new Date(toLocal);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return 'Choose valid dates and times.';
+  if (from >= to) return 'The start must be earlier than the end.';
+  if (to.getTime() - from.getTime() > 366 * 24 * 60 * 60 * 1000) return 'The range cannot exceed 366 days.';
+  return null;
 }

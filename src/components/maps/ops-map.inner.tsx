@@ -17,7 +17,7 @@ import {
 import type { MapTone, OpsMapProps } from './ops-map';
 
 const TONE_HEX: Record<MapTone, string> = {
-  primary: '#3b82f6',
+  primary: '#2ea477',
   success: '#22c55e',
   warning: '#f59e0b',
   danger: '#ef4444',

@@ -11,15 +11,12 @@ import {
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import type { Operator, User, Site } from '@/lib/types';
-import { Loader2, Building2, User as UserIcon, MoreHorizontal, Pencil, Trash2, UserCheck, Eye } from 'lucide-react';
+import { Loader2, Building2, User as UserIcon, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import {
@@ -39,11 +36,10 @@ interface OperatorsTableProps {
   isLoading?: boolean;
   onRenameOperator?: (operatorId: string, name: string) => void;
   onDeleteOperator?: (operatorId: string, name: string) => void;
-  onImpersonateUser?: (user: User) => void;
   canManage?: boolean;
 }
 
-export function OperatorsTable({ operators, users, sites, isLoading = false, onRenameOperator, onDeleteOperator, onImpersonateUser, canManage = true }: OperatorsTableProps) {
+export function OperatorsTable({ operators, users, sites, isLoading = false, onRenameOperator, onDeleteOperator, canManage = true }: OperatorsTableProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingOperator, setEditingOperator] = useState<Operator | null>(null);
   const [editedName, setEditedName] = useState('');
@@ -112,27 +108,6 @@ export function OperatorsTable({ operators, users, sites, isLoading = false, onR
                                   <Eye className="mr-2 h-4 w-4" /> View details
                                 </Link>
                               </DropdownMenuItem>
-	                            {personnel.length > 0 && (
-	                              <DropdownMenuSub>
-	                                <DropdownMenuSubTrigger>
-	                                  <UserCheck className="mr-2 h-4 w-4" /> Impersonate
-	                                </DropdownMenuSubTrigger>
-	                                <DropdownMenuSubContent className="w-64">
-	                                  {personnel.map((person) => (
-	                                    <DropdownMenuItem
-	                                      key={person.id}
-	                                      onSelect={() => onImpersonateUser?.(person)}
-	                                      disabled={person.status === 'Inactive'}
-	                                    >
-	                                      <div className="min-w-0">
-	                                        <div className="truncate text-sm font-medium">{person.name}</div>
-	                                        <div className="truncate text-xs text-muted-foreground">{person.role}</div>
-	                                      </div>
-	                                    </DropdownMenuItem>
-	                                  ))}
-	                                </DropdownMenuSubContent>
-	                              </DropdownMenuSub>
-	                            )}
 	                            {canManage && (
                               <DropdownMenuItem
 	                              onSelect={() => {

@@ -112,7 +112,7 @@ export function NewRequestForm({ currentUserId, onNewRequest, sites, isLoadingSi
                                         </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                        {sites.map(site => (
+                                        {sites.filter(site => site.requiresAccessApproval !== false).map(site => (
                                             <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
                                         ))}
                                         </SelectContent>

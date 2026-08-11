@@ -19,6 +19,10 @@ type StatCard = {
 };
 
 export function StatsCards({ summary, isLoading = false }: StatsCardsProps) {
+  const approvalsApplicable = summary?.audience.visiblePanels.includes('approvals') ?? true;
+  const windowLabel = summary?.window.durationHours
+    ? `Selected ${summary.window.durationHours}-hour window`
+    : 'Selected reporting window';
   const cards: StatCard[] = [
     {
       title: 'Currently On-Site',
@@ -28,7 +32,7 @@ export function StatsCards({ summary, isLoading = false }: StatsCardsProps) {
       icon: LogIn,
       tint: 'bg-primary/15 text-primary ring-1 ring-inset ring-primary/30',
     },
-    {
+    ...(approvalsApplicable ? [{
       title: 'Pending Requests',
       eyebrow: 'Pending',
       value: summary?.pendingRequests ?? 0,
@@ -37,10 +41,10 @@ export function StatsCards({ summary, isLoading = false }: StatsCardsProps) {
       tint: 'bg-warning/15 text-warning ring-1 ring-inset ring-warning/30',
     },
     {
-      title: 'Approved Requests',
+      title: 'Active Approvals',
       eyebrow: 'Approved',
       value: summary?.approvedRequests ?? 0,
-      description: 'Approved in scope',
+      description: 'Currently valid approvals',
       icon: ClipboardCheck,
       tint: 'bg-success/15 text-success ring-1 ring-inset ring-success/30',
     },
@@ -48,10 +52,10 @@ export function StatsCards({ summary, isLoading = false }: StatsCardsProps) {
       title: 'Denied Requests',
       eyebrow: 'Denied',
       value: summary?.deniedRequests ?? 0,
-      description: 'Denied in scope',
+      description: windowLabel,
       icon: AlertOctagon,
       tint: 'bg-destructive/15 text-destructive ring-1 ring-inset ring-destructive/30',
-    },
+    }] : []),
   ];
 
   return (

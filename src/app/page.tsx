@@ -3,16 +3,7 @@
 import { useSession } from '@/providers/session-provider';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import type { UserRole } from '@/lib/types';
-
-const getHomepageForRole = (role?: UserRole): string => {
-  switch (role) {
-    case 'Contractor Admin':
-      return '/access-requests';
-    default:
-      return '/dashboard';
-  }
-};
+import { workspaceLandingForRole } from '@/lib/role-workspaces';
 
 export default function Home() {
   const { user, loading } = useSession();
@@ -25,7 +16,7 @@ export default function Home() {
       return;
     }
 
-    router.push(getHomepageForRole(user.role));
+    router.push(workspaceLandingForRole(user.role));
   }, [user, loading, router]);
 
   return <div>Loading...</div>;

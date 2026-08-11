@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Search, Bell, LifeBuoy, LogOut, Settings, User as UserIcon, Undo2 } from 'lucide-react';
+import { Search, Bell, LifeBuoy, LogOut, Settings, ShieldAlert, User as UserIcon, Undo2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
@@ -18,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from '@/providers/session-provider';
-import { fetchAlerts } from '@/lib/api';
+import { fetchAlerts, fetchUserNotifications } from '@/lib/api';
 import { usePolling } from '@/lib/polling';
 import { useLiveEvents } from '@/hooks/use-live-events';
 
@@ -52,6 +52,7 @@ export function Header() {
   const { toast } = useToast();
   const { user, token, logout, isImpersonating, impersonatedBy, stopImpersonation } = useSession();
   const [alertCount, setAlertCount] = useState(0);
+  const [notificationCount, setNotificationCount] = useState(0);
   const canViewAlerts = !!user && ALERT_VIEWER_ROLES.includes(user.role);
 
   const refreshAlertCount = useCallback(async () => {
@@ -68,6 +69,11 @@ export function Header() {
   }, [token, canViewAlerts]);
 
   useEffect(() => { void refreshAlertCount(); }, [refreshAlertCount]);
+  const refreshNotificationCount = useCallback(async () => {
+    if (!token) { setNotificationCount(0); return; }
+    try { setNotificationCount((await fetchUserNotifications(token, true)).length); } catch { /* best effort */ }
+  }, [token]);
+  useEffect(() => { void refreshNotificationCount(); }, [refreshNotificationCount]);
   // Live: bump the badge the instant an alert is raised/dispatched. Polling stays as a slow safety net.
   useLiveEvents(
     useCallback((event) => {
@@ -78,6 +84,7 @@ export function Header() {
     { enabled: canViewAlerts }
   );
   usePolling(() => { void refreshAlertCount(); }, 45000);
+  usePolling(() => { void refreshNotificationCount(); }, 30000);
 
   const handleLogout = () => {
     logout();
@@ -160,7 +167,7 @@ export function Header() {
             className="relative rounded-full text-muted-foreground hover:text-foreground"
           >
             <Link href="/alerts">
-              <Bell className="h-5 w-5" />
+              <ShieldAlert className="h-5 w-5" />
               {alertCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white ring-2 ring-background">
                   {alertCount > 99 ? '99+' : alertCount}
@@ -170,6 +177,14 @@ export function Header() {
             </Link>
           </Button>
         )}
+
+        <Button asChild variant="ghost" size="icon" className="relative rounded-full text-muted-foreground hover:text-foreground">
+          <Link href="/notifications">
+            <Bell className="h-5 w-5" />
+            {notificationCount > 0 ? <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-white ring-2 ring-background">{notificationCount > 99 ? '99+' : notificationCount}</span> : null}
+            <span className="sr-only">{notificationCount ? `${notificationCount} unread notifications` : 'View notifications'}</span>
+          </Link>
+        </Button>
 
         <span className="hidden h-8 w-px bg-border md:block" aria-hidden="true" />
 

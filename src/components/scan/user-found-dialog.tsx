@@ -23,11 +23,12 @@ interface UserFoundDialogProps {
   workerData?: { jobTitle?: string };
   smartLockEnforced?: boolean;
   scanRequired?: boolean;
+  accessEnforcementMode?: 'None' | 'SecurityScan' | 'MobileSmartLock' | 'Hybrid';
   accessEnforcementMessage?: string | null;
   onClose: () => void;
 }
 
-export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, lastActivity, assignedSite, accessRequest, workerData, smartLockEnforced = false, scanRequired = true, accessEnforcementMessage, onClose }: UserFoundDialogProps) {
+export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, lastActivity, assignedSite, accessRequest, workerData, smartLockEnforced = false, scanRequired = true, accessEnforcementMode = 'SecurityScan', accessEnforcementMessage, onClose }: UserFoundDialogProps) {
   const { toast } = useToast();
   const { token } = useSession();
 
@@ -56,6 +57,8 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
   const showCheckIn = lastActivity !== 'CheckIn';
   const hasCertificateIssues = certificateStatus.missing.length > 0 || certificateStatus.expired.length > 0;
   const isAccessGranted = accessStatus === 'approved' && !hasCertificateIssues;
+  const isHybrid = accessEnforcementMode === 'Hybrid';
+  const guardedActionAvailable = scanRequired || isHybrid;
 
   const getAccessDeniedReason = () => {
     switch(accessStatus) {
@@ -106,7 +109,7 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
            {smartLockEnforced && (
               <Alert>
                 <BadgeCheck className="h-4 w-4" />
-                <AlertTitle>Smart lock access</AlertTitle>
+                <AlertTitle>{isHybrid ? 'Smart or guarded access' : 'Smart lock access'}</AlertTitle>
                 <AlertDescription>
                   {accessEnforcementMessage ?? 'Scanning is not required for this locked access path. Check-in is performed only in the mobile app using the provisioned smart-lock credential.'}
                 </AlertDescription>
@@ -123,7 +126,7 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
                 <div>
                     <AlertTitle>Access Validity</AlertTitle>
                     <AlertDescription>
-                        {accessRequest.validFrom ? format(parseISO(accessRequest.validFrom), 'PPP') : 'N/A'} - {accessRequest.expiresAt === 'Permanent' ? 'Permanent' : accessRequest.expiresAt ? format(parseISO(accessRequest.expiresAt), 'PPP') : 'N/A'}
+                        {accessRequest.validFromUtc ? format(parseISO(accessRequest.validFromUtc), 'PPP') : 'N/A'} - {accessRequest.isPermanent ? 'Permanent' : accessRequest.expiresAtUtc ? format(parseISO(accessRequest.expiresAtUtc), 'PPP') : 'N/A'}
                     </AlertDescription>
                 </div>
               </Alert>
@@ -152,7 +155,7 @@ export function UserFoundDialog({ scannedUser, accessStatus, certificateStatus, 
         </div>
       </div>
       <DialogFooter>
-        {!scanRequired || smartLockEnforced ? (
+        {!guardedActionAvailable ? (
           <Button className="w-full" variant="outline" onClick={onClose}>Close</Button>
         ) : showCheckIn ? (
              <Button className="w-full" onClick={() => handleActivity('CheckIn')} disabled={!isAccessGranted}><LogIn className="mr-2 h-4 w-4" /> Check-in</Button>

@@ -30,8 +30,9 @@ import {
   MoreHorizontal,
   Pencil,
   Briefcase,
-  Download,
+  CreditCard,
   User as UserIcon,
+  UserCheck,
 } from "lucide-react";
 import {
   Dialog,
@@ -57,11 +58,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { format, isBefore, parseISO } from "date-fns";
 import Image from "next/image";
 import { Badge } from "../ui/badge";
 import { EditUserForm } from "./edit-user-form";
-import { useToast } from "@/hooks/use-toast";
+import { canEditUserRecord, canImpersonateUser } from "./user-actions";
+import { WorkerClearance } from "@/components/workers/worker-clearance";
+import { WorkerDocuments } from "@/components/workers/worker-documents";
+import { WorkerTimeline } from "@/components/workers/worker-timeline";
+import { WorkerCards } from "@/components/workers/worker-cards";
 
 interface UsersTableProps {
   users: User[];
@@ -77,6 +81,7 @@ interface UsersTableProps {
   ) => Promise<boolean>;
   currentUser: User;
   canMutateUsers: boolean;
+  onImpersonateUser: (user: User) => void;
 }
 
 export function UsersTable({
@@ -89,48 +94,16 @@ export function UsersTable({
   onUpdateUser,
   currentUser,
   canMutateUsers,
+  onImpersonateUser,
 }: UsersTableProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const { toast } = useToast();
+  const [complianceUser, setComplianceUser] = useState<User | null>(null);
+  const [cardUser, setCardUser] = useState<User | null>(null);
 
   const handleEditClick = (user: User) => {
     setSelectedUser(user);
     setIsEditDialogOpen(true);
-  };
-
-  const handleDownloadQr = async (user: User) => {
-    const QRCode = await import('qrcode');
-    try {
-        const dataUrl = await QRCode.toDataURL(user.id, {
-            errorCorrectionLevel: 'H',
-            width: 512,
-            margin: 2,
-            color: {
-                dark: '#0D1A2E',
-                light: '#FFFFFF'
-            }
-        });
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = `QR_Code_${user.name.replace(/\s+/g, '_')}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    } catch (error) {
-        console.error('Failed to generate or download QR code', error);
-        toast({
-            variant: "destructive",
-            title: "Download Failed",
-            description: "Could not generate the QR code for download."
-        });
-    }
-  };
-
-
-  const isCertificateExpired = (expiryDate?: string) => {
-    if (!expiryDate) return false;
-    return isBefore(parseISO(expiryDate), new Date());
   };
 
   const getSiteName = (siteId?: string) => {
@@ -158,7 +131,17 @@ export function UsersTable({
   }
 
   const canEditUser = (user: User) => {
-    return canMutateUsers && !['Worker', 'Supervisor'].includes(user.role);
+    return canEditUserRecord(canMutateUsers, user.role);
+  };
+
+  const canReviewCompliance = (user: User) => {
+    return user.role === 'Worker'
+      && ['Admin', 'Operator Admin', 'Manager', 'Consultant'].includes(currentUser.role);
+  };
+
+  const canManageWorkerCard = (user: User) => {
+    return user.role === 'Worker'
+      && ['Admin', 'Operator Admin', 'Contractor Admin'].includes(currentUser.role);
   };
 
   return (
@@ -268,9 +251,24 @@ export function UsersTable({
                                     <Pencil className="mr-2 h-4 w-4" /> Edit
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem onSelect={() => handleDownloadQr(user)}>
-                                  <Download className="mr-2 h-4 w-4" /> Download QR
-                                </DropdownMenuItem>
+                                {canImpersonateUser(currentUser.role, currentUser.id, user.id) && (
+                                  <DropdownMenuItem
+                                    onSelect={() => onImpersonateUser(user)}
+                                    disabled={user.status === "Inactive"}
+                                  >
+                                    <UserCheck className="mr-2 h-4 w-4" /> Impersonate
+                                  </DropdownMenuItem>
+                                )}
+                                {canManageWorkerCard(user) && (
+                                  <DropdownMenuItem onSelect={() => setCardUser(user)}>
+                                    <CreditCard className="mr-2 h-4 w-4" /> Issue worker card
+                                  </DropdownMenuItem>
+                                )}
+                                {!canEditUser(user) && canReviewCompliance(user) && (
+                                  <DropdownMenuItem onSelect={() => setComplianceUser(user)}>
+                                    <ShieldCheck className="mr-2 h-4 w-4" /> Review compliance
+                                  </DropdownMenuItem>
+                                )}
                                 {canEditUser(user) && user.id !== currentUser.id && (
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
@@ -341,6 +339,34 @@ export function UsersTable({
               closeDialog={() => setIsEditDialogOpen(false)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={complianceUser !== null} onOpenChange={(open) => !open && setComplianceUser(null)}>
+        <DialogContent className="max-w-full sm:max-w-3xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Worker Compliance Review</DialogTitle>
+            <DialogDescription>
+              Review evidence and clearance for {complianceUser?.name} without editing their profile.
+            </DialogDescription>
+          </DialogHeader>
+          {complianceUser && (
+            <div className="space-y-4">
+              <WorkerClearance workerId={complianceUser.id} initialStatus={complianceUser.clearanceStatus} />
+              <WorkerDocuments workerId={complianceUser.id} canManage={false} />
+              <WorkerTimeline workerId={complianceUser.id} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={cardUser !== null} onOpenChange={(open) => !open && setCardUser(null)}>
+        <DialogContent className="max-h-[90vh] w-[95vw] max-w-4xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Issue worker card</DialogTitle>
+            <DialogDescription>
+              Select a verified photo and manage the card for {cardUser?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          {cardUser ? <WorkerCards workerId={cardUser.id} /> : null}
         </DialogContent>
       </Dialog>
     </>

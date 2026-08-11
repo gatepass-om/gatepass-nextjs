@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import type { Site, User, CertificateType, Operator, UserRole } from "@/lib/types";
-import React from "react";
+import React, { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { Check } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { Switch } from "../ui/switch";
 
 
 const formSchema = z.object({
@@ -22,6 +23,13 @@ const formSchema = z.object({
   operatorId: z.string().optional(),
   managerIds: z.array(z.string()).min(1, { message: "At least one manager must be selected." }),
   requiredCertificates: z.array(z.string()).optional(),
+  requiresAccessApproval: z.boolean(),
+  usesSecurityCheckpoints: z.boolean(),
+  usesSmartAccess: z.boolean(),
+  maximumOccupancy: z.preprocess(
+    (value) => value === "" ? undefined : value,
+    z.coerce.number().int().positive().optional(),
+  ),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -51,6 +59,7 @@ export function NewSiteForm({
     currentUserOperatorId,
     closeDialog,
 }: NewSiteFormProps) {
+    const [operatorOpen, setOperatorOpen] = useState(false);
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -58,10 +67,14 @@ export function NewSiteForm({
             operatorId: currentUserRole === 'Operator Admin' ? currentUserOperatorId || "" : "",
             managerIds: [],
             requiredCertificates: [],
+            requiresAccessApproval: false,
+            usesSecurityCheckpoints: false,
+            usesSmartAccess: false,
+            maximumOccupancy: undefined,
         },
     });
 
-    const managers = users.filter(u => u.role === 'Manager' || u.role === 'Admin' || u.role === 'Operator Admin');
+    const managers = users.filter(u => u.role === 'Manager');
 
     async function onSubmit(values: FormValues) {
         if (currentUserRole === 'Admin' && !values.operatorId) {
@@ -77,6 +90,10 @@ export function NewSiteForm({
             operatorId,
             managerIds: values.managerIds,
             requiredCertificates: values.requiredCertificates || [],
+            requiresAccessApproval: values.requiresAccessApproval,
+            usesSecurityCheckpoints: values.usesSecurityCheckpoints,
+            usesSmartAccess: values.usesSmartAccess,
+            maximumOccupancy: values.maximumOccupancy,
         });
 
         if (success) {
@@ -100,7 +117,7 @@ export function NewSiteForm({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Operator</FormLabel>
-                                        <Popover>
+                                        <Popover open={operatorOpen} onOpenChange={setOperatorOpen}>
                                             <PopoverTrigger asChild>
                                                 <FormControl>
                                                     <Button
@@ -133,6 +150,7 @@ export function NewSiteForm({
                                                                     key={operator.id}
                                                                     onSelect={() => {
                                                                         form.setValue("operatorId", operator.id, { shouldValidate: true });
+                                                                        setOperatorOpen(false);
                                                                     }}
                                                                 >
                                                                     <Check
@@ -154,6 +172,48 @@ export function NewSiteForm({
                                 )}
                             />
                         )}
+
+                        <div className="space-y-4 rounded-md border p-4">
+                            <div>
+                                <h3 className="font-medium">Site operating model</h3>
+                                <p className="text-sm text-muted-foreground">Enable only the controls this site actually uses. Leave all off for a compliance-only or open-area site.</p>
+                            </div>
+                            <FormField control={form.control} name="requiresAccessApproval" render={({ field }) => (
+                                <FormItem className="flex items-center justify-between gap-4">
+                                    <div><FormLabel>Require access approval</FormLabel><p className="text-sm text-muted-foreground">Workers need an approved access request.</p></div>
+                                    <FormControl><Switch aria-label="Require access approval" checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="usesSecurityCheckpoints" render={({ field }) => (
+                                <FormItem className="flex items-center justify-between gap-4">
+                                    <div><FormLabel>Guarded security checkpoint</FormLabel><p className="text-sm text-muted-foreground">Guards or inspectors record entry and exit scans.</p></div>
+                                    <FormControl><Switch aria-label="Guarded security checkpoint" checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="usesSmartAccess" render={({ field }) => (
+                                <FormItem className="flex items-center justify-between gap-4">
+                                    <div><FormLabel>Smart locks or mobile credentials</FormLabel><p className="text-sm text-muted-foreground">Connected devices enforce physical access.</p></div>
+                                    <FormControl><Switch aria-label="Smart locks or mobile credentials" checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="maximumOccupancy" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Maximum occupancy (optional)</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            inputMode="numeric"
+                                            placeholder="Leave blank when no meaningful limit applies"
+                                            value={field.value ?? ""}
+                                            onChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                    <p className="text-sm text-muted-foreground">Used only for capacity statistics and alerts.</p>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
 
                         <FormField
                             control={form.control}

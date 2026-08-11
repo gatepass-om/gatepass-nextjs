@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 
 type DialogState = 'closed' | 'user-found' | 'no-user' | 'visitor-register';
 type LastActivity = 'CheckIn' | 'CheckOut' | null;
+type AccessEnforcementMode = 'None' | 'SecurityScan' | 'MobileSmartLock' | 'Hybrid';
 type CertificateStatus = {
   missing: string[];
   expired: string[];
@@ -42,7 +43,7 @@ type ScanStatusResponse = {
   lastActivity: LastActivity;
   smartLockEnforced?: boolean;
   scanRequired?: boolean;
-  accessEnforcementMode?: string;
+  accessEnforcementMode?: AccessEnforcementMode;
   accessEnforcementMessage?: string | null;
   mobileAppCheckInRequired?: boolean;
   canCheckIn?: boolean;
@@ -64,6 +65,7 @@ export default function ScanPage() {
   const [workerData, setWorkerData] = useState<WorkerData | undefined>();
   const [smartLockEnforced, setSmartLockEnforced] = useState(false);
   const [scanRequired, setScanRequired] = useState(true);
+  const [accessEnforcementMode, setAccessEnforcementMode] = useState<AccessEnforcementMode>('SecurityScan');
   const [accessEnforcementMessage, setAccessEnforcementMessage] = useState<string | null>(null);
 
   const { toast } = useToast();
@@ -75,6 +77,9 @@ export default function ScanPage() {
       operatorId: site.operator?.id ?? site.operatorId ?? '',
       managerIds: site.managerIds ?? [],
       requiredCertificates: site.requiredCertificates ?? [],
+      requiresAccessApproval: site.requiresAccessApproval ?? true,
+      usesSecurityCheckpoints: site.usesSecurityCheckpoints ?? true,
+      usesSmartAccess: site.usesSmartAccess ?? true,
     };
   }, []);
 
@@ -123,6 +128,7 @@ export default function ScanPage() {
       setLastActivity(status.lastActivity ?? null);
       setSmartLockEnforced(Boolean(status.smartLockEnforced));
       setScanRequired(status.scanRequired !== false);
+      setAccessEnforcementMode(status.accessEnforcementMode ?? 'SecurityScan');
       setAccessEnforcementMessage(status.accessEnforcementMessage ?? null);
       setAssignedSite((prev) => {
         if (!prev || prev.id !== status.site.id) return prev;
@@ -161,6 +167,7 @@ export default function ScanPage() {
       setLastActivity(status.lastActivity ?? null);
       setSmartLockEnforced(Boolean(status.smartLockEnforced));
       setScanRequired(status.scanRequired !== false);
+      setAccessEnforcementMode(status.accessEnforcementMode ?? 'SecurityScan');
       setAccessEnforcementMessage(status.accessEnforcementMessage ?? null);
       setAssignedSite((prev) => {
         if (!prev || prev.id !== status.site.id) return prev;
@@ -208,6 +215,7 @@ export default function ScanPage() {
     setWorkerData(undefined);
     setSmartLockEnforced(false);
     setScanRequired(true);
+    setAccessEnforcementMode('SecurityScan');
     setAccessEnforcementMessage(null);
   };
 
@@ -270,6 +278,7 @@ export default function ScanPage() {
           workerData={workerData}
           smartLockEnforced={smartLockEnforced}
           scanRequired={scanRequired}
+          accessEnforcementMode={accessEnforcementMode}
           accessEnforcementMessage={accessEnforcementMessage}
           canRegisterVisitor={currentSecurityUser?.role === 'Admin' && !!assignedSite && !loadingSite}
           onRegisterVisitor={() => setDialogState('visitor-register')}
@@ -289,6 +298,7 @@ export default function ScanPage() {
               workerData={workerData}
               smartLockEnforced={smartLockEnforced}
               scanRequired={scanRequired}
+              accessEnforcementMode={accessEnforcementMode}
               accessEnforcementMessage={accessEnforcementMessage}
               onClose={handleCloseDialog}
             />

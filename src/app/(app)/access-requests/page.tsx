@@ -22,10 +22,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { FilePlus2 } from "lucide-react";
 import { useSession } from "@/providers/session-provider";
-import { listAccessRequestsRequest, listSitesRequest, listOperatorsRequest, listContractorsRequest, updateAccessRequest, deleteAccessRequest } from "@/lib/api";
+import { listAccessRequestsPageRequest, listSitesRequest, listOperatorsRequest, listContractorsRequest, updateAccessRequest, deleteAccessRequest } from "@/lib/api";
 import { usePolling } from "@/lib/polling";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { RequestWorkflowStrip } from "@/components/access-requests/request-workflow-strip";
+import { buildAccessApprovalUpdate } from "@/lib/access-request-contract";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+
+const ACCESS_REQUEST_PAGE_SIZE = 20;
 
 export default function AccessRequestsPage() {
   const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Worker', 'Supervisor', 'Consultant']);
@@ -43,6 +47,14 @@ export default function AccessRequestsPage() {
   const [operators, setOperators] = useState<Operator[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [requestPage, setRequestPage] = useState(1);
+  const [requestTotalPages, setRequestTotalPages] = useState(0);
+  const [requestHasPreviousPage, setRequestHasPreviousPage] = useState(false);
+  const [requestHasNextPage, setRequestHasNextPage] = useState(false);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [pendingTotalPages, setPendingTotalPages] = useState(0);
+  const [pendingHasPreviousPage, setPendingHasPreviousPage] = useState(false);
+  const [pendingHasNextPage, setPendingHasNextPage] = useState(false);
 
   const [approvalRequest, setApprovalRequest] = useState<AccessRequest | null>(null);
   const [denyRequest, setDenyRequest] = useState<AccessRequest | null>(null);
@@ -75,53 +87,54 @@ export default function AccessRequestsPage() {
         operatorId: site.operator?.id ?? site.operatorId,
         managerIds: site.managerIds ?? [],
         requiredCertificates: site.requiredCertificates ?? [],
+        requiresAccessApproval: site.requiresAccessApproval ?? true,
+        usesSecurityCheckpoints: site.usesSecurityCheckpoints ?? true,
+        usesSmartAccess: site.usesSmartAccess ?? true,
       })) as Site[];
 
       setSites(mappedSites);
       setOperators(operatorsData as Operator[]);
       setContractors(contractorsData as Contractor[]);
 
-      let requestList: AccessRequest[] = [];
+      const requestFilter: { supervisorId?: string; workerId?: string } = {};
       if (isWorker) {
-        requestList = await listAccessRequestsRequest(token, { workerId: currentUser.id });
+        requestFilter.workerId = currentUser.id;
       } else if (currentUser.role === 'Supervisor') {
-        requestList = await listAccessRequestsRequest(token, { supervisorId: currentUser.id });
-      } else {
-        requestList = await listAccessRequestsRequest(token);
+        requestFilter.supervisorId = currentUser.id;
       }
 
-      const managedSiteIds = (() => {
-        if (currentUser.role === 'Admin') {
-          return mappedSites.map((site) => site.id);
-        }
-        if (currentUser.role === 'Operator Admin') {
-          return mappedSites.filter((site) => site.operatorId === currentUser.operatorId).map((site) => site.id);
-        }
-        if (currentUser.role === 'Manager') {
-          return mappedSites.filter((site) => site.managerIds.includes(currentUser.id)).map((site) => site.id);
-        }
-        return mappedSites.map((site) => site.id);
-      })();
-
-      let scopedRequests = requestList;
-      if (['Manager', 'Operator Admin'].includes(currentUser.role)) {
-        scopedRequests = requestList.filter((request) => managedSiteIds.includes(request.siteId));
-      }
-
-      setMyRequests(scopedRequests);
+      const requestResult = await listAccessRequestsPageRequest(token, {
+        ...requestFilter,
+        page: requestPage,
+        pageSize: ACCESS_REQUEST_PAGE_SIZE,
+      });
+      setMyRequests(requestResult.items);
+      setRequestTotalPages(requestResult.totalPages);
+      setRequestHasPreviousPage(requestResult.hasPreviousPage);
+      setRequestHasNextPage(requestResult.hasNextPage);
 
       if (isManager) {
-        const pending = scopedRequests.filter((request) => request.status === 'Pending' && managedSiteIds.includes(request.siteId));
-        setPendingRequests(pending);
+        const pendingResult = await listAccessRequestsPageRequest(token, {
+          status: 'Pending',
+          page: pendingPage,
+          pageSize: ACCESS_REQUEST_PAGE_SIZE,
+        });
+        setPendingRequests(pendingResult.items);
+        setPendingTotalPages(pendingResult.totalPages);
+        setPendingHasPreviousPage(pendingResult.hasPreviousPage);
+        setPendingHasNextPage(pendingResult.hasNextPage);
       } else {
         setPendingRequests([]);
+        setPendingTotalPages(0);
+        setPendingHasPreviousPage(false);
+        setPendingHasNextPage(false);
       }
     } catch (error) {
       console.error('Failed to fetch access request data', error);
     } finally {
       setLoading(false);
     }
-  }, [token, currentUser, isWorker, isManager]);
+  }, [token, currentUser, isWorker, isManager, requestPage, pendingPage]);
 
   useEffect(() => {
     fetchRequests();
@@ -180,13 +193,7 @@ export default function AccessRequestsPage() {
     }
 
     try {
-      const expiresAtValue = expiresAt === 'Permanent' ? 'Permanent' : expiresAt.toISOString().split('T')[0];
-      await updateAccessRequest(token, requestId, {
-        status: 'Approved',
-        validFrom: validFrom.toISOString().split('T')[0],
-        expiresAt: expiresAtValue,
-        permanent: expiresAt === 'Permanent',
-      });
+      await updateAccessRequest(token, requestId, buildAccessApprovalUpdate(validFrom, expiresAt));
       toast({ title: 'Request Approved', description: 'The access request has been approved.' });
       void fetchRequests();
     } catch (error) {
@@ -287,6 +294,14 @@ export default function AccessRequestsPage() {
               isLoading={loading}
               onDelete={canDelete ? handleDeleteRequest : undefined}
             />
+            <PaginationControls
+              noun="access requests"
+              page={requestPage}
+              totalPages={requestTotalPages}
+              hasPreviousPage={requestHasPreviousPage}
+              hasNextPage={requestHasNextPage}
+              onPageChange={setRequestPage}
+            />
           </TabsContent>
         )}
 
@@ -301,6 +316,14 @@ export default function AccessRequestsPage() {
               onDeny={handleOpenDenyDialog}
               onDelete={canDelete ? handleDeleteRequest : undefined}
               isLoading={loading}
+            />
+            <PaginationControls
+              noun="pending access requests"
+              page={pendingPage}
+              totalPages={pendingTotalPages}
+              hasPreviousPage={pendingHasPreviousPage}
+              hasNextPage={pendingHasNextPage}
+              onPageChange={setPendingPage}
             />
           </TabsContent>
         )}

@@ -32,7 +32,10 @@ export function OperationsCommandStrip({ summary, isLoading = false }: Operation
   const state = getOperationalState(summary);
   const StateIcon = state.icon;
   const activeSites = summary?.sites.filter((site) => site.count > 0).length ?? 0;
-  const movementCount = summary?.recentActivity.length ?? 0;
+  const movementCount = summary?.movements.total ?? 0;
+  const generatedAt = summary?.generatedAtUtc
+    ? new Date(summary.generatedAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem_15rem]">
@@ -50,7 +53,7 @@ export function OperationsCommandStrip({ summary, isLoading = false }: Operation
               </span>
               <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Radio className="h-3.5 w-3.5 text-accent" />
-                Live operations summary
+                {generatedAt ? `Data as of ${generatedAt}` : 'Loading current data'}
               </span>
             </div>
             <div>
@@ -95,14 +98,18 @@ export function OperationsCommandStrip({ summary, isLoading = false }: Operation
       <div className="ops-panel p-5">
         <div className="flex items-center gap-2">
           <Radio className="h-4 w-4 text-primary" />
-          <p className="eyebrow">Recent Movements</p>
+          <p className="eyebrow">Movements</p>
         </div>
         {isLoading ? (
           <Skeleton className="mt-3 h-9 w-16" />
         ) : (
           <div className="metric-value mt-2">{movementCount}</div>
         )}
-        <p className="mt-2 text-xs text-muted-foreground">Latest gate events in scope</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {summary
+            ? `${summary.movements.entries} entries · ${summary.movements.exits} exits · ${summary.movements.denied} denied`
+            : 'Entries, exits, and denied attempts in the selected window'}
+        </p>
       </div>
     </div>
   );

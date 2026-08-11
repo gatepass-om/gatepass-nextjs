@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 13%;
 
-    --primary: 221 83% 53%;
+    --primary: 161 52% 36%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 94%;
@@ -55,7 +55,7 @@
     /* sidebar — white with subtle separation */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 215 19% 35%;
-    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary: 161 52% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 214 32% 94%;
     --sidebar-accent-foreground: 222 47% 17%;
@@ -109,6 +109,233 @@
     background: hsl(var(--success));
     box-shadow: 0 0 0 0 hsl(var(--success) / 0.6);
     animation: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .dashboard-panel {
+    @apply overflow-hidden rounded-2xl border border-slate-200/80 bg-white;
+    box-shadow: 0 8px 24px -20px rgb(15 73 57 / .28);
+  }
+
+  .dashboard-metric {
+    @apply rounded-2xl border border-slate-200/80 bg-white p-4;
+    box-shadow: 0 8px 24px -20px rgb(15 73 57 / .25);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+
+  .dashboard-metric:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 28px -18px rgb(15 73 57 / .35);
+  }
+
+  .dashboard-eyebrow {
+    @apply text-[10px] font-semibold uppercase tracking-[.14em] text-slate-400;
+  }
+
+  /* Keep legacy page-level blue utility classes aligned with the green product palette. */
+  [class*="bg-blue-50"], [class*="bg-blue-100"] { background-color: hsl(161 50% 94%) !important; }
+  [class*="bg-blue-500"], [class*="bg-blue-600"], [class*="bg-blue-700"] { background-color: hsl(161 52% 36%) !important; }
+  [class*="text-blue-"] { color: hsl(161 52% 32%) !important; }
+  [class*="border-blue-"] { border-color: hsl(161 42% 72%) !important; }
+  [class*="ring-blue-"] { --tw-ring-color: hsl(161 42% 78%) !important; }
+
+  /* The home dashboard uses a compact command-centre rail, while the rest of
+     the application keeps the standard directory navigation treatment. */
+  .dashboard-sidebar {
+    --sidebar-width: 14rem;
+    --sidebar-background: 161 52% 31%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 161 52% 31%;
+    --sidebar-accent: 161 42% 38%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 161 42% 38%;
+    --sidebar-ring: 0 0% 100%;
+  }
+
+  .dashboard-sidebar [data-sidebar="sidebar"] {
+    border-right: 0;
+    margin: 1rem;
+    width: calc(100% - 2rem);
+    height: calc(100% - 2rem);
+    border-radius: 1.45rem;
+    box-shadow: 8px 0 28px -24px rgb(12 74 62 / .65);
+  }
+
+  .dashboard-sidebar [data-sidebar="header"] {
+    padding: 1.35rem 1.15rem 1rem;
+  }
+
+  .dashboard-sidebar [data-sidebar="header"] .bg-primary {
+    background: #38b487 !important;
+  }
+
+  .dashboard-sidebar [data-sidebar="content"] {
+    padding-inline: .65rem;
+    gap: .35rem;
+  }
+
+  .dashboard-sidebar [data-sidebar="group"] {
+    padding-block: .35rem;
+  }
+
+  .dashboard-sidebar [data-sidebar="group-label"] {
+    height: 1.65rem;
+    padding-inline: .65rem;
+    color: rgb(255 255 255 / .52);
+  }
+
+  .dashboard-sidebar [data-sidebar="menu-button"] {
+    height: 2.1rem;
+    border-radius: .6rem;
+    color: rgb(255 255 255 / .78);
+    font-size: .78rem;
+  }
+
+  .dashboard-sidebar [data-sidebar="menu-button"]:hover,
+  .dashboard-sidebar [data-sidebar="menu-button"][data-active="true"] {
+    background: rgb(255 255 255 / .16);
+    color: white;
+  }
+
+  .dashboard-sidebar [data-sidebar="footer"] {
+    padding: .75rem;
+  }
+
+  .dashboard-sidebar .text-foreground {
+    color: white;
+  }
+
+  .dashboard-reference-canvas {
+    display: flex;
+    min-height: 100svh;
+    align-items: center;
+    justify-content: center;
+    background: #cfece5;
+    padding: 0;
+  }
+
+  .dashboard-reference-frame {
+    position: relative;
+    display: flex;
+    width: 100vw;
+    height: 100svh;
+    min-height: 100svh;
+    max-height: 100svh;
+    overflow: hidden;
+    border-radius: 0 1.65rem 1.65rem 0;
+    background: #287e69;
+    box-shadow: 0 22px 48px -24px rgb(19 81 68 / .55);
+  }
+
+  .dashboard-reference-sidebar {
+    --sidebar-width: 210px !important;
+    position: absolute !important;
+    inset: 0 auto 0 0 !important;
+    z-index: 10;
+    width: 210px !important;
+    height: 100% !important;
+    border-right: 0 !important;
+  }
+
+  .dashboard-reference-frame > .group {
+    width: 210px !important;
+    border-right: 0 !important;
+  }
+
+  .dashboard-reference-sidebar [data-sidebar="sidebar"] {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .dashboard-reference-inset {
+    width: calc(100% - 210px);
+    min-width: 0;
+    margin-left: 0;
+    overflow: auto;
+    position: relative;
+    z-index: 20;
+    border-radius: 2rem 0 0 2rem;
+    background: #f7faf9;
+  }
+
+  .dashboard-reference-inset > div {
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .dashboard-reference-inset .dashboard-home {
+    min-height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  .dashboard-reference-inset .dashboard-frame {
+    min-height: 100%;
+    padding: 1rem !important;
+    background: #f7faf9;
+  }
+
+  .dashboard-reference-topbar {
+    display: flex;
+    min-height: 3.25rem;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgb(226 232 240 / .75);
+    padding: .75rem 1rem;
+    background: rgb(255 255 255 / .78);
+  }
+
+  .dashboard-reference-search {
+    display: flex;
+    width: min(13rem, 45%);
+    align-items: center;
+    gap: .5rem;
+    border-radius: .65rem;
+    background: #f1f5f9;
+    padding: .45rem .65rem;
+  }
+
+  .dashboard-reference-search input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: .7rem;
+    color: #334155;
+  }
+
+  .dashboard-reference-search input::placeholder {
+    color: #94a3b8;
+  }
+
+  .dashboard-reference-status {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    background: #dff6ed;
+    padding: .35rem .6rem;
+    font-size: .62rem;
+    font-weight: 700;
+    color: #20825f;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .dashboard-reference-avatar {
+    display: flex;
+    height: 1.75rem;
+    width: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #dce9ff;
+    font-size: .65rem;
+    font-weight: 700;
+    color: #2765c8;
   }
 }
 

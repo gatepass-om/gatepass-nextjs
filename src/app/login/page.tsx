@@ -12,21 +12,12 @@ import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useSession } from '@/providers/session-provider';
-import type { UserRole } from '@/lib/types';
+import { workspaceLandingForRole } from '@/lib/role-workspaces';
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  identifier: z.string().trim().min(1, 'Enter your email address or worker code.'),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
-
-const getHomepageForRole = (role?: UserRole): string => {
-  switch (role) {
-    case 'Contractor Admin':
-      return '/access-requests';
-    default:
-      return '/dashboard';
-  }
-};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,7 +28,7 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: '',
+      identifier: '',
       password: '',
     },
   });
@@ -48,7 +39,7 @@ export default function LoginPage() {
       if (sessionUser.status === 'Inactive') {
         router.push('/activate-account');
       } else {
-        router.push(getHomepageForRole(sessionUser.role));
+        router.push(workspaceLandingForRole(sessionUser.role));
       }
     }
   }, [sessionUser, sessionLoading, router]);
@@ -56,24 +47,36 @@ export default function LoginPage() {
   const handleSignIn = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     try {
-      const user = await login({ email: values.email, password: values.password });
+      const user = await login({ identifier: values.identifier, password: values.password });
       if (user.status === 'Inactive') {
         router.push('/activate-account');
         toast({ title: 'Account Inactive', description: 'Please set a password to activate your account.' });
       } else {
-        router.push(getHomepageForRole(user.role));
+        router.push(workspaceLandingForRole(user.role));
         toast({ title: 'Login Successful', description: 'Welcome back!' });
       }
     } catch (error: any) {
       console.error('Authentication Error', error);
-      toast({ variant: 'destructive', title: 'Login Failed', description: error.message || 'Invalid email or password. Please try again.' });
+      toast({ variant: 'destructive', title: 'Login Failed', description: error.message || 'Invalid identifier or password. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   if (sessionLoading) {
-    return <div className="h-svh w-full bg-background" />;
+    return (
+      <div className="flex min-h-svh items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
+              <ShieldCheck className="h-8 w-8 text-primary-foreground" />
+            </div>
+            <CardTitle>Connecting to GatePass</CardTitle>
+            <CardDescription>Checking for an existing session. This should only take a moment.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -93,12 +96,12 @@ export default function LoginPage() {
             <form onSubmit={form.handleSubmit(handleSignIn)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="email"
+                name="identifier"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Email or worker code</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="admin@gatepass.com" {...field} />
+                      <Input autoComplete="username" placeholder="name@company.com or worker code" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

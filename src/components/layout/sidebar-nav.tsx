@@ -32,11 +32,14 @@ import {
   BellRing,
   Siren,
   SlidersHorizontal,
+  CreditCard,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from '@/providers/session-provider';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { getNavigationForRole } from './sidebar-navigation';
+import { BACKEND_URL } from '@/lib/api';
 
 
 const GatePassLogo = () => (
@@ -48,40 +51,86 @@ const GatePassLogo = () => (
   </div>
 );
 
+const dashboardLabels: Record<string, string> = {
+  '/access-requests': 'Requests',
+  '/card-verification': 'Verify cards',
+  '/card-production': 'Cards',
+  '/location-governance': 'Geofencing',
+  '/decision-rules': 'Rules',
+  '/surveillance': 'Video',
+  '/permits': 'Permits',
+  '/smart-access': 'Smart access',
+  '/sites': 'Sites',
+  '/profile': 'My QR',
+};
+
 export function SidebarNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
   const { user, logout } = useSession();
+  const [systemStatus, setSystemStatus] = useState<'checking' | 'operational' | 'degraded'>('checking');
+
+  useEffect(() => {
+    let disposed = false;
+    const checkHealth = async () => {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 5_000);
+      try {
+        const response = await fetch(`${BACKEND_URL}/health/ready`, {
+          method: 'GET',
+          credentials: 'omit',
+          signal: controller.signal,
+        });
+        if (!disposed) setSystemStatus(response.ok ? 'operational' : 'degraded');
+      } catch {
+        if (!disposed) setSystemStatus('degraded');
+      } finally {
+        window.clearTimeout(timer);
+      }
+    };
+    void checkHealth();
+    const interval = window.setInterval(checkHealth, 60_000);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, []);
   
   const navItems = useMemo(() => {
     const role = user?.role;
     if (!role) return [];
 
-    const allItems = [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor'] },
-      { href: '/access-requests', label: 'Access Requests', icon: ClipboardList, group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Worker', 'Supervisor', 'Contractor Admin'] },
-      { href: '/alerts', label: 'Alerts', icon: BellRing, group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },
-      { href: '/muster', label: 'Muster', icon: Siren, group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },
-      { href: '/scan', label: 'Scan Workstation', icon: ScanLine, group: 'Operations', roles: ['Security'] },
-      { href: '/location-governance', label: 'Geofencing', icon: MapPinned, group: 'Governance', roles: ['Admin', 'Operator Admin', 'Manager', 'Contractor Admin', 'Supervisor'] },
-      { href: '/decision-rules', label: 'Decision Rules', icon: SlidersHorizontal, group: 'Governance', roles: ['Admin'] },
-      { href: '/surveillance', label: 'Surveillance', icon: Video, group: 'Governance', roles: ['Admin', 'Operator Admin', 'Manager'] },
-      { href: '/permits', label: 'Permits to Work', icon: ClipboardCheck, group: 'Governance', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Worker'] },
-      { href: '/smart-access', label: 'Smart Access', icon: LockKeyhole, group: 'Infrastructure', roles: ['Admin', 'Operator Admin', 'Manager'] },
-      { href: '/sites', label: 'Site Management', icon: Building2, group: 'Infrastructure', roles: ['Admin', 'Operator Admin'] },
-      { href: '/companies', label: 'Companies', icon: Briefcase, group: 'Directory', roles: ['Admin', 'Operator Admin'] },
-      { href: '/users', label: 'Personnel', icon: Users, group: 'Directory', roles: ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager'] },
-      { href: '/certificates', label: 'Certificates', icon: FileBadge, group: 'Directory', roles: ['Admin', 'Operator Admin'] },
-      { href: '/profile', label: 'My QR Code', icon: QrCodeIcon, group: 'Account', roles: ['Worker', 'Visitor', 'Manager', 'Supervisor', 'Admin', 'Operator Admin', 'Security', 'Contractor Admin'] },
-    ];
-
-    const visible = allItems.filter(item => item.roles.includes(role));
+    const icons = {
+      '/dashboard': LayoutDashboard,
+      '/access-requests': ClipboardList,
+      '/alerts': BellRing,
+      '/muster': Siren,
+      '/scan': ScanLine,
+      '/card-verification': CreditCard,
+      '/card-production': CreditCard,
+      '/location-governance': MapPinned,
+      '/projects': Briefcase,
+      '/decision-rules': SlidersHorizontal,
+      '/surveillance': Video,
+      '/permits': ClipboardCheck,
+      '/smart-access': LockKeyhole,
+      '/sites': Building2,
+      '/companies': Briefcase,
+      '/users': Users,
+      '/certificates': FileBadge,
+      '/profile': QrCodeIcon,
+      '/notifications': BellRing,
+    } as const;
+    const visible = getNavigationForRole(role).map((item) => ({
+      ...item,
+      icon: icons[item.href as keyof typeof icons],
+    }));
     const order = ['Operations', 'Governance', 'Infrastructure', 'Directory', 'Account'];
     return order
       .map(group => ({ group, items: visible.filter(i => i.group === group) }))
       .filter(section => section.items.length > 0);
-  }, [user]);
+  }, [pathname, user]);
 
 
   const handleLogout = () => {
@@ -121,7 +170,7 @@ export function SidebarNav() {
                       tooltip={{ children: item.label, side: 'right' }}
                     >
                       <item.icon />
-                      <span>{item.label}</span>
+                      <span>{pathname === '/dashboard' ? dashboardLabels[item.href] ?? item.label : item.label}</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
@@ -132,8 +181,10 @@ export function SidebarNav() {
       </SidebarContent>
       <SidebarFooter className="p-2 flex-col gap-2">
         <div className="flex items-center gap-2 rounded-lg bg-sidebar-accent/40 px-3 py-2 group-data-[collapsible=icon]:hidden">
-          <span className="status-dot status-dot--live" />
-          <span className="text-xs font-medium text-sidebar-foreground/80">All systems operational</span>
+          <span className={`status-dot ${systemStatus === 'operational' ? 'status-dot--live' : systemStatus === 'degraded' ? 'bg-destructive' : 'bg-warning'}`} />
+          <span className="text-xs font-medium text-sidebar-foreground/80">
+            {systemStatus === 'operational' ? 'All systems operational' : systemStatus === 'degraded' ? 'Service degraded' : 'Checking systems…'}
+          </span>
         </div>
         <Separator className="bg-sidebar-border/50 my-1" />
         <div className="flex items-center gap-3 p-2">

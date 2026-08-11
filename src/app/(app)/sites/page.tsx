@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useSession } from '@/providers/session-provider';
 import {
-  listSitesRequest,
+  listSitesPageRequest,
   listUsersRequest,
   listCertificateTypesRequest,
   listOperatorsRequest,
@@ -27,6 +27,9 @@ import {
   deleteSiteRequest,
 } from '@/lib/api';
 import { usePolling } from '@/lib/polling';
+import { PaginationControls } from '@/components/ui/pagination-controls';
+
+const SITE_PAGE_SIZE = 20;
 
 export default function SitesPage() {
   const { currentUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin']);
@@ -36,6 +39,10 @@ export default function SitesPage() {
   const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [sitePage, setSitePage] = useState(1);
+  const [siteTotalPages, setSiteTotalPages] = useState(0);
+  const [hasPreviousSitePage, setHasPreviousSitePage] = useState(false);
+  const [hasNextSitePage, setHasNextSitePage] = useState(false);
   const [loadingOperators, setLoadingOperators] = useState(true);
   const [isNewSiteFormOpen, setIsNewSiteFormOpen] = useState(false);
   const { toast } = useToast();
@@ -45,11 +52,11 @@ export default function SitesPage() {
     setLoadingData(true);
     try {
       const [sitesData, usersData, certsData] = await Promise.all([
-        listSitesRequest(
+        listSitesPageRequest(
           token,
           currentUser.role === 'Operator Admin' && currentUser.operatorId
-            ? { operatorId: currentUser.operatorId }
-            : undefined
+            ? { operatorId: currentUser.operatorId, page: sitePage, pageSize: SITE_PAGE_SIZE }
+            : { page: sitePage, pageSize: SITE_PAGE_SIZE }
         ),
         listUsersRequest(
           token,
@@ -60,13 +67,20 @@ export default function SitesPage() {
         listCertificateTypesRequest(token),
       ]);
 
-      setSites((sitesData as any[]).map((site) => ({
+      setSites(sitesData.items.map((site) => ({
         id: site.id,
         name: site.name,
         operatorId: site.operator?.id ?? site.operatorId ?? '',
         managerIds: site.managerIds ?? [],
         requiredCertificates: site.requiredCertificates ?? [],
+        requiresAccessApproval: site.requiresAccessApproval ?? true,
+        usesSecurityCheckpoints: site.usesSecurityCheckpoints ?? true,
+        usesSmartAccess: site.usesSmartAccess ?? true,
+        maximumOccupancy: site.maximumOccupancy ?? undefined,
       })));
+      setSiteTotalPages(sitesData.totalPages);
+      setHasPreviousSitePage(sitesData.hasPreviousPage);
+      setHasNextSitePage(sitesData.hasNextPage);
       setUsers(usersData as User[]);
       setCertificateTypes(certsData as CertificateType[]);
     } catch (error) {
@@ -75,7 +89,7 @@ export default function SitesPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [token, currentUser, toast]);
+  }, [token, currentUser, sitePage, toast]);
 
   const fetchOperators = useCallback(async () => {
     if (!token) return;
@@ -138,6 +152,10 @@ export default function SitesPage() {
         operatorId,
         managerIds: newSite.managerIds,
         requiredCertificateIds,
+        requiresAccessApproval: newSite.requiresAccessApproval ?? false,
+        usesSecurityCheckpoints: newSite.usesSecurityCheckpoints ?? false,
+        usesSmartAccess: newSite.usesSmartAccess ?? false,
+        maximumOccupancy: newSite.maximumOccupancy,
       });
       toast({ title: "Site Created", description: `The site "${trimmedName}" has been created.` });
       void fetchData();
@@ -167,6 +185,13 @@ export default function SitesPage() {
         operatorId: updatedData.operatorId,
         managerIds: updatedData.managerIds,
         requiredCertificateIds,
+        requiresAccessApproval: updatedData.requiresAccessApproval,
+        usesSecurityCheckpoints: updatedData.usesSecurityCheckpoints,
+        usesSmartAccess: updatedData.usesSmartAccess,
+        maximumOccupancy: updatedData.maximumOccupancy,
+        clearMaximumOccupancy:
+          updatedData.maximumOccupancy === undefined
+          && sites.find((site) => site.id === siteId)?.maximumOccupancy !== undefined,
       });
       toast({ title: "Site Updated", description: `The site has been updated.` });
       void fetchData();
@@ -243,6 +268,14 @@ export default function SitesPage() {
         currentUserRole={currentUser.role}
         onUpdateSite={handleUpdateSite}
         onDeleteSite={handleDeleteSite}
+      />
+      <PaginationControls
+        noun="sites"
+        page={sitePage}
+        totalPages={siteTotalPages}
+        hasPreviousPage={hasPreviousSitePage}
+        hasNextPage={hasNextSitePage}
+        onPageChange={setSitePage}
       />
     </div>
   );

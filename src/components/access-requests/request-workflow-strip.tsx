@@ -15,8 +15,8 @@ type RequestWorkflowStripProps = {
 export function RequestWorkflowStrip({ requests, pendingRequests, isLoading = false }: RequestWorkflowStripProps) {
   const approved = requests.filter((request) => request.status === 'Approved').length;
   const denied = requests.filter((request) => request.status === 'Denied').length;
-  const totalWorkers = requests.reduce((sum, request) => sum + (request.workerCount ?? request.workerIds?.length ?? request.workers?.length ?? 0), 0);
-  const onSite = requests.reduce((sum, request) => sum + (request.onSiteCount ?? 0), 0);
+  const totalWorkers = requests.reduce((sum, request) => sum + request.workers.length, 0);
+  const onSite = requests.reduce((sum, request) => sum + request.currentOnSiteCount, 0);
   const hasQueue = pendingRequests.length > 0;
 
   return (

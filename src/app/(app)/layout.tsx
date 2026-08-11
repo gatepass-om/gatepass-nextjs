@@ -11,8 +11,8 @@ import { Header } from '@/components/layout/header';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { UserRole } from '@/lib/types';
 import { useSession } from '@/providers/session-provider';
+import { workspaceLandingForRole } from '@/lib/role-workspaces';
 
 function AppLoadingSkeleton() {
   return (
@@ -41,15 +41,6 @@ function AppLoadingSkeleton() {
   )
 }
 
-const getHomepageForRole = (role?: UserRole): string => {
-  switch (role) {
-    case 'Contractor Admin':
-      return '/access-requests';
-    default:
-      return '/dashboard';
-  }
-}
-
 const publicRoutes = ['/login', '/activate-account'];
 
 function LayoutContent({ children }: { children: ReactNode }) {
@@ -67,7 +58,7 @@ function LayoutContent({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading || !user) return;
-    const homePage = getHomepageForRole(user.role);
+    const homePage = workspaceLandingForRole(user.role);
     if (user.status === 'Inactive' && pathname !== '/activate-account') {
       router.push('/activate-account');
     } else if (user.status === 'Active' && pathname === '/activate-account') {
@@ -97,15 +88,19 @@ function LayoutContent({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar>
-        <SidebarNav />
-      </Sidebar>
-      <SidebarInset>
-        <div className="flex flex-col min-h-svh bg-background">
-          <Header />
-          <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+      <div className="dashboard-reference-canvas">
+        <div className="dashboard-reference-frame">
+          <Sidebar className="dashboard-sidebar dashboard-reference-sidebar">
+            <SidebarNav />
+          </Sidebar>
+          <SidebarInset className="dashboard-reference-inset">
+            <div className="flex min-h-full flex-col">
+              {pathname === '/dashboard' ? null : <Header />}
+              <main className={pathname === '/dashboard' ? 'flex-1 p-0' : 'flex-1 p-4 md:p-6 lg:p-8'}>{children}</main>
+            </div>
+          </SidebarInset>
         </div>
-      </SidebarInset>
+      </div>
     </SidebarProvider>
   );
 }

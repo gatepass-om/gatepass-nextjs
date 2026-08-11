@@ -25,23 +25,10 @@ import {
   deleteContractorRequest,
 } from '@/lib/api';
 import { usePolling } from '@/lib/polling';
-import { useRouter } from 'next/navigation';
-
-const getHomepageForRole = (role: User['role']) => {
-  switch (role) {
-    case 'Contractor Admin':
-      return '/access-requests';
-    case 'Worker':
-      return '/profile';
-    default:
-      return '/dashboard';
-  }
-};
 
 export default function CompaniesPage() {
-  const { currentUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin']);
-  const { token, startImpersonation } = useSession();
-  const router = useRouter();
+  const { currentUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Supervisor']);
+  const { token } = useSession();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -163,24 +150,6 @@ export default function CompaniesPage() {
     }
   };
 
-  const handleImpersonateUser = async (user: User) => {
-    try {
-      const impersonated = await startImpersonation(user.id);
-      toast({
-        title: "Impersonation Started",
-        description: `You are now viewing GatePass as ${impersonated.name}.`,
-      });
-      router.push(getHomepageForRole(impersonated.role));
-    } catch (error: any) {
-      console.error('Error starting impersonation:', error);
-      toast({
-        variant: "destructive",
-        title: "Impersonation Failed",
-        description: error.message || "Could not start impersonation.",
-      });
-    }
-  };
-
   if (loading || !currentUser) {
     return <div>Loading...</div>;
   }
@@ -240,7 +209,6 @@ export default function CompaniesPage() {
 	            isLoading={loadingData}
 	            onRenameOperator={handleRenameOperator}
 	            onDeleteOperator={handleDeleteOperator}
-              onImpersonateUser={handleImpersonateUser}
               canManage={canManageCompanies}
 	        />
         )}
@@ -251,7 +219,6 @@ export default function CompaniesPage() {
 	            isLoading={loadingData}
 	            onRenameContractor={canManageCompanies ? handleRenameContractor : undefined}
 	            onDeleteContractor={canManageCompanies ? handleDeleteContractor : undefined}
-              onImpersonateUser={canManageCompanies ? handleImpersonateUser : undefined}
               canManage={canManageCompanies}
 	        />
       </div>

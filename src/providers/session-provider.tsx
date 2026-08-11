@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 // Refresh this far ahead of the access token's actual expiry.
 const REFRESH_SKEW_MS = 60_000;
 const MIN_REFRESH_DELAY_MS = 5_000;
+const SESSION_BOOTSTRAP_TIMEOUT_MS = 5_000;
 
 function getSessionExpiry(result: { expiresAt?: string; expiresAtUtc?: string }) {
   return result.expiresAtUtc ?? result.expiresAt;
@@ -28,7 +29,7 @@ type SessionValues = {
   loading: boolean;
   isImpersonating: boolean;
   impersonatedBy: User['impersonatedBy'];
-  login: (creds: { email: string; password: string }) => Promise<User>;
+  login: (creds: { identifier: string; password: string }) => Promise<User>;
   logout: () => Promise<void>;
   setSession: (token: string, user: User, expiresAt?: string) => void;
   refresh: () => Promise<User | null>;
@@ -136,7 +137,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // when the in-memory access token is gone).
   useEffect(() => {
     mounted.current = true;
-    void silentRefresh().finally(() => {
+    const bootstrap = Promise.race([
+      silentRefresh(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), SESSION_BOOTSTRAP_TIMEOUT_MS)),
+    ]);
+    void bootstrap.finally(() => {
       if (mounted.current) setInitializing(false);
     });
     return () => {
@@ -146,7 +151,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const login = useCallback(async (creds: { email: string; password: string }) => {
+  const login = useCallback(async (creds: { identifier: string; password: string }) => {
     setLoading(true);
     try {
 	      const result = await loginRequest(creds);

@@ -13,10 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { AccessRequest, User } from "@/lib/types";
-import { format, isBefore, parseISO } from 'date-fns';
+import type { AccessRequest, AccessRequestWorker } from "@/lib/types";
+import { format, parseISO } from 'date-fns';
 import { Briefcase, Building, CalendarClock, CheckCircle2, Contact, FileCheck2, Hash, ShieldAlert, ShieldCheck, ShieldX, Trash2, Users } from "lucide-react";
-import { useWorkerData } from "@/hooks/use-worker-data";
 import { cn } from "@/lib/utils";
 import { Textarea } from "../ui/textarea";
 import {
@@ -41,51 +40,18 @@ interface RequestDetailsDialogProps {
   onDeny?: (requestId: string) => void;
 }
 
-const isCertificateExpired = (expiryDate?: string) => {
-    if (!expiryDate) return false;
-    return isBefore(parseISO(expiryDate), new Date());
-};
-
-const WorkerDetails = ({ worker, requiredCerts }: { worker: User; requiredCerts: string[] }) => {
-    const { workerData, loading } = useWorkerData(worker.idNumber ?? undefined);
-
-    const userCerts = worker.certificates || [];
-    const userCertNames = userCerts.map(c => c.name);
-
-    const missingRequiredCerts = requiredCerts.filter(rc => !userCertNames.includes(rc));
+const WorkerDetails = ({ worker }: { worker: AccessRequestWorker }) => {
+    const missingRequiredCerts = worker.missingCertificates ?? [];
 
     return (
         <div className="p-3 rounded-md bg-muted/50 border flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
                 <div className="font-semibold">{worker.name}</div>
-                {worker.presence?.status && (
-                    <Badge variant={worker.presence.status === 'OnSite' ? 'default' : 'secondary'}>
-                        {worker.presence.status === 'OnSite' ? 'On Site' : 'Off Site'}
-                    </Badge>
-                )}
             </div>
             <div className="text-sm text-muted-foreground flex items-center gap-2">
                 <Briefcase className="h-4 w-4" />
-                <span>{loading ? 'Loading...' : workerData?.jobTitle || 'N/A'}</span>
+                <span>{worker.jobTitle || worker.role || 'N/A'}</span>
             </div>
-             {userCerts.length > 0 && (
-                 <div className="space-y-2">
-                    {userCerts.map((cert, index) => {
-                        const isExpired = isCertificateExpired(cert.expiryDate);
-                        return (
-                            <div key={index} className="flex items-start gap-2 text-sm">
-                                {isExpired ? <ShieldAlert className="h-4 w-4 text-destructive mt-0.5" /> : <ShieldCheck className="h-4 w-4 text-primary mt-0.5" />}
-                                <div>
-                                    <p className="font-medium">{cert.name}</p>
-                                    <p className={cn("text-xs text-muted-foreground", isExpired && "text-destructive font-semibold")}>
-                                        {cert.expiryDate ? `Expires: ${format(parseISO(cert.expiryDate), 'PPP')}` : 'No expiry'}
-                                    </p>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
              {missingRequiredCerts.length > 0 && (
                 <div className="space-y-2">
                     {missingRequiredCerts.map((certName) => (
@@ -100,8 +66,8 @@ const WorkerDetails = ({ worker, requiredCerts }: { worker: User; requiredCerts:
                 </div>
             )}
 
-             {userCerts.length === 0 && missingRequiredCerts.length === 0 && (
-                <p className="text-xs text-muted-foreground italic">No certificate information available for this worker.</p>
+             {missingRequiredCerts.length === 0 && (
+                <p className="text-xs text-success">No blocking certificate requirements.</p>
              )}
         </div>
     );
@@ -109,14 +75,12 @@ const WorkerDetails = ({ worker, requiredCerts }: { worker: User; requiredCerts:
 
 
 export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, onApprove, onDeny }: RequestDetailsDialogProps) {
-  const workersInRequest = request.workers ?? [];
-  const requiredCerts = request.siteRequiredCertificates ?? [];
+  const workersInRequest = request.workers;
   const [isDeleting, setIsDeleting] = useState(false);
-  const workerCount = request.workerCount ?? request.workerIds?.length ?? workersInRequest.length;
+  const workerCount = workersInRequest.length;
   const hasPendingDecision = request.status === 'Pending';
   const certificateIssues = workersInRequest.reduce((count, worker) => {
-    const certNames = (worker.certificates ?? []).map((cert) => cert.name);
-    return count + requiredCerts.filter((cert) => !certNames.includes(cert)).length;
+    return count + worker.missingCertificates.length;
   }, 0);
 
   const handleDelete = async () => {
@@ -157,7 +121,7 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
                 </div>
                 <div className="rounded-md border border-border p-3">
                     <div className="text-xs uppercase text-muted-foreground">On site</div>
-                    <div className="mt-1 text-2xl font-semibold">{request.onSiteCount ?? 0}</div>
+                    <div className="mt-1 text-2xl font-semibold">{request.currentOnSiteCount}</div>
                 </div>
                 <div className="rounded-md border border-border p-3">
                     <div className="text-xs uppercase text-muted-foreground">Certificate holds</div>
@@ -172,9 +136,9 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
             <div className="space-y-3 rounded-lg border border-border bg-background p-4">
                 <h3 className="flex items-center gap-2 text-base font-semibold"><CalendarClock className="h-4 w-4" /> Workflow Timeline</h3>
                 <div className="grid gap-3 md:grid-cols-3">
-                    <TimelineItem icon={FileCheck2} title="Submitted" value={formatDateTime(request.requestedAt)} active />
+                    <TimelineItem icon={FileCheck2} title="Submitted" value={formatDateTime(request.requestedAtUtc)} active />
                     <TimelineItem icon={request.status === 'Denied' ? ShieldX : ShieldCheck} title="Decision" value={request.status === 'Pending' ? 'Awaiting approval' : request.status} active={request.status !== 'Pending'} />
-                    <TimelineItem icon={CheckCircle2} title="Access Window" value={request.status === 'Approved' ? `${formatDate(request.validFrom)} to ${request.expiresAt === 'Permanent' ? 'Permanent' : formatDate(request.expiresAt)}` : 'Not issued'} active={request.status === 'Approved'} />
+                    <TimelineItem icon={CheckCircle2} title="Access Window" value={request.status === 'Approved' ? `${formatDate(request.validFromUtc ?? undefined)} to ${request.isPermanent ? 'Permanent' : formatDate(request.expiresAtUtc ?? undefined)}` : 'Not issued'} active={request.status === 'Approved'} />
                 </div>
             </div>
 
@@ -209,11 +173,11 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
             <div className="space-y-4 rounded-lg border border-border bg-background p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="flex items-center gap-2 text-base font-semibold"><Users className="h-5 w-5"/>Personnel Readiness ({workersInRequest.length})</h3>
-                    <Badge variant="outline">{requiredCerts.length} required certificates</Badge>
+                    <Badge variant="outline">{certificateIssues} blocking certificate holds</Badge>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {workersInRequest.length > 0 ? workersInRequest.map(worker => (
-                        <WorkerDetails key={worker.id} worker={worker} requiredCerts={requiredCerts} />
+                        <WorkerDetails key={worker.userId} worker={worker} />
                     )) : (
                         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground md:col-span-2">No worker details returned for this request.</div>
                     )}

@@ -82,6 +82,7 @@ export function SitesTable({
                 <TableRow>
                   <TableHead>Site Name</TableHead>
                   <TableHead>Managers</TableHead>
+                  <TableHead>Operating Model</TableHead>
                   <TableHead>Required Certificates</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -89,7 +90,7 @@ export function SitesTable({
               <TableBody>
                 {isLoading ? (
                     <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
+                        <TableCell colSpan={5} className="h-24 text-center">
                             <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                         </TableCell>
                     </TableRow>
@@ -118,6 +119,16 @@ export function SitesTable({
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
+                          {site.requiresAccessApproval ? <Badge variant="outline">Approval</Badge> : null}
+                          {site.usesSecurityCheckpoints ? <Badge variant="outline">Guarded</Badge> : null}
+                          {site.usesSmartAccess ? <Badge variant="outline">Smart access</Badge> : null}
+                          {!site.requiresAccessApproval && !site.usesSecurityCheckpoints && !site.usesSmartAccess
+                            ? <Badge variant="secondary">Compliance / open area</Badge>
+                            : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
                           {(site.requiredCertificates || []).map((cert, index) => (
                             <Badge key={index} variant="secondary">{cert}</Badge>
                           ))}
@@ -135,9 +146,11 @@ export function SitesTable({
                                   <DropdownMenuItem onSelect={() => handleEditClick(site)}>
                                       <Pencil className="mr-2 h-4 w-4" /> Edit
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onSelect={() => setSmartAccessSite(site)}>
-                                      <DoorOpen className="mr-2 h-4 w-4" /> Manage access
-                                  </DropdownMenuItem>
+                                  {site.usesSmartAccess ? (
+                                    <DropdownMenuItem onSelect={() => setSmartAccessSite(site)}>
+                                        <DoorOpen className="mr-2 h-4 w-4" /> Manage smart access
+                                    </DropdownMenuItem>
+                                  ) : null}
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                       <DropdownMenuItem
@@ -169,7 +182,7 @@ export function SitesTable({
                   ))
                 ) : (
                   <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center">
+                      <TableCell colSpan={5} className="h-24 text-center">
                           No sites found. Create one to get started.
                       </TableCell>
                   </TableRow>

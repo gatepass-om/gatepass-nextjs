@@ -111,9 +111,9 @@ export default function ProfilePage() {
         setLoading(false);
     }, [sessionUser, sessionLoading]);
 
-    const isCertificateExpired = (expiryDate?: string) => {
-        if (!expiryDate) return false;
-        return isBefore(parseISO(expiryDate), new Date());
+    const isCertificateExpired = (expiresAtUtc?: string | null) => {
+        if (!expiresAtUtc) return false;
+        return isBefore(parseISO(expiresAtUtc), new Date());
     };
 
     const getInitials = (name: string) => {
@@ -221,16 +221,16 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {user.certificates.map((cert, index) => {
-                    const isExpired = isCertificateExpired(cert.expiryDate);
+                    const isExpired = isCertificateExpired(cert.expiresAtUtc);
                     return (
                         <Card key={index} className="flex flex-col">
                             <CardHeader className="flex-row items-start gap-3 space-y-0">
                                 <ShieldCheck className="h-6 w-6 text-primary mt-1" />
                                 <div className="flex-1">
                                     <CardTitle className="text-lg">{cert.name}</CardTitle>
-                                    {cert.expiryDate ? (
+                                    {cert.expiresAtUtc ? (
                                         <CardDescription className={isExpired ? "text-destructive font-semibold" : ""}>
-                                            Expires: {format(parseISO(cert.expiryDate), 'PPP')}
+                                            Expires: {format(parseISO(cert.expiresAtUtc), 'PPP')}
                                         </CardDescription>
                                     ) : (
                                         <CardDescription>No expiry date</CardDescription>

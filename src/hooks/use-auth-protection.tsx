@@ -5,22 +5,10 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSession } from '@/providers/session-provider';
 import type { UserRole } from '@/lib/types';
+import { workspaceLandingForRole } from '@/lib/role-workspaces';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
-
-const defaultLandingByRole: Record<UserRole, string> = {
-  Admin: '/dashboard',
-  'Operator Admin': '/dashboard',
-  Manager: '/dashboard',
-  Security: '/scan',
-  'Contractor Admin': '/access-requests',
-  Supervisor: '/access-requests',
-  Worker: '/permits',
-  Visitor: '/profile',
-  Consultant: '/access-requests',
-  Inspector: '/scan',
-};
 
 export function useAuthProtection(allowedRoles: UserRole[]) {
   const { user, loading } = useSession();
@@ -36,7 +24,7 @@ export function useAuthProtection(allowedRoles: UserRole[]) {
   }, [user, loading, pathname, router]);
 
   const UnauthorizedComponent = () => {
-    const landing = user ? defaultLandingByRole[user.role] : '/login';
+    const landing = workspaceLandingForRole(user?.role);
 
     return (
       <div className="flex items-center justify-center h-full min-h-[calc(100vh-10rem)]">

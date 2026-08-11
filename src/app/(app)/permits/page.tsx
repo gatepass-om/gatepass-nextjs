@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,22 @@ import { Plus, CheckCircle2, XCircle, ClipboardCheck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useSession } from '@/providers/session-provider';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
-import { fetchPermits, issuePermit, cancelPermit, completePermit, type PermitToWork } from '@/lib/api';
+import {
+    apiRequest,
+    fetchPermits,
+    issuePermit,
+    cancelPermit,
+    completePermit,
+    listSitesRequest,
+    type PermitToWork,
+} from '@/lib/api';
+import type { Site } from '@/lib/types';
+
+type ProjectScope = {
+    id: string;
+    name: string;
+    siteIds: string[];
+};
 
 const statusColor: Record<string, string> = {
     Active: 'bg-success/15 text-success border border-success/30',
@@ -39,6 +55,8 @@ function PermitStatusBadge({ status }: { status: string }) {
 }
 
 export default function PermitsPage() {
+    const searchParams = useSearchParams();
+    const projectId = searchParams.get('projectId');
     const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection([
         'Admin',
         'Operator Admin',
@@ -54,6 +72,8 @@ export default function PermitsPage() {
     const [cancelId, setCancelId] = useState<string | null>(null);
     const [cancelReason, setCancelReason] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [project, setProject] = useState<ProjectScope | null>(null);
+    const [projectSites, setProjectSites] = useState<Site[]>([]);
 
     const [form, setForm] = useState({
         workerId: '',
@@ -72,7 +92,9 @@ export default function PermitsPage() {
         setError(null);
         try {
             const data = await fetchPermits(token, isWorkerReadOnly && currentUser?.id ? { workerId: currentUser.id } : undefined);
-            setPermits(data);
+            setPermits(projectId && project
+                ? data.filter(permit => project.siteIds.includes(permit.siteId))
+                : data);
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : 'Failed to load permits.');
         } finally {
@@ -80,13 +102,49 @@ export default function PermitsPage() {
         }
     };
 
-    useEffect(() => { load(); }, [token, currentUser?.id, isWorkerReadOnly]);
+    useEffect(() => { load(); }, [token, currentUser?.id, isWorkerReadOnly, projectId, project]);
+
+    useEffect(() => {
+        if (!token || !projectId) {
+            setProject(null);
+            setProjectSites([]);
+            return;
+        }
+
+        let cancelled = false;
+        Promise.all([
+            apiRequest<ProjectScope>(`/projects/${projectId}`, { token }),
+            listSitesRequest(token),
+        ])
+            .then(([projectData, sites]) => {
+                if (cancelled) return;
+                setProject(projectData);
+                const assignedSites = (sites as Site[]).filter(site => projectData.siteIds.includes(site.id));
+                setProjectSites(assignedSites);
+                setForm(current => ({
+                    ...current,
+                    siteId: assignedSites.some(site => site.id === current.siteId)
+                        ? current.siteId
+                        : assignedSites[0]?.id ?? '',
+                }));
+            })
+            .catch((e: unknown) => {
+                if (!cancelled) {
+                    setError(e instanceof Error ? e.message : 'Failed to load the project sites.');
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [token, projectId]);
 
     const handleIssue = async () => {
         if (!token) return;
         setSubmitting(true);
         try {
             await issuePermit(token, {
+                projectId: projectId ?? undefined,
                 workerId: form.workerId,
                 siteId: form.siteId,
                 workDescription: form.workDescription || undefined,
@@ -142,7 +200,9 @@ export default function PermitsPage() {
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Permits to Work</h1>
                     <p className="text-muted-foreground">
-                        Manage Permit-to-Work authorisations required for site access.
+                        {project
+                            ? `Manage permits for ${project.name}. Only sites assigned to this project are available.`
+                            : 'Manage Permit-to-Work authorisations required for site access.'}
                     </p>
                 </div>
                 {canManage && (
@@ -171,12 +231,27 @@ export default function PermitsPage() {
                                     />
                                 </div>
                                 <div className="grid gap-1.5">
-                                    <Label>Site ID</Label>
-                                    <Input
-                                        placeholder="Site ID"
+                                    <Label>Site</Label>
+                                    {projectId ? (
+                                      <select
+                                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                         value={form.siteId}
                                         onChange={e => setForm(f => ({ ...f, siteId: e.target.value }))}
-                                    />
+                                        disabled={projectSites.length === 0}
+                                      >
+                                        {projectSites.length === 0 ? (
+                                          <option value="">No sites assigned to this project</option>
+                                        ) : projectSites.map(site => (
+                                          <option key={site.id} value={site.id}>{site.name}</option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <Input
+                                          placeholder="Site ID"
+                                          value={form.siteId}
+                                          onChange={e => setForm(f => ({ ...f, siteId: e.target.value }))}
+                                      />
+                                    )}
                                 </div>
                                 <div className="grid gap-1.5">
                                     <Label>Work Description</Label>
@@ -207,7 +282,10 @@ export default function PermitsPage() {
                             </div>
                             <DialogFooter>
                                 <Button variant="outline" onClick={() => setIssueOpen(false)}>Cancel</Button>
-                                <Button onClick={handleIssue} disabled={submitting}>
+                                <Button
+                                    onClick={handleIssue}
+                                    disabled={submitting || !form.siteId || (Boolean(projectId) && projectSites.length === 0)}
+                                >
                                     {submitting ? 'Issuing…' : 'Issue Permit'}
                                 </Button>
                             </DialogFooter>

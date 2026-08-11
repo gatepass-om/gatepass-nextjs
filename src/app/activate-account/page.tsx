@@ -3,16 +3,16 @@
 import { ShieldCheck, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { activateRequest } from '@/lib/api';
+import { activateInvitationRequest, activateRequest } from '@/lib/api';
 import { useSession } from '@/providers/session-provider';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 
 const formSchema = z.object({
   newPassword: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
@@ -22,10 +22,13 @@ const formSchema = z.object({
   path: ['confirmPassword'],
 });
 
-export default function ActivateAccountPage() {
+function ActivateAccountForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { token, setSession, user, loading } = useSession();
+  const invitationUserId = searchParams.get('userId');
+  const invitationToken = searchParams.get('token');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -42,14 +45,16 @@ export default function ActivateAccountPage() {
   }, [user, loading, router]);
 
   const handleActivation = async (values: z.infer<typeof formSchema>) => {
-    if (!token) {
+    if (!invitationUserId && !invitationToken && !token) {
       toast({ variant: 'destructive', title: 'Session Missing', description: 'Please log in again before activating your account.' });
       router.push('/login');
       return;
     }
 
     try {
-      const result = await activateRequest({ token, newPassword: values.newPassword });
+      const result = invitationUserId && invitationToken
+        ? await activateInvitationRequest({ userId: invitationUserId, token: invitationToken, newPassword: values.newPassword })
+        : await activateRequest({ token: token!, newPassword: values.newPassword });
       setSession(result.token, result.user, result.expiresAt);
       toast({ title: 'Account Activated!', description: 'Your password has been updated.' });
       router.push('/dashboard');
@@ -112,5 +117,13 @@ export default function ActivateAccountPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ActivateAccountPage() {
+  return (
+    <Suspense fallback={<div className="h-svh w-full bg-background flex items-center justify-center">Loading...</div>}>
+      <ActivateAccountForm />
+    </Suspense>
   );
 }

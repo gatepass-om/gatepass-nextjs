@@ -23,8 +23,9 @@ import { Textarea } from "../ui/textarea";
 
 
 const certificateSchema = z.object({
-  name: z.string(),
-  expiryDate: z.string().optional(),
+  certificateTypeId: z.string(),
+  name: z.string().optional(),
+  expiresAtUtc: z.string().nullish(),
 });
 
 const workerSchema = z.object({
@@ -82,7 +83,9 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
     
     const selectedOperatorId = form.watch("operatorId");
     const availableSites = useMemo(() => {
-        return sites.filter(site => site.operatorId === selectedOperatorId);
+        return sites.filter(site =>
+            site.operatorId === selectedOperatorId
+            && site.requiresAccessApproval !== false);
     }, [sites, selectedOperatorId]);
 
     const handleCheckWorkerId = useCallback(async (index: number) => {
@@ -159,7 +162,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                         return; // Halt submission
                     }
                     
-                    if (workerCert.expiryDate && isBefore(parseISO(workerCert.expiryDate), new Date())) {
+                    if (workerCert.expiresAtUtc && isBefore(parseISO(workerCert.expiresAtUtc), new Date())) {
                         toast({
                             variant: "destructive",
                             title: "Submission Failed: Certificate Expired",
@@ -178,18 +181,11 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
             await createAccessRequest(token, {
                 supervisorId: supervisor.id,
                 contractorId: supervisor.contractorId,
-                operatorId: values.operatorId,
                 siteId: values.siteId,
                 contractNumber: values.contractNumber,
                 focalPoint: values.focalPoint,
                 notes: values.notes,
-                workerList: verifiedWorkers.map(w => ({ 
-                    id: w.workerId, 
-                    name: w.name!, 
-                    email: w.email!,
-                    nationality: w.nationality,
-                    certificates: w.certificates,
-                })),
+                workerIds: verifiedWorkers.map(worker => worker.workerId),
             });
 
             toast({
@@ -352,7 +348,7 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                                     <FormLabel className="text-xs">Certificates</FormLabel>
                                     <div className="mt-2 flex flex-wrap gap-2 min-h-6 p-2 rounded-md bg-muted/50 text-sm">
                                         {(worker.certificates && worker.certificates.length > 0) ? worker.certificates.map(cert => {
-                                            const isExpired = cert.expiryDate && isBefore(parseISO(cert.expiryDate), new Date());
+                                            const isExpired = cert.expiresAtUtc && isBefore(parseISO(cert.expiresAtUtc), new Date());
                                             return (
                                                 <Badge key={cert.name} variant={isExpired ? "destructive" : "secondary"} className="font-normal">
                                                     {isExpired ? <ShieldAlert className="h-3 w-3 mr-1.5" /> : <FileBadge className="h-3 w-3 mr-1.5" />}

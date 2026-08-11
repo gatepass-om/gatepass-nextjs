@@ -3,8 +3,10 @@ export type UserRole = 'Admin' | 'Operator Admin' | 'Contractor Admin' | 'Manage
 export type UserStatus = 'Active' | 'Inactive';
 
 export type Certificate = {
-  name: string;
-  expiryDate?: string; // ISO 8601 string (e.g., "yyyy-MM-dd")
+  id?: string;
+  certificateTypeId: string;
+  name?: string;
+  expiresAtUtc?: string | null;
 }
 
 export type UserPresence = {
@@ -18,7 +20,7 @@ export type UserPresence = {
 export type User = {
   id: string;
   name: string;
-  email?: string;
+  email?: string | null;
   role: UserRole;
   status?: UserStatus;
   tenantId?: string | null;
@@ -31,6 +33,22 @@ export type User = {
   idCardImageUrl?: string;
   idNumber?: string | null; // For manually entered ID
   notes?: string | null;
+  interactiveAccountEnabled?: boolean;
+  preferredName?: string | null;
+  nameInOriginalScript?: string | null;
+  phoneticName?: string | null;
+  preferredLanguage?: string | null;
+  secondaryLanguages?: string[];
+  preferredInteractionMode?: 'Web' | 'MobileApp' | 'PrintedCard' | 'Kiosk' | 'Sms' | 'SupervisorAssisted' | null;
+  needsAssistedWorkflow?: boolean;
+  personalDeviceAvailable?: boolean;
+  canReceiveSms?: boolean;
+  offlineCardRequired?: boolean;
+  audioInstructionsPreferred?: boolean;
+  largeTextPreferred?: boolean;
+  interpreterRequired?: boolean;
+  registrationChannel?: 'SelfService' | 'Assisted' | 'BulkImport' | 'Kiosk' | 'Integration' | null;
+  clearanceStatus?: 'Pending' | 'Submitted' | 'UnderReview' | 'Cleared' | 'Returned' | null;
   assignedSiteId?: string | null;
   presence?: UserPresence;
   impersonatedBy?: {
@@ -40,7 +58,18 @@ export type User = {
   } | null;
 };
 
-export type AccessRequestStatus = 'Pending' | 'Approved' | 'Denied';
+export type AccessRequestStatus = 'Pending' | 'Approved' | 'Denied' | 'Expired';
+
+export type AccessRequestWorker = {
+  userId: string;
+  name: string;
+  role: string;
+  workerCode?: string | null;
+  employerName?: string | null;
+  jobTitle?: string | null;
+  isActive: boolean;
+  missingCertificates: string[];
+};
 
 export type AccessRequest = {
   id: string;
@@ -54,14 +83,13 @@ export type AccessRequest = {
   siteName: string;
   contractNumber: string;
   focalPoint: string;
-  workerIds: string[];
-  workers?: User[];
-  workerCount?: number;
-  onSiteCount?: number;
+  workers: AccessRequestWorker[];
+  currentOnSiteCount: number;
   status: AccessRequestStatus;
-  requestedAt: string;
-  validFrom?: string; // ISO 8601 Date string "yyyy-MM-dd"
-  expiresAt?: string; // ISO 8601 Date string "yyyy-MM-dd" or "Permanent"
+  requestedAtUtc: string;
+  validFromUtc?: string | null;
+  expiresAtUtc?: string | null;
+  isPermanent: boolean;
   notes?: string;
   siteRequiredCertificates?: string[];
 };
@@ -69,9 +97,9 @@ export type AccessRequest = {
 export type ScanAccessRequest = {
   id: string;
   status: AccessRequestStatus | string;
-  validFrom?: string;
-  expiresAt?: string;
-  permanent?: boolean;
+  validFromUtc?: string;
+  expiresAtUtc?: string;
+  isPermanent?: boolean;
 };
 
 export type GateActivity = {
@@ -90,6 +118,10 @@ export type Site = {
     operatorId: string; // Link site to an operator
     managerIds: string[];
     requiredCertificates: string[];
+    requiresAccessApproval?: boolean;
+    usesSecurityCheckpoints?: boolean;
+    usesSmartAccess?: boolean;
+    maximumOccupancy?: number;
 }
 
 export type CertificateType = {

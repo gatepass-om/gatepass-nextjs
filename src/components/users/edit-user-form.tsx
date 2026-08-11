@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { User, UserRole, Certificate, CertificateType, Site, UserStatus, Contractor, Operator } from "@/lib/types";
@@ -20,6 +21,10 @@ import { useMediaQuery } from "react-responsive";
 import { useSession } from "@/providers/session-provider";
 import { listCertificateTypesRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { WorkerDocuments } from "@/components/workers/worker-documents";
+import { WorkerClearance } from "@/components/workers/worker-clearance";
+import { WorkerTimeline } from "@/components/workers/worker-timeline";
+import { shouldShowWorkerDocuments } from "./user-actions";
 
 
 const formSchema = z.object({
@@ -31,12 +36,23 @@ const formSchema = z.object({
   status: z.enum(['Active', 'Inactive']),
   notes: z.string().optional(),
   certificates: z.array(z.object({
-      name: z.string({ required_error: "Please select a certificate type."}).min(1, "Certificate name is required."),
-      expiryDate: z.date().optional(),
+      certificateTypeId: z.string({ required_error: "Please select a certificate type."}).min(1, "Certificate type is required."),
+      expiresAtUtc: z.date().optional(),
   })).optional(),
   assignedSiteId: z.string().optional(),
   contractorId: z.string().optional(),
   operatorId: z.string().optional(),
+  interactiveAccountEnabled: z.boolean(),
+  preferredName: z.string().optional(),
+  preferredLanguage: z.string().optional(),
+  preferredInteractionMode: z.enum(['Web', 'MobileApp', 'PrintedCard', 'Kiosk', 'Sms', 'SupervisorAssisted']),
+  needsAssistedWorkflow: z.boolean(),
+  personalDeviceAvailable: z.boolean(),
+  canReceiveSms: z.boolean(),
+  offlineCardRequired: z.boolean(),
+  audioInstructionsPreferred: z.boolean(),
+  largeTextPreferred: z.boolean(),
+  interpreterRequired: z.boolean(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -69,10 +85,24 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
             notes: user.notes || "",
             role: user.role || "Worker",
             status: user.status || "Inactive",
-            certificates: user.certificates?.map(c => ({...c, expiryDate: c.expiryDate ? parseISO(c.expiryDate) : undefined})) || [],
+            certificates: user.certificates?.map(c => ({
+              certificateTypeId: c.certificateTypeId,
+              expiresAtUtc: c.expiresAtUtc ? parseISO(c.expiresAtUtc) : undefined,
+            })) || [],
             assignedSiteId: user.assignedSiteId || "",
             contractorId: user.contractorId || "",
             operatorId: user.operatorId || "",
+            interactiveAccountEnabled: user.interactiveAccountEnabled ?? true,
+            preferredName: user.preferredName || "",
+            preferredLanguage: user.preferredLanguage || "en",
+            preferredInteractionMode: user.preferredInteractionMode || "Web",
+            needsAssistedWorkflow: user.needsAssistedWorkflow ?? false,
+            personalDeviceAvailable: user.personalDeviceAvailable ?? true,
+            canReceiveSms: user.canReceiveSms ?? true,
+            offlineCardRequired: user.offlineCardRequired ?? false,
+            audioInstructionsPreferred: user.audioInstructionsPreferred ?? false,
+            largeTextPreferred: user.largeTextPreferred ?? false,
+            interpreterRequired: user.interpreterRequired ?? false,
         },
     });
     
@@ -120,8 +150,8 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
     async function onSubmit(values: FormValues) {
         const emptyToNull = (value?: string) => (value && value.trim() ? value.trim() : null);
         const certificates: Certificate[] = values.certificates ? values.certificates.map(cert => ({
-            name: cert.name,
-            expiryDate: cert.expiryDate ? format(cert.expiryDate, "yyyy-MM-dd") : undefined,
+            certificateTypeId: cert.certificateTypeId,
+            expiresAtUtc: cert.expiresAtUtc?.toISOString(),
         })) : [];
 
         const selectedContractor = contractors.find(c => c.id === values.contractorId);
@@ -162,6 +192,18 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
             operatorId: operatorIdValue,
             company: companyValue,
             certificates: certificates,
+            interactiveAccountEnabled: values.interactiveAccountEnabled,
+            preferredName: emptyToNull(values.preferredName),
+            preferredLanguage: emptyToNull(values.preferredLanguage),
+            preferredInteractionMode: values.preferredInteractionMode,
+            needsAssistedWorkflow: values.needsAssistedWorkflow,
+            personalDeviceAvailable: values.personalDeviceAvailable,
+            canReceiveSms: values.canReceiveSms,
+            offlineCardRequired: values.offlineCardRequired,
+            audioInstructionsPreferred: values.audioInstructionsPreferred,
+            largeTextPreferred: values.largeTextPreferred,
+            interpreterRequired: values.interpreterRequired,
+            registrationChannel: values.needsAssistedWorkflow ? 'Assisted' : user.registrationChannel || 'SelfService',
         };
 
         const success = await onUpdateUser(user.id, user, updatedData);
@@ -207,6 +249,68 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                 )}
               />
             </div>
+
+            {(selectedRole === 'Worker' || selectedRole === 'Visitor') && (
+              <section className="space-y-4 rounded-xl border p-4">
+                <div>
+                  <h3 className="font-semibold">Communication and assistance</h3>
+                  <p className="text-sm text-muted-foreground">
+                    These preferences help staff support this person. They do not grant or deny access.
+                  </p>
+                </div>
+                <FormField control={form.control} name="interactiveAccountEnabled" render={({ field }) => (
+                  <label className="flex items-start gap-3 rounded-lg border p-3">
+                    <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} className="mt-0.5" />
+                    <span>
+                      <span className="block text-sm font-medium">This person can sign in</span>
+                      <span className="block text-xs text-muted-foreground">Leave off for printed-card, kiosk, or supervisor-assisted use.</span>
+                    </span>
+                  </label>
+                )} />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField control={form.control} name="preferredName" render={({ field }) => (
+                    <FormItem><FormLabel>Preferred name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="preferredLanguage" render={({ field }) => (
+                    <FormItem><FormLabel>Preferred language code</FormLabel><FormControl><Input placeholder="en, ar, hi…" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="preferredInteractionMode" render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Easiest way to use GatePass</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="Web">Web browser</SelectItem>
+                          <SelectItem value="MobileApp">Mobile app</SelectItem>
+                          <SelectItem value="PrintedCard">Printed QR card</SelectItem>
+                          <SelectItem value="Kiosk">Shared kiosk</SelectItem>
+                          <SelectItem value="Sms">Text message</SelectItem>
+                          <SelectItem value="SupervisorAssisted">Supervisor helps</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )} />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {([
+                    ['needsAssistedWorkflow', 'A staff member will help'],
+                    ['personalDeviceAvailable', 'Has a personal phone or device'],
+                    ['canReceiveSms', 'Can receive text messages'],
+                    ['offlineCardRequired', 'Needs a printed offline card'],
+                    ['audioInstructionsPreferred', 'Audio instructions would help'],
+                    ['largeTextPreferred', 'Large text would help'],
+                    ['interpreterRequired', 'Interpreter support is needed'],
+                  ] as const).map(([name, label]) => (
+                    <FormField key={name} control={form.control} name={name} render={({ field }) => (
+                      <label className="flex items-center gap-3 rounded-lg border p-3 text-sm">
+                        <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} />
+                        {label}
+                      </label>
+                    )} />
+                  ))}
+                </div>
+              </section>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <FormField
@@ -408,7 +512,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                 >
                   <FormField
                     control={form.control}
-                    name={`certificates.${index}.name`}
+                    name={`certificates.${index}.certificateTypeId`}
                     render={({ field }) => (
                       <FormItem className="flex-1">
                         <FormLabel>Certificate Type</FormLabel>
@@ -429,8 +533,8 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {certificateTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.name}>
+                              {certificateTypes.map((type) => (
+                              <SelectItem key={type.id} value={type.id}>
                                 {type.name}
                               </SelectItem>
                             ))}
@@ -442,7 +546,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                   />
                   <FormField
                     control={form.control}
-                    name={`certificates.${index}.expiryDate`}
+                    name={`certificates.${index}.expiresAtUtc`}
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Expiry Date</FormLabel>
@@ -523,12 +627,19 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => append({ name: "" })}
+                onClick={() => append({ certificateTypeId: "" })}
               >
                 <FileText className="mr-2 h-4 w-4" />
                 Add Certificate Record
               </Button>
             </div>
+            {shouldShowWorkerDocuments(user.role) && (
+              <>
+                <WorkerClearance workerId={user.id} initialStatus={user.clearanceStatus} />
+                <WorkerDocuments workerId={user.id} certificateTypes={certificateTypes} canManage />
+                <WorkerTimeline workerId={user.id} />
+              </>
+            )}
           </div>
           <div className="flex justify-end pt-8">
             <Button type="submit" disabled={form.formState.isSubmitting}>

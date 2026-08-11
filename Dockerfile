@@ -5,7 +5,8 @@ RUN npm ci
 
 FROM node:20-alpine AS build
 WORKDIR /app
-ARG NEXT_PUBLIC_BACKEND_URL=https://0v191nb2-4005.asse.devtunnels.ms
+ARG NEXT_PUBLIC_BACKEND_URL
+RUN test -n "$NEXT_PUBLIC_BACKEND_URL"
 ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -15,7 +16,7 @@ FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3006
-ARG NEXT_PUBLIC_BACKEND_URL=https://0v191nb2-4005.asse.devtunnels.ms
+ARG NEXT_PUBLIC_BACKEND_URL
 ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 
 COPY package.json package-lock.json ./

@@ -15,7 +15,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: npm run build
+      - run: npm run test:unit
+      - run: NEXT_PUBLIC_BACKEND_URL=https://api.gatepass.example npm run build
 
   browser-smoke:
     if: ${{ vars.GATEPASS_E2E_BACKEND_URL != '' }}
@@ -30,4 +31,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
+      - run: PLAYWRIGHT_BASE_URL=http://127.0.0.1:3001 npm run e2e

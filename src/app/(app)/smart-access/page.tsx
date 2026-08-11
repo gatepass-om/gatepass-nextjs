@@ -113,13 +113,18 @@ export default function SmartAccessPage() {
           listSmartAccessCommands(token, listInput),
         ]);
 
-      setSites((sitesData as any[]).map((site) => ({
-        id: site.id,
-        name: site.name,
-        operatorId: site.operator?.id ?? site.operatorId ?? '',
-        managerIds: site.managerIds ?? [],
-        requiredCertificates: site.requiredCertificates ?? [],
-      })));
+      setSites((sitesData as any[])
+        .filter((site) => site.usesSmartAccess !== false)
+        .map((site) => ({
+          id: site.id,
+          name: site.name,
+          operatorId: site.operator?.id ?? site.operatorId ?? '',
+          managerIds: site.managerIds ?? [],
+          requiredCertificates: site.requiredCertificates ?? [],
+          requiresAccessApproval: site.requiresAccessApproval ?? true,
+          usesSecurityCheckpoints: site.usesSecurityCheckpoints ?? true,
+          usesSmartAccess: site.usesSmartAccess ?? true,
+        })));
       setData({ providers, assets, zones, accessPoints, devices, mappings, assignments, syncJobs, events, commands });
     } catch (error: any) {
       console.error('Failed to load smart access data', error);

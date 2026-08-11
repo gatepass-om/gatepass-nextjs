@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_OPTIONS=--no-experimental-webstorage next dev -p 3006",
+    "dev": "NODE_OPTIONS=--no-experimental-webstorage next dev -p ${PORT:-3006}",
     "build": "NODE_OPTIONS=--no-experimental-webstorage NODE_ENV=production next build",
     "start": "NODE_OPTIONS=--no-experimental-webstorage next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:unit": "node --test src/components/dashboard/*.test.ts src/components/workers/*.test.ts",
     "e2e": "playwright test",
-    "e2e:headed": "playwright test --headed",
-    "postinstall": "patch-package"
+    "e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",
@@ -43,8 +43,7 @@
     "html5-qrcode": "^2.3.8",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.475.0",
-    "next": "15.3.8",
-    "patch-package": "^8.0.0",
+    "next": "15.5.21",
     "qrcode": "^1.5.3",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
@@ -52,9 +51,8 @@
     "react-hook-form": "^7.54.2",
     "react-leaflet": "^4.2.1",
     "react-responsive": "^10.0.1",
-    "recharts": "^2.15.1",
+    "recharts": "3.8.1",
     "tailwind-merge": "^3.0.1",
-    "tailwindcss-animate": "^1.0.7",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -64,8 +62,19 @@
     "@types/qrcode": "^1.5.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "postcss": "^8",
+    "postcss": "8.5.26",
     "tailwindcss": "^3.4.1",
+    "tailwindcss-animate": "^1.0.7",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@babel/runtime": "7.29.7",
+    "brace-expansion": "2.1.2",
+    "glob": "10.5.0",
+    "minimatch": "9.0.7",
+    "picomatch": "2.3.2",
+    "postcss@<8.5.26": "8.5.26",
+    "sharp": "0.35.0",
+    "yaml": "2.9.0"
   }
 }

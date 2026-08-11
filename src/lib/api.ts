@@ -24,6 +24,8 @@ type RequestOptions = {
   withCredentials?: boolean;
 };
 
+const API_REQUEST_TIMEOUT_MS = 15_000;
+
 export async function apiRequest<T>(path: string, options: RequestOptions = {}, isRetry = false): Promise<T> {
   const { method = 'GET', body, token, withCredentials } = options;
   const headers: Record<string, string> = {
@@ -34,15 +36,35 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${BACKEND_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-    credentials: withCredentials ? 'include' : 'same-origin',
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${BACKEND_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: withCredentials ? 'include' : 'same-origin',
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('The GatePass service did not respond in time. Check the connection and try again.');
+    }
+    throw new Error('The GatePass service is unavailable. Check the connection and try again.');
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  }
 
   if (!response.ok) {
     // Transparently recover from an expired access token: perform one shared silent refresh, then retry once.
@@ -53,7 +75,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
         return apiRequest<T>(path, { ...options, token: refreshedToken }, true);
       }
     }
-    const message = data?.error || 'Request failed';
+    const message = typeof data === 'object' && data !== null && 'error' in data
+      ? String((data as { error?: unknown }).error ?? 'Request failed')
+      : typeof data === 'string' && data.trim()
+        ? data
+        : 'Request failed';
     throw new Error(message);
   }
 
@@ -87,6 +113,205 @@ export type DashboardRecentActivity = {
 };
 
 export type DashboardSummary = {
+  generatedAtUtc: string;
+  window: {
+    fromUtc: string;
+    toUtc: string;
+    durationHours: number;
+  };
+  movements: {
+    entries: number;
+    exits: number;
+    denied: number;
+    manualOverrides: number;
+    total: number;
+  };
+  workforce: {
+    eligibleWorkers: number;
+    pendingWorkers: number;
+    submittedWorkers: number;
+    underReviewWorkers: number;
+    clearedWorkers: number;
+    returnedWorkers: number;
+    readinessRate: number;
+  };
+  expiry: {
+    expired: number;
+    next7Days: number;
+    days8To30: number;
+    days31To60: number;
+    days61To90: number;
+  };
+  actionQueue: Array<{
+    key: string;
+    label: string;
+    count: number;
+    overdueCount: number;
+    oldestAtUtc?: string | null;
+    severity: 'info' | 'warning' | 'danger' | string;
+    href: string;
+    applicable: boolean;
+  }>;
+  operatingModes: {
+    totalSites: number;
+    authorizationRequiredSites: number;
+    complianceOnlySites: number;
+    checkpointSites: number;
+    openAreaSites: number;
+    smartAccessSites: number;
+    manualOperationSites: number;
+  };
+  audience: {
+    role: string;
+    visiblePanels: string[];
+  };
+  contractorScorecards: Array<{
+    id: string;
+    name: string;
+    eligibleWorkers: number;
+    clearedWorkers: number;
+    readinessRate: number;
+    onSiteWorkers: number;
+    pendingDocumentWorkers: number;
+    expiringCredentialWorkers: number;
+  }>;
+  projectScorecards: Array<{
+    id: string;
+    name: string;
+    status: string;
+    validFromUtc: string;
+    validToUtc: string;
+    members: number;
+    workPasses: number;
+    activeWorkPasses: number;
+  }>;
+  competencies: {
+    verified: number;
+    unverified: number;
+    expired: number;
+    expiringIn30Days: number;
+  };
+  cards: {
+    issuedNotPrinted: number;
+    printed: number;
+    expired: number;
+    revokedOrReplaced: number;
+    missing: number;
+  };
+  adoption: {
+    privacySuppressed: boolean;
+    interactiveAccounts: number | null;
+    managedProfiles: number | null;
+    assistedWorkflowWorkers: number | null;
+    workersWithoutPersonalDevice: number | null;
+    offlineCardRequiredWorkers: number | null;
+    minimumGroupSize: number;
+    registrationChannels: DashboardBreakdown[];
+    preferredLanguages: DashboardBreakdown[];
+    interactionModes: DashboardBreakdown[];
+  };
+  registrationFunnel: {
+    privacySuppressed: boolean;
+    minimumGroupSize: number;
+    coverageStartedAtUtc?: string | null;
+    cohortWorkers: number | null;
+    profileCompletedWorkers: number | null;
+    evidenceStartedWorkers: number | null;
+    submittedWorkers: number | null;
+    underReviewWorkers: number | null;
+    clearedWorkers: number | null;
+    returnedWorkers: number | null;
+    stalledBeforeSubmissionWorkers: number | null;
+    submissionRate: number | null;
+    clearanceRate: number | null;
+  };
+  dataQuality: {
+    eligibleWorkers: number;
+    missingWorkerProfiles: number;
+    missingIdentityDocuments: number;
+    unverifiedIdentityDocuments: number;
+    missingContractor: number;
+    missingJobTitle: number;
+    missingUsableCards: number;
+    staleIdentityVerifications: number;
+    stalePresenceRecords: number;
+    occupancyMismatchSites: number;
+    profileCompletenessRate: number;
+  };
+  trends: Array<{
+    date: string;
+    movements: number;
+    entries: number;
+    exits: number;
+    denied: number;
+  }>;
+  comparison: {
+    currentMovements: number;
+    previousMovements: number;
+    movementChangePercent?: number | null;
+    currentDecisions: number;
+    currentApprovalRate: number;
+    previousApprovalRate: number;
+  };
+  turnaround: {
+    approvals: {
+      sampleSize: number;
+      medianHours: number | null;
+      p90Hours: number | null;
+    };
+    onboarding: {
+      sampleSize: number;
+      medianHours: number | null;
+      p90Hours: number | null;
+    };
+  };
+  peakOccupancy: {
+    total: number;
+    peakAtUtc: string | null;
+    sites: Array<{
+      siteId: string;
+      siteName: string;
+      peakOccupancy: number;
+      peakAtUtc: string | null;
+    }>;
+  };
+  attendance: {
+    configuredRosters: number;
+    activeRosters: number;
+    expectedWorkers: number;
+    presentWorkers: number;
+    absentWorkers: number;
+    rosters: Array<{
+      id: string;
+      name: string;
+      siteId: string;
+      siteName: string;
+      expectedWorkers: number;
+      presentWorkers: number;
+      absentWorkers: number;
+    }>;
+  };
+  capacity: {
+    configuredSites: number;
+    totalCapacity: number;
+    currentOccupancy: number;
+    occupancyRate: number;
+    atCapacitySites: number;
+    overCapacitySites: number;
+    sites: Array<{
+      siteId: string;
+      siteName: string;
+      currentOccupancy: number;
+      maximumOccupancy: number;
+      occupancyRate: number;
+    }>;
+  };
+  bottlenecks: Array<{
+    key: string;
+    label: string;
+    count: number;
+    overdueCount: number;
+  }>;
   totalOnSite: number;
   pendingRequests: number;
   approvedRequests: number;
@@ -101,7 +326,7 @@ export type DashboardSummary = {
   recentActivity: DashboardRecentActivity[];
 };
 
-export async function loginRequest(input: { email: string; password: string }) {
+export async function loginRequest(input: { identifier: string; password: string }) {
   return apiRequest<LoginResponse>('/auth/login', {
     method: 'POST',
     body: input,
@@ -115,6 +340,14 @@ export async function activateRequest(input: { token: string; newPassword: strin
     method: 'POST',
     token,
     body: { newPassword },
+    withCredentials: true,
+  });
+}
+
+export async function activateInvitationRequest(input: { userId: string; token: string; newPassword: string }) {
+  return apiRequest<LoginResponse>('/auth/activate-invitation', {
+    method: 'POST',
+    body: input,
     withCredentials: true,
   });
 }
@@ -152,20 +385,238 @@ export async function fetchCurrentUserRequest(token: string) {
 
 export async function fetchDashboardSummaryRequest(
   token: string,
-  input?: { operatorId?: string; siteId?: string }
+  input?: { operatorId?: string; siteId?: string; fromUtc?: string; toUtc?: string }
 ) {
   const params = new URLSearchParams();
   if (input?.operatorId && input.operatorId !== 'all') params.set('operatorId', input.operatorId);
   if (input?.siteId && input.siteId !== 'all') params.set('siteId', input.siteId);
+  if (input?.fromUtc) params.set('fromUtc', input.fromUtc);
+  if (input?.toUtc) params.set('toUtc', input.toUtc);
   const query = params.toString();
   return apiRequest<DashboardSummary>(`/dashboard/summary${query ? `?${query}` : ''}`, { token });
 }
 
-export async function listSitesRequest(token: string, input?: { operatorId?: string }) {
+export type ReportSchedule = {
+  id: string;
+  name: string;
+  siteId?: string | null;
+  frequency: 'Daily' | 'Weekly' | 'Monthly' | string;
+  timeZoneId: string;
+  localHour: number;
+  localMinute: number;
+  dayOfWeek?: number | null;
+  dayOfMonth?: number | null;
+  isActive: boolean;
+  nextRunAtUtc: string;
+  lastRunAtUtc?: string | null;
+};
+
+export type SaveReportSchedule = {
+  name: string;
+  siteId?: string | null;
+  frequency: 'Daily' | 'Weekly' | 'Monthly';
+  timeZoneId: string;
+  localHour: number;
+  localMinute: number;
+  dayOfWeek?: number | null;
+  dayOfMonth?: number | null;
+  isActive: boolean;
+};
+
+export async function listReportSchedulesRequest(token: string) {
+  return apiRequest<ReportSchedule[]>('/audit/compliance-report/schedules', {
+    method: 'GET',
+    token,
+  });
+}
+
+export async function createReportScheduleRequest(token: string, input: SaveReportSchedule) {
+  return apiRequest<ReportSchedule>('/audit/compliance-report/schedules', {
+    method: 'POST',
+    token,
+    body: input,
+  });
+}
+
+export async function updateReportScheduleRequest(
+  token: string,
+  scheduleId: string,
+  input: SaveReportSchedule,
+) {
+  return apiRequest<ReportSchedule>(`/audit/compliance-report/schedules/${scheduleId}`, {
+    method: 'PUT',
+    token,
+    body: input,
+  });
+}
+
+export type ShiftRoster = {
+  id: string;
+  name: string;
+  siteId: string;
+  siteName: string;
+  timeZoneId: string;
+  startLocalTime: string;
+  endLocalTime: string;
+  daysOfWeek: number[];
+  workerIds: string[];
+  memberCount: number;
+  isActive: boolean;
+};
+
+export type SaveShiftRoster = {
+  name: string;
+  siteId: string;
+  timeZoneId: string;
+  startLocalTime: string;
+  endLocalTime: string;
+  daysOfWeek: number[];
+  workerIds: string[];
+  isActive: boolean;
+};
+
+export type ShiftRosterWorkerOption = {
+  id: string;
+  name: string;
+  workerCode?: string | null;
+};
+
+export async function listShiftRostersRequest(token: string) {
+  return apiRequest<ShiftRoster[]>('/shift-rosters', {
+    method: 'GET',
+    token,
+  });
+}
+
+export async function listEligibleShiftRosterWorkersRequest(
+  token: string,
+  siteId: string,
+  search?: string,
+) {
+  const params = new URLSearchParams({ siteId });
+  if (search?.trim()) params.set('search', search.trim());
+  return apiRequest<ShiftRosterWorkerOption[]>(`/shift-rosters/eligible-workers?${params}`, {
+    method: 'GET',
+    token,
+  });
+}
+
+export async function createShiftRosterRequest(token: string, input: SaveShiftRoster) {
+  return apiRequest<ShiftRoster>('/shift-rosters', {
+    method: 'POST',
+    token,
+    body: input,
+  });
+}
+
+export async function updateShiftRosterRequest(
+  token: string,
+  rosterId: string,
+  input: SaveShiftRoster,
+) {
+  return apiRequest<ShiftRoster>(`/shift-rosters/${rosterId}`, {
+    method: 'PUT',
+    token,
+    body: input,
+  });
+}
+
+export interface PagedResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
+export interface WorkerTimelineEntry {
+  id: string;
+  occurredAtUtc: string;
+  category: string;
+  action: string;
+  title: string;
+  details?: string | null;
+  status?: string | null;
+  siteId?: string | null;
+  siteName?: string | null;
+  sourceType: string;
+  sourceId: string;
+  actor?: string | null;
+}
+
+export interface WorkerTimeline extends PagedResult<WorkerTimelineEntry> {
+  workerId: string;
+  workerName: string;
+  workerCode?: string | null;
+  clearanceStatus?: string | null;
+}
+
+export async function getWorkerTimeline(
+  token: string,
+  workerId: string,
+  input?: { page?: number; pageSize?: number; category?: string; fromUtc?: string; toUtc?: string },
+) {
+  const params = new URLSearchParams();
+  if (input?.page) params.set('page', String(input.page));
+  if (input?.pageSize) params.set('pageSize', String(input.pageSize));
+  if (input?.category) params.set('category', input.category);
+  if (input?.fromUtc) params.set('fromUtc', input.fromUtc);
+  if (input?.toUtc) params.set('toUtc', input.toUtc);
+  const query = params.toString();
+  return apiRequest<WorkerTimeline>(
+    `/workers/${workerId}/timeline${query ? `?${query}` : ''}`,
+    { token },
+  );
+}
+
+export async function downloadWorkerTimeline(
+  token: string,
+  workerId: string,
+  input?: { fromUtc?: string; toUtc?: string },
+) {
+  const params = new URLSearchParams();
+  if (input?.fromUtc) params.set('fromUtc', input.fromUtc);
+  if (input?.toUtc) params.set('toUtc', input.toUtc);
+  const query = params.toString();
+  const response = await fetch(
+    `${BACKEND_URL}/workers/${workerId}/timeline.csv${query ? `?${query}` : ''}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok) throw new Error('Worker timeline download failed.');
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `worker-timeline-${workerId}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function listSitesPageRequest(
+  token: string,
+  input?: { operatorId?: string; page?: number; pageSize?: number },
+) {
   const params = new URLSearchParams();
   if (input?.operatorId) params.set('operatorId', input.operatorId);
+  if (input?.page) params.set('page', String(input.page));
+  if (input?.pageSize) params.set('pageSize', String(input.pageSize));
   const query = params.toString();
-  return apiRequest<any[]>(`/sites${query ? `?${query}` : ''}`, { token });
+  return apiRequest<PagedResult<any>>(`/sites${query ? `?${query}` : ''}`, { token });
+}
+
+export async function listSitesRequest(token: string, input?: { operatorId?: string }) {
+  const firstPage = await listSitesPageRequest(token, { ...input, page: 1, pageSize: 200 });
+  if (!firstPage.hasNextPage) return firstPage.items;
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+      listSitesPageRequest(token, { ...input, page: index + 2, pageSize: 200 }),
+    ),
+  );
+  return [firstPage, ...remainingPages].flatMap((page) => page.items);
 }
 
 export async function createSiteRequest(token: string, input: {
@@ -173,6 +624,10 @@ export async function createSiteRequest(token: string, input: {
   operatorId: string;
   managerIds?: string[];
   requiredCertificateIds?: string[];
+  requiresAccessApproval: boolean;
+  usesSecurityCheckpoints: boolean;
+  usesSmartAccess: boolean;
+  maximumOccupancy?: number;
 }) {
   return apiRequest<any>('/sites', {
     method: 'POST',
@@ -186,6 +641,11 @@ export async function updateSiteRequest(token: string, siteId: string, input: {
   operatorId?: string;
   managerIds?: string[];
   requiredCertificateIds?: string[];
+  requiresAccessApproval?: boolean;
+  usesSecurityCheckpoints?: boolean;
+  usesSmartAccess?: boolean;
+  maximumOccupancy?: number;
+  clearMaximumOccupancy?: boolean;
 }) {
   return apiRequest<any>(`/sites/${siteId}`, {
     method: 'PUT',
@@ -343,23 +803,52 @@ export async function evaluateAccessDecisionRequest(
   });
 }
 
-export async function listUsersRequest(token: string, input?: { role?: string; operatorId?: string; contractorId?: string }) {
+export async function listUsersRequest(token: string, input?: { role?: string; operatorId?: string; contractorId?: string; page?: number; pageSize?: number }) {
   const params = new URLSearchParams();
   if (input?.role) params.set('role', input.role);
   if (input?.operatorId) params.set('operatorId', input.operatorId);
   if (input?.contractorId) params.set('contractorId', input.contractorId);
+  if (input?.page) params.set('page', String(input.page));
+  if (input?.pageSize) params.set('pageSize', String(input.pageSize));
   const query = params.toString();
   return apiRequest<any[]>(`/users${query ? `?${query}` : ''}`, { token });
 }
 
-export async function listAccessRequestsRequest(token: string, input?: { status?: string; siteId?: string; supervisorId?: string; workerId?: string }) {
+export async function listAccessRequestsPageRequest(
+  token: string,
+  input?: {
+    status?: string;
+    siteId?: string;
+    supervisorId?: string;
+    workerId?: string;
+    page?: number;
+    pageSize?: number;
+  },
+) {
   const params = new URLSearchParams();
   if (input?.status) params.set('status', input.status);
   if (input?.siteId) params.set('siteId', input.siteId);
   if (input?.supervisorId) params.set('supervisorId', input.supervisorId);
   if (input?.workerId) params.set('workerId', input.workerId);
+  if (input?.page) params.set('page', String(input.page));
+  if (input?.pageSize) params.set('pageSize', String(input.pageSize));
   const query = params.toString();
-  return apiRequest<AccessRequest[]>(`/access-requests${query ? `?${query}` : ''}`, { token });
+  return apiRequest<PagedResult<AccessRequest>>(`/access-requests${query ? `?${query}` : ''}`, { token });
+}
+
+export async function listAccessRequestsRequest(
+  token: string,
+  input?: { status?: string; siteId?: string; supervisorId?: string; workerId?: string },
+) {
+  const firstPage = await listAccessRequestsPageRequest(token, { ...input, page: 1, pageSize: 200 });
+  if (!firstPage.hasNextPage) return firstPage.items;
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+      listAccessRequestsPageRequest(token, { ...input, page: index + 2, pageSize: 200 }),
+    ),
+  );
+  return [firstPage, ...remainingPages].flatMap((page) => page.items);
 }
 
 export async function listGateActivityRequest(token: string) {
@@ -503,9 +992,9 @@ export async function deleteCertificateTypeRequest(token: string, certificateId:
   });
 }
 
-export async function createUserRequest(token: string, input: {
+export type CreateUserInput = {
   name: string;
-  email?: string;
+  email?: string | null;
   role: string;
   status?: string;
   operatorId?: string;
@@ -513,24 +1002,126 @@ export async function createUserRequest(token: string, input: {
   assignedSiteId?: string;
   nationality?: string;
   company?: string;
+  workerCode?: string;
   idNumber?: string;
   notes?: string;
-  certificates?: { name: string; expiryDate?: string }[];
+  certificates?: { certificateTypeId: string; expiresAtUtc?: string | null }[];
   sendWelcomeEmail?: boolean;
-}) {
-  return apiRequest<{ user: User; tempPassword?: string; emailSent?: boolean }>(
-    '/users',
-    {
-      method: 'POST',
-      token,
-      body: input,
-    }
+  interactiveAccountEnabled?: boolean;
+  preferredName?: string;
+  nameInOriginalScript?: string;
+  phoneticName?: string;
+  preferredLanguage?: string;
+  secondaryLanguages?: string[];
+  preferredInteractionMode?: 'Web' | 'MobileApp' | 'PrintedCard' | 'Kiosk' | 'Sms' | 'SupervisorAssisted' | null;
+  needsAssistedWorkflow?: boolean;
+  personalDeviceAvailable?: boolean;
+  canReceiveSms?: boolean;
+  offlineCardRequired?: boolean;
+  audioInstructionsPreferred?: boolean;
+  largeTextPreferred?: boolean;
+  interpreterRequired?: boolean;
+  accessibilitySupportNotes?: string;
+  registrationChannel?: 'SelfService' | 'Assisted' | 'BulkImport' | 'Kiosk' | 'Integration' | null;
+  assistedByUserId?: string;
+};
+
+function toCreateUserRequestBody(input: CreateUserInput) {
+  const { company, idNumber, ...rest } = input;
+  return {
+    ...rest,
+    employerName: company,
+    identityNumber: idNumber,
+  };
+}
+
+export async function createUserRequest(token: string, input: CreateUserInput) {
+  const user = await apiRequest<User>('/users', {
+    method: 'POST',
+    token,
+    body: toCreateUserRequestBody(input),
+  });
+  return { user };
+}
+
+export type BulkRegistrationResult = {
+  total: number;
+  valid: number;
+  invalid: number;
+  created: number;
+  dryRun: boolean;
+  results: {
+    rowNumber: number;
+    isValid: boolean;
+    userId?: string | null;
+    errors: string[];
+  }[];
+};
+
+export type RegistrationFieldDefinition = {
+  id: string;
+  key: string;
+  label: string;
+  helpText?: string | null;
+  labels: Record<string, string>;
+  fieldType: 'Text' | 'LongText' | 'Number' | 'Boolean' | 'Date' | 'DateTime' | 'Choice' | 'MultiChoice' | 'Phone' | 'Email';
+  required: boolean;
+  sensitive: boolean;
+  options: string[];
+  displayOrder: number;
+};
+
+export type RegistrationProfile = {
+  id: string;
+  code: string;
+  name: string;
+  entityType: string;
+  version: number;
+  description?: string | null;
+  supportsAssistedRegistration: boolean;
+  supportsDeviceLessRegistration: boolean;
+  fields: RegistrationFieldDefinition[];
+};
+
+export async function listRegistrationProfilesRequest(token: string, entityType: string) {
+  return apiRequest<RegistrationProfile[]>(
+    `/registration/profiles?entityType=${encodeURIComponent(entityType)}`,
+    { token },
   );
+}
+
+export async function saveRegistrationValuesRequest(
+  token: string,
+  entityType: string,
+  entityId: string,
+  registrationProfileId: string,
+  values: Record<string, unknown>,
+) {
+  return apiRequest(`/registration/values/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`, {
+    method: 'PUT',
+    token,
+    body: { registrationProfileId, values },
+  });
+}
+
+export async function bulkRegisterUsersRequest(token: string, input: {
+  idempotencyKey: string;
+  dryRun: boolean;
+  users: CreateUserInput[];
+}) {
+  return apiRequest<BulkRegistrationResult>('/users/bulk', {
+    method: 'POST',
+    token,
+    body: {
+      ...input,
+      users: input.users.map(toCreateUserRequestBody),
+    },
+  });
 }
 
 export async function updateUserRequest(token: string, userId: string, input: {
   name?: string;
-  email?: string;
+  email?: string | null;
   role?: string;
   status?: string;
   assignedSiteId?: string | null;
@@ -540,13 +1131,35 @@ export async function updateUserRequest(token: string, userId: string, input: {
   company?: string | null;
   idNumber?: string | null;
   notes?: string | null;
-  certificates?: { name: string; expiryDate?: string }[];
+  certificates?: { certificateTypeId: string; expiresAtUtc?: string | null }[];
   password?: string;
+  interactiveAccountEnabled?: boolean;
+  preferredName?: string | null;
+  nameInOriginalScript?: string | null;
+  phoneticName?: string | null;
+  preferredLanguage?: string | null;
+  secondaryLanguages?: string[];
+  preferredInteractionMode?: 'Web' | 'MobileApp' | 'PrintedCard' | 'Kiosk' | 'Sms' | 'SupervisorAssisted' | null;
+  needsAssistedWorkflow?: boolean;
+  personalDeviceAvailable?: boolean;
+  canReceiveSms?: boolean;
+  offlineCardRequired?: boolean;
+  audioInstructionsPreferred?: boolean;
+  largeTextPreferred?: boolean;
+  interpreterRequired?: boolean;
+  accessibilitySupportNotes?: string | null;
+  registrationChannel?: 'SelfService' | 'Assisted' | 'BulkImport' | 'Kiosk' | 'Integration' | null;
 }) {
+  const { company, idNumber, password, ...rest } = input;
   return apiRequest<User>(`/users/${userId}`, {
     method: 'PUT',
     token,
-    body: input,
+    body: {
+      ...rest,
+      employerName: company,
+      identityNumber: idNumber,
+      newPassword: password,
+    },
   });
 }
 
@@ -558,20 +1171,13 @@ export async function deleteUserRequest(token: string, userId: string) {
 }
 
 export async function createAccessRequest(token: string, input: {
-  supervisorId: string;
-  operatorId: string;
-  contractorId: string;
+  supervisorId?: string;
+  contractorId?: string;
   siteId: string;
   contractNumber: string;
   focalPoint: string;
   notes?: string;
-  workerList: Array<{
-    id: string;
-    name: string;
-    email: string;
-    nationality?: string;
-    certificates?: { name: string; expiryDate?: string }[];
-  }>;
+  workerIds: string[];
 }) {
   return apiRequest<AccessRequest>('/access-requests', {
     method: 'POST',
@@ -582,9 +1188,9 @@ export async function createAccessRequest(token: string, input: {
 
 export async function updateAccessRequest(token: string, requestId: string, input: {
   status?: string;
-  validFrom?: string;
-  expiresAt?: string;
-  permanent?: boolean;
+  validFromUtc?: string;
+  expiresAtUtc?: string;
+  isPermanent?: boolean;
   notes?: string;
   // Required by the backend when denying — recorded on the request's audit trail.
   decisionReason?: string;
@@ -607,6 +1213,30 @@ export async function fetchWorkerRequest(token: string, workerId: string) {
   return apiRequest<WorkerProfile>(`/workers/${workerId}`, { token });
 }
 
+export type WorkerClearance = {
+  workerId: string;
+  status: 'Pending' | 'Submitted' | 'UnderReview' | 'Cleared' | 'Returned';
+  clearedByUserId?: string | null;
+  clearanceUpdatedAtUtc?: string | null;
+  clearanceNote?: string | null;
+};
+
+export type WorkerClearanceAction = 'submit' | 'start-review' | 'clear' | 'return';
+
+export async function transitionWorkerClearance(
+  token: string,
+  workerId: string,
+  action: WorkerClearanceAction,
+  note?: string,
+) {
+  const body = action === 'clear' || action === 'return' ? { note } : undefined;
+  return apiRequest<WorkerClearance>(`/workers/${workerId}/clearance/${action}`, {
+    method: 'POST',
+    token,
+    body,
+  });
+}
+
 export type WorkerDocument = {
   id: string;
   workerId: string;
@@ -617,7 +1247,24 @@ export type WorkerDocument = {
   certificateTypeId?: string | null;
   uploadedByUserId?: string | null;
   uploadedAtUtc: string;
+  reviewStatus: 'Pending' | 'Verified' | 'Rejected';
+  reviewedByUserId?: string | null;
+  reviewedAtUtc?: string | null;
+  reviewNote?: string | null;
 };
+
+export async function reviewWorkerDocument(
+  token: string,
+  documentId: string,
+  decision: 'Verified' | 'Rejected',
+  note?: string,
+) {
+  return apiRequest<WorkerDocument>(`/documents/${documentId}/review`, {
+    method: 'POST',
+    token,
+    body: { decision, note },
+  });
+}
 
 // Multipart upload — apiRequest JSON-encodes, so this uses fetch directly with FormData (the browser sets the
 // multipart boundary; we must NOT set Content-Type ourselves).
@@ -663,6 +1310,179 @@ export async function downloadWorkerDocument(token: string, documentId: string, 
 
 export async function deleteWorkerDocument(token: string, documentId: string) {
   return apiRequest<void>(`/documents/${documentId}`, { method: 'DELETE', token });
+}
+
+export async function getWorkerDocumentDataUrl(token: string, documentId: string) {
+  const response = await fetch(`${BACKEND_URL}/documents/${documentId}/download`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('Worker photo download failed.');
+  const blob = await response.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+export type WorkerCard = {
+  id: string;
+  cardNumber: string;
+  workerId: string;
+  workerCode: string;
+  workerName: string;
+  employerName: string;
+  jobTitle: string;
+  role: string;
+  status: 'Issued' | 'Printed' | 'Replaced' | 'Revoked' | 'Expired';
+  isValid: boolean;
+  credential: string;
+  photoDocumentId?: string | null;
+  photoCropX: number;
+  photoCropY: number;
+  photoZoom: number;
+  issuedAtUtc: string;
+  expiresAtUtc?: string | null;
+  printedAtUtc?: string | null;
+  revokedAtUtc?: string | null;
+  revocationReason?: string | null;
+};
+
+export async function listWorkerCards(token: string, workerId: string) {
+  return apiRequest<WorkerCard[]>(`/workers/${workerId}/cards`, { token });
+}
+
+export async function searchWorkerCards(
+  token: string,
+  input: { search?: string; page?: number; pageSize?: number; includeInactive?: boolean } = {},
+) {
+  const params = new URLSearchParams();
+  if (input.search?.trim()) params.set('search', input.search.trim());
+  params.set('page', String(input.page ?? 1));
+  params.set('pageSize', String(input.pageSize ?? 25));
+  if (input.includeInactive) params.set('includeInactive', 'true');
+  return apiRequest<PagedResult<WorkerCard>>(`/worker-cards?${params}`, { token });
+}
+
+export async function issueWorkerCard(
+  token: string,
+  workerId: string,
+  input: {
+    photoDocumentId?: string;
+    expiresAtUtc?: string;
+    photoCropX?: number;
+    photoCropY?: number;
+    photoZoom?: number;
+  },
+) {
+  return apiRequest<WorkerCard>(`/workers/${workerId}/cards`, {
+    method: 'POST',
+    token,
+    body: input,
+  });
+}
+
+export async function markWorkerCardPrinted(token: string, cardId: string) {
+  return apiRequest<WorkerCard>(`/worker-cards/${cardId}/printed`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export async function markWorkerCardsPrinted(token: string, cardIds: string[]) {
+  return apiRequest<WorkerCard[]>('/worker-cards/printed-batch', {
+    method: 'POST',
+    token,
+    body: { cardIds },
+  });
+}
+
+export type WorkerCardBranding = {
+  companyName: string;
+  cardLabel: string;
+  primaryColor: string;
+  secondaryColor: string;
+  footerText: string;
+  logoUrl?: string | null;
+};
+
+export async function getWorkerCardBranding(token: string) {
+  return apiRequest<WorkerCardBranding>('/worker-cards/branding', { token });
+}
+
+export type WorkerCardValidation = {
+  isValid: boolean;
+  reason: string;
+  card?: WorkerCard | null;
+};
+
+export async function validateWorkerCard(token: string, credential: string) {
+  return apiRequest<WorkerCardValidation>('/worker-cards/validate', {
+    method: 'POST',
+    token,
+    body: { credential },
+  });
+}
+
+export type WorkerCardOfflineManifest = {
+  schemaVersion: 1;
+  version: string;
+  purpose: 'IdentityOnly';
+  authorizationRequiresOnline: true;
+  generatedAtUtc: string;
+  expiresAtUtc: string;
+  site: {
+    id: string;
+    name: string;
+    requiresAccessApproval: boolean;
+    usesSecurityCheckpoints: boolean;
+    usesSmartAccess: boolean;
+  };
+  entries: Array<{
+    credentialHash: string;
+    cardNumber: string;
+    workerId: string;
+    workerCode: string;
+    workerName: string;
+    employerName: string;
+    jobTitle: string;
+    role: string;
+    expiresAtUtc?: string | null;
+  }>;
+};
+
+export async function getWorkerCardOfflineManifest(token: string, siteId: string) {
+  return apiRequest<WorkerCardOfflineManifest>(
+    `/worker-cards/offline-manifest?siteId=${encodeURIComponent(siteId)}`,
+    { token },
+  );
+}
+
+export async function revokeWorkerCard(token: string, cardId: string, reason: string) {
+  return apiRequest<WorkerCard>(`/worker-cards/${cardId}/revoke`, {
+    method: 'POST',
+    token,
+    body: { reason },
+  });
+}
+
+export async function replaceWorkerCard(
+  token: string,
+  cardId: string,
+  input: {
+    photoDocumentId?: string;
+    expiresAtUtc?: string;
+    photoCropX?: number;
+    photoCropY?: number;
+    photoZoom?: number;
+  },
+) {
+  return apiRequest<WorkerCard>(`/worker-cards/${cardId}/replace`, {
+    method: 'POST',
+    token,
+    body: input,
+  });
 }
 
 export type QrCredentialResponse = {
@@ -711,6 +1531,7 @@ export async function fetchPermits(
 export async function issuePermit(
   authToken: string,
   body: {
+    projectId?: string;
     workerId: string;
     siteId: string;
     accessRequestId?: string;
@@ -755,6 +1576,25 @@ export type SiteAlert = {
   occurredAtUtc: string;
 };
 
+export type UserNotification = {
+  id: string;
+  category: string;
+  title: string;
+  message: string;
+  link?: string | null;
+  isRead: boolean;
+  createdAtUtc: string;
+  readAtUtc?: string | null;
+};
+
+export function fetchUserNotifications(authToken: string, unreadOnly = false) {
+  return apiRequest<UserNotification[]>(`/notifications?unreadOnly=${unreadOnly}`, { token: authToken });
+}
+
+export function markUserNotificationRead(authToken: string, notificationId: string) {
+  return apiRequest<UserNotification>(`/notifications/${notificationId}/read`, { method: 'POST', token: authToken });
+}
+
 export async function fetchAlerts(
   authToken: string,
   params?: { siteId?: string; unacknowledgedOnly?: boolean }
@@ -788,24 +1628,45 @@ export type AuditLogEntry = {
 
 export async function fetchAuditLog(
   authToken: string,
-  params?: { entityType?: string; entityId?: string; actorUserId?: string; take?: number }
+  params?: { entityType?: string; entityId?: string; actorUserId?: string; take?: number; page?: number }
 ) {
   const qs = new URLSearchParams();
   if (params?.entityType) qs.set('entityType', params.entityType);
   if (params?.entityId) qs.set('entityId', params.entityId);
   if (params?.actorUserId) qs.set('actorUserId', params.actorUserId);
   if (params?.take) qs.set('take', String(params.take));
+  if (params?.page) qs.set('page', String(params.page));
   const query = qs.toString() ? `?${qs}` : '';
   return apiRequest<AuditLogEntry[]>(`/audit${query}`, { token: authToken });
 }
 
-// Authenticated CSV download (the access token is in-memory, so we fetch with the Bearer header then save a blob).
+type ReportExport = {
+  id: string;
+  status: 'Pending' | 'Processing' | 'Completed' | 'Failed';
+  fileName: string;
+  error?: string | null;
+  canDownload: boolean;
+};
+
+// Creates a durable background export, polls its small status record, then downloads the completed object.
 export async function downloadComplianceCsv(authToken: string, params?: { asOf?: string; siteId?: string }) {
-  const qs = new URLSearchParams();
-  if (params?.asOf) qs.set('asOf', params.asOf);
-  if (params?.siteId) qs.set('siteId', params.siteId);
-  const query = qs.toString() ? `?${qs}` : '';
-  const response = await fetch(`${BACKEND_URL}/audit/compliance-report.csv${query}`, {
+  const job = await apiRequest<ReportExport>('/audit/compliance-report/exports', {
+    method: 'POST',
+    token: authToken,
+    body: { asOfUtc: params?.asOf, siteId: params?.siteId },
+  });
+
+  let completed = job;
+  for (let attempt = 0; attempt < 90 && !completed.canDownload; attempt += 1) {
+    if (completed.status === 'Failed') throw new Error(completed.error || 'Compliance export failed.');
+    await new Promise(resolve => window.setTimeout(resolve, 1000));
+    completed = await apiRequest<ReportExport>(`/audit/compliance-report/exports/${job.id}`, {
+      token: authToken,
+    });
+  }
+  if (!completed.canDownload) throw new Error('The compliance export is still processing. Try again shortly.');
+
+  const response = await fetch(`${BACKEND_URL}/audit/compliance-report/exports/${job.id}/download`, {
     headers: { Authorization: `Bearer ${authToken}` },
   });
   if (!response.ok) throw new Error('Failed to download compliance report.');
@@ -813,7 +1674,7 @@ export async function downloadComplianceCsv(authToken: string, params?: { asOf?:
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `compliance-report-${(params?.asOf ?? new Date().toISOString()).slice(0, 10)}.csv`;
+  a.download = completed.fileName;
   document.body.appendChild(a);
   a.click();
   a.remove();

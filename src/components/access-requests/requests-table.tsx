@@ -44,19 +44,22 @@ interface RequestsTableProps {
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline'} = {
   Approved: 'default',
   Pending: 'secondary',
-  Denied: 'destructive'
+  Denied: 'destructive',
+  Expired: 'outline',
 }
 
 const statusColorClasses = {
   Approved: 'bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30',
   Pending: 'bg-yellow-500/20 text-yellow-700 border-transparent hover:bg-yellow-500/30',
   Denied: 'bg-red-500/20 text-red-700 border-transparent hover:bg-red-500/30',
+  Expired: 'bg-slate-500/15 text-slate-700 border-transparent hover:bg-slate-500/20',
 }
 
 const statusIcons = {
   Approved: ShieldCheck,
   Pending: Clock3,
   Denied: ShieldX,
+  Expired: Clock3,
 };
 
 export function RequestsTable({
@@ -132,8 +135,8 @@ export function RequestsTable({
                 </TableRow>
               ) : requests.length > 0 ? (
                 requests.sort((a,b) => {
-                    const dateA = getRequestedAtTime(a.requestedAt);
-                    const dateB = getRequestedAtTime(b.requestedAt);
+                    const dateA = getRequestedAtTime(a.requestedAtUtc);
+                    const dateB = getRequestedAtTime(b.requestedAtUtc);
                     return dateB - dateA;
                 }).map((request) => (
                   <TableRow key={request.id} onClick={() => handleRowClick(request)} className="cursor-pointer">
@@ -144,23 +147,23 @@ export function RequestsTable({
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
                           <Users className="h-4 w-4" /> 
-                          <span>{request.workerCount ?? (request.workerIds || []).length} Workers</span>
+                          <span>{request.workers.length} Workers</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="font-medium whitespace-nowrap">{request.supervisorName}</div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {formatTimestamp(request.requestedAt)}
+                      {formatTimestamp(request.requestedAtUtc)}
                     </TableCell>
                     <TableCell>
                       {request.status === 'Approved' ? (
                         <div className="flex items-center gap-2 text-sm">
                           <CalendarDays className="h-4 w-4 text-muted-foreground" />
                           <div className="flex flex-col">
-                            <span>{formatDate(request.validFrom)}</span>
+                            <span>{formatDate(request.validFromUtc ?? undefined)}</span>
                             <span className="flex items-center gap-1">
-                                to {request.expiresAt === 'Permanent' ? <Infinity className="h-4 w-4" /> : formatDate(request.expiresAt)}
+                                to {request.isPermanent ? <Infinity className="h-4 w-4" /> : formatDate(request.expiresAtUtc ?? undefined)}
                             </span>
                           </div>
                         </div>
@@ -169,9 +172,9 @@ export function RequestsTable({
                       )}
                     </TableCell>
                     <TableCell>
-                      {typeof request.onSiteCount === 'number' ? (
+                      {typeof request.currentOnSiteCount === 'number' ? (
                         <span className="text-sm font-medium">
-                          {request.onSiteCount}/{request.workerCount ?? (request.workerIds || []).length}
+                          {request.currentOnSiteCount}/{request.workers.length}
                         </span>
                       ) : (
                         <span className="text-muted-foreground">--</span>
