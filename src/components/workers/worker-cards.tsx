@@ -170,7 +170,7 @@ export function WorkerCards({ workerId }: { workerId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5" /> Worker cards</CardTitle>
+        <CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5" /> Personnel cards</CardTitle>
         <CardDescription>
           Issue CR80-size photo ID cards with revocable QR credentials. Printing works with standard card printers or Save as PDF.
         </CardDescription>

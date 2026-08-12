@@ -61,7 +61,7 @@ import {
 import Image from "next/image";
 import { Badge } from "../ui/badge";
 import { EditUserForm } from "./edit-user-form";
-import { canEditUserRecord, canImpersonateUser } from "./user-actions";
+import { canEditUserRecord, canImpersonateUser, canIssuePersonnelCard } from "./user-actions";
 import { WorkerClearance } from "@/components/workers/worker-clearance";
 import { WorkerDocuments } from "@/components/workers/worker-documents";
 import { WorkerTimeline } from "@/components/workers/worker-timeline";
@@ -140,8 +140,7 @@ export function UsersTable({
   };
 
   const canManageWorkerCard = (user: User) => {
-    return user.role === 'Worker'
-      && ['Admin', 'Operator Admin', 'Contractor Admin'].includes(currentUser.role);
+    return user.status === 'Active' && canIssuePersonnelCard(currentUser.role);
   };
 
   return (
@@ -261,7 +260,7 @@ export function UsersTable({
                                 )}
                                 {canManageWorkerCard(user) && (
                                   <DropdownMenuItem onSelect={() => setCardUser(user)}>
-                                    <CreditCard className="mr-2 h-4 w-4" /> Issue worker card
+                                    <CreditCard className="mr-2 h-4 w-4" /> Issue QR card
                                   </DropdownMenuItem>
                                 )}
                                 {!canEditUser(user) && canReviewCompliance(user) && (
@@ -361,7 +360,7 @@ export function UsersTable({
       <Dialog open={cardUser !== null} onOpenChange={(open) => !open && setCardUser(null)}>
         <DialogContent className="max-h-[90vh] w-[95vw] max-w-4xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Issue worker card</DialogTitle>
+            <DialogTitle>Issue QR card</DialogTitle>
             <DialogDescription>
               Select a verified photo and manage the card for {cardUser?.name}.
             </DialogDescription>

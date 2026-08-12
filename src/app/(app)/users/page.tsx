@@ -9,6 +9,7 @@ import { BulkRegistration } from "@/components/users/bulk-registration";
 import {
   canLoadPersonnelData,
   PERSONNEL_PAGE_ROLES,
+  shouldLoadPersonnelSites,
 } from "@/components/users/user-actions";
 import {
   Dialog,
@@ -81,12 +82,14 @@ export default function UsersPage() {
 
     try {
       const [sitesData, contractorsData, operatorsData, workerProfiles, visitorProfiles] = await Promise.all([
-        listSitesRequest(
-          token,
-          currentUser.role === "Operator Admin" && currentUser.operatorId
-            ? { operatorId: currentUser.operatorId }
-            : undefined
-        ),
+        shouldLoadPersonnelSites(currentUser.role)
+          ? listSitesRequest(
+              token,
+              currentUser.role === "Operator Admin" && currentUser.operatorId
+                ? { operatorId: currentUser.operatorId }
+                : undefined
+            )
+          : Promise.resolve([]),
         listContractorsRequest(token),
         listOperatorsRequest(token),
         listRegistrationProfilesRequest(token, "Worker"),
