@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useLiveEvents } from '@/hooks/use-live-events';
@@ -288,6 +289,10 @@ export default function DashboardPage() {
     <div className="dashboard-home -mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[#eaf5f1] p-0 md:-mx-6 md:-my-6 md:p-0 lg:-mx-8 lg:-my-8 lg:p-0">
       <div className="dashboard-frame mx-auto max-w-[1600px] bg-transparent p-0 shadow-none">
       <div className="dashboard-reference-topbar">
+        <SidebarTrigger
+          aria-label="Open navigation"
+          className="h-10 w-10 rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 md:hidden"
+        />
         <div className="dashboard-reference-search">
           <Search className="h-3.5 w-3.5 text-slate-400" />
           <input aria-label="Search dashboard" placeholder="Search…" />
