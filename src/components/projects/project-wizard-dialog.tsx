@@ -22,7 +22,7 @@ import {
   type ProjectWizardStep,
   validateProjectStep,
 } from './project-workflow';
-import type { UserRole } from '@/lib/types';
+import type { Site, UserRole } from '@/lib/types';
 
 export type ProjectRecord = {
   id: string;
@@ -51,6 +51,7 @@ export type ProjectRecord = {
   }>;
   workPassCount: number;
   siteIds: string[];
+  sites: Site[];
 };
 
 type NamedOption = { id: string; name: string };
