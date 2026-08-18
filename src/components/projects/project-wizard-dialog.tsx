@@ -22,7 +22,7 @@ import {
   type ProjectWizardStep,
   validateProjectStep,
 } from './project-workflow';
-import type { Site, UserRole } from '@/lib/types';
+import type { Contractor, ProjectRole, Site, UserRole } from '@/lib/types';
 
 export type ProjectRecord = {
   id: string;
@@ -32,7 +32,9 @@ export type ProjectRecord = {
   operatorId: string;
   operatorName: string;
   supervisorUserId: string;
-  consultantUserId: string;
+  consultantCompanyId: string;
+  consultantCompanyName: string;
+  consultantReviewerUserIds: string[];
   consultantApprovedAtUtc?: string | null;
   consultantDecisionComments?: string | null;
   status: string;
@@ -62,9 +64,10 @@ type ProjectWizardDialogProps = {
   token: string;
   project?: ProjectRecord | null;
   operators: NamedOption[];
-  contractors: NamedOption[];
+  contractors: Contractor[];
   sites: Array<NamedOption & { operatorId?: string; location?: string }>;
   users: UserOption[];
+  projectRoles: ProjectRole[];
   currentUserRole?: UserRole;
   currentUserOperatorId?: string;
   onOpenChange: (open: boolean) => void;
@@ -95,14 +98,15 @@ function initialDraft(project?: ProjectRecord | null): ProjectDraft {
     clientReference: project?.clientReference ?? '',
     description: project?.description ?? '',
     operatorId: project?.operatorId ?? '',
-    consultantUserId: project?.consultantUserId && project.consultantUserId !== project.supervisorUserId
-      ? project.consultantUserId
-      : '',
+    consultantCompanyId: project?.consultantCompanyId ?? '',
+    consultantReviewerUserIds: project?.consultantReviewerUserIds ?? [],
     validFromUtc: dateValue(project?.validFromUtc) || today.toISOString().slice(0, 10),
     validToUtc: dateValue(project?.validToUtc) || defaultEnd.toISOString().slice(0, 10),
     contractorIds: project?.contractors.map((item) => item.contractorId) ?? [],
     siteIds: project?.siteIds ?? [],
-    memberIds: project?.members.map((item) => item.userId) ?? [],
+    memberIds: project?.members
+      .filter((item) => !project.consultantReviewerUserIds.includes(item.userId))
+      .map((item) => item.userId) ?? [],
     status: project?.status ?? 'Active',
   };
 }
@@ -115,6 +119,7 @@ export function ProjectWizardDialog({
   contractors,
   sites,
   users,
+  projectRoles,
   currentUserRole,
   currentUserOperatorId,
   onOpenChange,
@@ -125,6 +130,7 @@ export function ProjectWizardDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [memberRoleIds, setMemberRoleIds] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!open) return;
@@ -137,10 +143,24 @@ export function ProjectWizardDialog({
     setStepIndex(0);
     setErrors({});
     setSaveError('');
+    setMemberRoleIds(Object.fromEntries((project?.members ?? []).map((member) => [member.userId, member.projectRoleId ?? ''])));
   }, [currentUserOperatorId, open, project]);
 
   const currentStep = steps[stepIndex];
   const selectedOperator = operators.find((item) => item.id === draft.operatorId);
+  const consultantCompanies = useMemo(
+    () => contractors.filter((item) => item.companyType === 2 || item.companyType === 'Consultant'),
+    [contractors],
+  );
+  const deliveryContractors = useMemo(
+    () => contractors.filter((item) => item.companyType !== 2 && item.companyType !== 'Consultant'),
+    [contractors],
+  );
+  const consultantReviewers = useMemo(
+    () => users.filter((item) => item.contractorId === draft.consultantCompanyId
+      && (item.role === 'Contractor Admin' || item.role === 'Supervisor')),
+    [draft.consultantCompanyId, users],
+  );
   const selectedContractors = useMemo(
     () => contractors.filter((item) => draft.contractorIds.includes(item.id)),
     [contractors, draft.contractorIds],
@@ -160,7 +180,7 @@ export function ProjectWizardDialog({
     });
   }
 
-  function toggleSelection(field: 'contractorIds' | 'memberIds' | 'siteIds', id: string) {
+  function toggleSelection(field: 'contractorIds' | 'memberIds' | 'siteIds' | 'consultantReviewerUserIds', id: string) {
     if (field === 'siteIds' && currentUserRole === 'Supervisor') {
       const selectedSite = sites.find((site) => site.id === id);
       setDraft((current) => {
@@ -230,22 +250,26 @@ export function ProjectWizardDialog({
 
       const previousMemberIds = new Set(project?.members.map((member) => member.userId) ?? []);
       const nextMemberIds = new Set(draft.memberIds);
-      const memberChanges = [
-        ...draft.memberIds
-          .filter((userId) => !previousMemberIds.has(userId))
-          .map((userId) => apiRequest(`/projects/${savedProject.id}/members`, {
-            method: 'POST',
-            token,
-            body: { userId, fullProjectAccess: false },
-          })),
-        ...(project?.members ?? [])
-          .filter((member) => !nextMemberIds.has(member.userId))
-          .map((member) => apiRequest(`/projects/${savedProject.id}/members/${member.userId}`, {
-            method: 'DELETE',
-            token,
-          })),
-      ];
-      await Promise.all(memberChanges);
+      const changedRoleIds = new Set((project?.members ?? [])
+        .filter((member) => nextMemberIds.has(member.userId)
+          && Boolean(memberRoleIds[member.userId])
+          && memberRoleIds[member.userId] !== member.projectRoleId)
+        .map((member) => member.userId));
+      await Promise.all((project?.members ?? [])
+        .filter((member) => !project?.consultantReviewerUserIds.includes(member.userId) && !nextMemberIds.has(member.userId))
+        .map((member) => apiRequest(`/projects/${savedProject.id}/members/${member.userId}`, { method: 'DELETE', token })));
+      await Promise.all(draft.memberIds
+        .filter((userId) => !previousMemberIds.has(userId))
+        .map((userId) => apiRequest(`/projects/${savedProject.id}/members`, {
+          method: 'POST',
+          token,
+          body: { userId, projectRoleId: memberRoleIds[userId] || null },
+        })));
+      await Promise.all([...changedRoleIds].map((userId) => apiRequest(`/projects/${savedProject.id}/members/${userId}`, {
+        method: 'PUT',
+        token,
+        body: { projectRoleId: memberRoleIds[userId] },
+      })));
       const refreshed = await apiRequest<ProjectRecord>(`/projects/${savedProject.id}`, { token });
       onSaved(refreshed);
       onOpenChange(false);
@@ -323,15 +347,6 @@ export function ProjectWizardDialog({
                       </select>
                     </Field>
                   ) : null}
-                  <Field label="Project consultant" hint="Optional — defaults to the creating supervisor">
-                    <select value={draft.consultantUserId} onChange={(event) => updateField('consultantUserId', event.target.value)}
-                      className={inputClass()}>
-                      <option value="">Creating supervisor (default)</option>
-                      {users.filter((user) => user.role === 'Consultant'
-                          && (!draft.operatorId || user.operatorId === draft.operatorId))
-                        .map((user) => <option key={user.id} value={user.id}>{user.name}{user.email ? ` · ${user.email}` : ''}</option>)}
-                    </select>
-                  </Field>
                   <Field label="Start date" error={errors.validFromUtc}>
                     <input type="date" value={draft.validFromUtc} onChange={(event) => updateField('validFromUtc', event.target.value)}
                       className={inputClass(errors.validFromUtc)} />
@@ -371,15 +386,35 @@ export function ProjectWizardDialog({
             {currentStep.id === 'participants' ? (
               <div className="space-y-6">
                 <StepHeading title="Participants" description="Choose the organisations and people responsible for delivery." />
+                <Field label="Consultant company" error={errors.consultantCompanyId} hint="The consultant is an external company, not an operator user role.">
+                  <select value={draft.consultantCompanyId} onChange={(event) => {
+                    updateField('consultantCompanyId', event.target.value);
+                    updateField('consultantReviewerUserIds', []);
+                  }} className={inputClass(errors.consultantCompanyId)}>
+                    <option value="">Select consultant company</option>
+                    {consultantCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+                  </select>
+                </Field>
+                <SelectionGroup
+                  title="Consultant reviewers"
+                  description="Personnel employed by the consultant company. Their project role carries the approval duties."
+                  emptyText={draft.consultantCompanyId ? 'No active contractor administrators or supervisors are registered for this consultant company.' : 'Select a consultant company first.'}
+                  options={consultantReviewers.map((reviewer) => ({ ...reviewer, subtitle: [reviewer.role, reviewer.email].filter(Boolean).join(' · ') }))}
+                  selectedIds={draft.consultantReviewerUserIds}
+                  onToggle={(id) => toggleSelection('consultantReviewerUserIds', id)}
+                  searchPlaceholder="Search consultant personnel"
+                />
+                {errors.consultantReviewerUserIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.consultantReviewerUserIds}</p> : null}
                 <SelectionGroup
                   title="Contractors"
                   description="Companies permitted to supply workers or request work passes."
                   emptyText="No contractors are registered."
-                  options={contractors}
+                  options={deliveryContractors}
                   selectedIds={draft.contractorIds}
                   onToggle={(id) => toggleSelection('contractorIds', id)}
                   searchPlaceholder="Search contractors"
                 />
+                {errors.contractorIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.contractorIds}</p> : null}
                 <SelectionGroup
                   title="Project team"
                   description="Internal users who can view or coordinate this project."
@@ -394,6 +429,21 @@ export function ProjectWizardDialog({
                   searchPlaceholder="Search people by name, role or email"
                   filterLabel="Role"
                 />
+                {selectedMembers.length > 0 ? (
+                  <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+                    <div><h3 className="font-semibold text-slate-950">Project responsibilities</h3><p className="text-sm text-slate-500">Assign a workflow role to each selected team member.</p></div>
+                    {selectedMembers.map((member) => (
+                      <label key={member.id} className="grid gap-2 sm:grid-cols-[1fr_15rem] sm:items-center">
+                        <span><span className="block text-sm font-medium text-slate-900">{member.name}</span><span className="block text-xs text-slate-500">{member.role}</span></span>
+                        <select className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm" value={memberRoleIds[member.id] || projectRoles.find((role) => role.isDefault)?.id || ''} onChange={(event) => setMemberRoleIds((current) => ({ ...current, [member.id]: event.target.value }))}>
+                          {!projectRoles.some((role) => role.isDefault) ? <option value="">Use tenant default</option> : null}
+                          {projectRoles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+                        </select>
+                      </label>
+                    ))}
+                    {!projectRoles.length ? <p className="text-sm text-amber-700">No project roles are configured. Add one in Compliance Setup before saving team assignments.</p> : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -410,7 +460,8 @@ export function ProjectWizardDialog({
                   </div>
                   <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
                     <ReviewItem label="Operator" value={selectedOperator?.name || 'Not selected'} />
-                    <ReviewItem label="Consultant" value={users.find((user) => user.id === draft.consultantUserId)?.name || 'Creating supervisor'} />
+                    <ReviewItem label="Consultant company" value={consultantCompanies.find((company) => company.id === draft.consultantCompanyId)?.name || 'Not selected'} />
+                    <ReviewItem label="Consultant reviewers" value={consultantReviewers.filter((user) => draft.consultantReviewerUserIds.includes(user.id)).map((user) => user.name).join(', ') || 'None selected'} />
                     <ReviewItem label="Period" value={`${formatDate(draft.validFromUtc)} – ${formatDate(draft.validToUtc)}`} />
                     <ReviewItem label="Contractors" value={selectedContractors.length ? selectedContractors.map((item) => item.name).join(', ') : 'None assigned'} />
                     <ReviewItem label="Sites" value={sites.filter((site) => draft.siteIds.includes(site.id)).map((site) => site.name).join(', ') || 'No sites selected'} />

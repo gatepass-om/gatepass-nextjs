@@ -33,6 +33,7 @@ import {
   Siren,
   SlidersHorizontal,
   CreditCard,
+  BadgeCheck,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -112,6 +113,7 @@ export function SidebarNav() {
       '/location-governance': MapPinned,
       '/projects': Briefcase,
       '/decision-rules': SlidersHorizontal,
+      '/compliance': BadgeCheck,
       '/surveillance': Video,
       '/permits': ClipboardCheck,
       '/smart-access': LockKeyhole,

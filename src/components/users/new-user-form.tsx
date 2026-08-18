@@ -10,10 +10,11 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Contractor, Operator, Site, UserRole } from '@/lib/types';
+import type { Contractor, JobPosition, Operator, Site, UserRole } from '@/lib/types';
 import type { CreateUserInput, RegistrationProfile } from '@/lib/api';
+import { buildEmploymentPayload } from '@/components/compliance/compliance-model';
 
-const roleValues = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Consultant', 'Inspector'] as const;
+const roleValues = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector'] as const;
 const interactionModes = ['Web', 'MobileApp', 'PrintedCard', 'Kiosk', 'Sms', 'SupervisorAssisted'] as const;
 
 const formSchema = z.object({
@@ -25,6 +26,7 @@ const formSchema = z.object({
   assignedSiteId: z.string().optional(),
   contractorId: z.string().optional(),
   operatorId: z.string().optional(),
+  jobPositionId: z.string().optional(),
   interactiveAccountEnabled: z.boolean(),
   preferredLanguage: z.string().min(2),
   secondaryLanguages: z.string().optional(),
@@ -63,6 +65,7 @@ interface NewUserFormProps {
   currentUserOperatorId?: string;
   currentUserContractorId?: string;
   registrationProfiles: RegistrationProfile[];
+  jobPositions: JobPosition[];
 }
 
 function PreferenceCheckbox({
@@ -102,10 +105,11 @@ export function NewUserForm({
   currentUserOperatorId,
   currentUserContractorId,
   registrationProfiles,
+  jobPositions,
 }: NewUserFormProps) {
   const availableRoles = useMemo<UserRole[]>(() => {
     if (currentUserRole === 'Admin') return ['Operator Admin', 'Contractor Admin'];
-    if (currentUserRole === 'Operator Admin') return ['Manager', 'Security', 'Worker', 'Consultant', 'Inspector'];
+    if (currentUserRole === 'Operator Admin') return ['Manager', 'Security', 'Worker', 'Inspector'];
     if (currentUserRole === 'Contractor Admin') return ['Supervisor', 'Worker'];
     return [];
   }, [currentUserRole]);
@@ -121,6 +125,7 @@ export function NewUserForm({
       assignedSiteId: '',
       contractorId: '',
       operatorId: '',
+      jobPositionId: '',
       interactiveAccountEnabled: true,
       preferredLanguage: 'en',
       secondaryLanguages: '',
@@ -165,12 +170,14 @@ export function NewUserForm({
       }
     }
     setCustomError(null);
+    const contractorId = currentUserRole === 'Contractor Admin' ? currentUserContractorId : values.contractorId || undefined;
+    const operatorId = currentUserRole === 'Operator Admin' ? currentUserOperatorId : values.operatorId || undefined;
     onNewUser({
       name: values.name,
       email: values.email || undefined,
       role: values.role,
-      operatorId: currentUserRole === 'Operator Admin' ? currentUserOperatorId : values.operatorId || undefined,
-      contractorId: currentUserRole === 'Contractor Admin' ? currentUserContractorId : values.contractorId || undefined,
+      operatorId,
+      contractorId,
       assignedSiteId: values.assignedSiteId || undefined,
       sendWelcomeEmail: values.interactiveAccountEnabled && Boolean(values.email),
       interactiveAccountEnabled: values.interactiveAccountEnabled,
@@ -189,6 +196,9 @@ export function NewUserForm({
       accessibilitySupportNotes: values.accessibilitySupportNotes || undefined,
       registrationChannel: values.needsAssistedWorkflow ? 'Assisted' : 'SelfService',
       assistedByUserId: values.needsAssistedWorkflow ? currentUserId : undefined,
+      employment: ['Worker', 'Supervisor'].includes(values.role)
+        ? buildEmploymentPayload({ jobPositionId: values.jobPositionId, contractorId, operatorId })
+        : undefined,
     }, selectedProfile ? {
       profileId: selectedProfile.id,
       entityType: selectedProfile.entityType,
@@ -237,6 +247,12 @@ export function NewUserForm({
             )}
             {selectedRole === 'Operator Admin' && currentUserRole === 'Admin' && (
               <SimpleSelect label="Operator company" value={form.watch('operatorId')} onChange={(value) => form.setValue('operatorId', value)} options={operators} disabled={isLoading} />
+            )}
+            {(selectedRole === 'Worker' || selectedRole === 'Supervisor') && currentUserRole !== 'Contractor Admin' && (
+              <SimpleSelect label="External company" value={form.watch('contractorId')} onChange={(value) => form.setValue('contractorId', value)} options={contractors} disabled={isLoading} />
+            )}
+            {(selectedRole === 'Worker' || selectedRole === 'Supervisor') && (
+              <SimpleSelect label="Job position" value={form.watch('jobPositionId')} onChange={(value) => form.setValue('jobPositionId', value)} options={jobPositions} disabled={isLoading} />
             )}
             {(selectedRole === 'Security' || selectedRole === 'Inspector') && (
               <SimpleSelect label="Assigned site" value={form.watch('assignedSiteId')} onChange={(value) => form.setValue('assignedSiteId', value)} options={operatorSites} disabled={isLoading} />

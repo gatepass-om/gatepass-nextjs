@@ -4,7 +4,7 @@ import type { WorkerClearanceAction, WorkerClearance } from '@/lib/api';
 type WorkerClearanceStatus = WorkerClearance['status'];
 
 const submitterRoles = new Set<UserRole>(['Admin', 'Contractor Admin', 'Supervisor']);
-const reviewerRoles = new Set<UserRole>(['Admin', 'Operator Admin', 'Manager', 'Consultant']);
+const reviewerRoles = new Set<UserRole>(['Admin', 'Operator Admin', 'Manager']);
 
 export function getWorkerClearanceActions(
   role: UserRole,

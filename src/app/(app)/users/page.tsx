@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import type { User, Site, Contractor, Operator } from "@/lib/types";
+import type { User, Site, Contractor, Operator, JobPosition } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { UsersTable } from "@/components/users/users-table";
 import { NewUserForm } from "@/components/users/new-user-form";
@@ -33,8 +33,9 @@ import {
   deleteUserRequest,
   listRegistrationProfilesRequest,
   saveRegistrationValuesRequest,
+  listJobPositionsRequest,
 } from "@/lib/api";
-import type { CreateUserInput, RegistrationProfile } from "@/lib/api";
+import type { CreateUserInput, RegistrationProfile, UpdateUserInput } from "@/lib/api";
 
 export default function UsersPage() {
   const router = useRouter();
@@ -51,6 +52,7 @@ export default function UsersPage() {
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [registrationProfiles, setRegistrationProfiles] = useState<RegistrationProfile[]>([]);
+  const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [isNewUserFormOpen, setIsNewUserFormOpen] = useState(false);
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
@@ -81,7 +83,7 @@ export default function UsersPage() {
     setLoading(true);
 
     try {
-      const [sitesData, contractorsData, operatorsData, workerProfiles, visitorProfiles] = await Promise.all([
+      const [sitesData, contractorsData, operatorsData, workerProfiles, visitorProfiles, jobPositionData] = await Promise.all([
         shouldLoadPersonnelSites(currentUser.role)
           ? listSitesRequest(
               token,
@@ -94,6 +96,7 @@ export default function UsersPage() {
         listOperatorsRequest(token),
         listRegistrationProfilesRequest(token, "Worker"),
         listRegistrationProfilesRequest(token, "Visitor"),
+        listJobPositionsRequest(token),
       ]);
 
       const mappedSites = (sitesData as any[]).map(normalizeSite);
@@ -101,6 +104,7 @@ export default function UsersPage() {
       setContractors(contractorsData as Contractor[]);
       setOperators(operatorsData as Operator[]);
       setRegistrationProfiles([...workerProfiles, ...visitorProfiles]);
+      setJobPositions(jobPositionData.filter((position) => position.isActive));
 
       let userFilters: { operatorId?: string; contractorId?: string } = {};
       if (currentUser.role === "Operator Admin") {
@@ -209,7 +213,7 @@ export default function UsersPage() {
   const handleUpdateUser = async (
     userId: string,
     originalUser: User,
-    updatedData: Omit<User, "id">
+    updatedData: UpdateUserInput
   ) => {
     if (!token) {
       toast({
@@ -351,6 +355,7 @@ export default function UsersPage() {
                 currentUserOperatorId={currentUser.operatorId ?? undefined}
                 currentUserContractorId={currentUser.contractorId ?? undefined}
                 registrationProfiles={registrationProfiles}
+                jobPositions={jobPositions}
               />
             </DialogContent>
           </Dialog>
@@ -362,6 +367,7 @@ export default function UsersPage() {
         sites={sites}
         contractors={contractors}
         operators={operators}
+        jobPositions={jobPositions}
         isLoading={loading}
         onDeleteUser={handleDeleteUser}
         onUpdateUser={handleUpdateUser}

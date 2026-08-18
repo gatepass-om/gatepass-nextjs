@@ -20,5 +20,5 @@ test('authorized administrators can issue a credential regardless of the cardhol
 
 test('non-administrative roles cannot issue credentials', () => {
   assert.equal(canIssuePersonnelCard('Manager'), false);
-  assert.equal(canIssuePersonnelCard('Consultant'), false);
+  assert.equal(canIssuePersonnelCard('Supervisor'), false);
 });

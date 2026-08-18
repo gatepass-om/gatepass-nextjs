@@ -17,7 +17,8 @@ import {
   CardContent,
   CardDescription,
 } from "@/components/ui/card";
-import type { User, Site, UserStatus, Contractor, Operator } from "@/lib/types";
+import type { User, Site, UserStatus, Contractor, Operator, JobPosition } from "@/lib/types";
+import type { UpdateUserInput } from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -66,18 +67,20 @@ import { WorkerClearance } from "@/components/workers/worker-clearance";
 import { WorkerDocuments } from "@/components/workers/worker-documents";
 import { WorkerTimeline } from "@/components/workers/worker-timeline";
 import { WorkerCards } from "@/components/workers/worker-cards";
+import { WorkerPositionCompliancePanel } from '@/components/compliance/worker-position-compliance';
 
 interface UsersTableProps {
   users: User[];
   sites: Site[];
   contractors: Contractor[];
   operators: Operator[];
+  jobPositions: JobPosition[];
   isLoading: boolean;
   onDeleteUser: (userId: string, userName: string) => void;
   onUpdateUser: (
     userId: string,
     originalUser: User,
-    updatedData: Omit<User, "id">
+    updatedData: UpdateUserInput
   ) => Promise<boolean>;
   currentUser: User;
   canMutateUsers: boolean;
@@ -89,6 +92,7 @@ export function UsersTable({
   sites,
   contractors,
   operators,
+  jobPositions,
   isLoading,
   onDeleteUser,
   onUpdateUser,
@@ -136,7 +140,7 @@ export function UsersTable({
 
   const canReviewCompliance = (user: User) => {
     return user.role === 'Worker'
-      && ['Admin', 'Operator Admin', 'Manager', 'Consultant'].includes(currentUser.role);
+      && ['Admin', 'Operator Admin', 'Manager'].includes(currentUser.role);
   };
 
   const canManageWorkerCard = (user: User) => {
@@ -334,6 +338,7 @@ export function UsersTable({
               sites={sites}
               contractors={contractors}
               operators={operators}
+              jobPositions={jobPositions}
               isLoading={isLoading}
               closeDialog={() => setIsEditDialogOpen(false)}
             />
@@ -350,6 +355,7 @@ export function UsersTable({
           </DialogHeader>
           {complianceUser && (
             <div className="space-y-4">
+              <WorkerPositionCompliancePanel workerId={complianceUser.id} />
               <WorkerClearance workerId={complianceUser.id} initialStatus={complianceUser.clearanceStatus} />
               <WorkerDocuments workerId={complianceUser.id} canManage={false} />
               <WorkerTimeline workerId={complianceUser.id} />

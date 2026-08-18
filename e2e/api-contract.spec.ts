@@ -424,7 +424,7 @@ test('worker clearance actions follow submitter and reviewer responsibilities', 
   expect(getWorkerClearanceActions('Supervisor', 'Pending')).toEqual(['submit']);
   expect(getWorkerClearanceActions('Supervisor', 'Returned')).toEqual(['submit']);
   expect(getWorkerClearanceActions('Manager', 'Submitted')).toEqual(['start-review', 'return']);
-  expect(getWorkerClearanceActions('Consultant', 'UnderReview')).toEqual(['clear', 'return']);
+  expect(getWorkerClearanceActions('Manager', 'UnderReview')).toEqual(['clear', 'return']);
   expect(getWorkerClearanceActions('Worker', 'Submitted')).toEqual([]);
 });
 

@@ -20,10 +20,13 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BadgeCheck,
+  BriefcaseBusiness,
+  Building2,
   Clock3,
   LogIn,
   ShieldAlert,
   UsersRound,
+  MapPinned,
   type LucideIcon,
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -71,6 +74,12 @@ const METRIC_TONES = {
 
 export function DashboardVisuals({ summary, isLoading, showAttendanceAnalytics }: DashboardVisualsProps) {
   const safeSummary = summary ?? emptySummary;
+  const portfolioCards = [
+    { label: 'Registered workers', value: safeSummary.portfolio.registeredWorkers, detail: 'Workers in the selected scope', icon: UsersRound, tone: METRIC_TONES.teal },
+    { label: 'Projects', value: safeSummary.portfolio.projects, detail: 'Projects assigned to visible sites', icon: BriefcaseBusiness, tone: METRIC_TONES.blue },
+    { label: 'Sites', value: safeSummary.portfolio.sites, detail: 'Operational sites in scope', icon: MapPinned, tone: METRIC_TONES.green },
+    { label: 'Contractors & consultants', value: safeSummary.portfolio.externalCompanies, detail: `${safeSummary.portfolio.consultants} consultant companies included`, icon: Building2, tone: METRIC_TONES.amber },
+  ];
   const metrics = getDashboardMetricCards(safeSummary, showAttendanceAnalytics);
   const decisionData = [
     { name: 'Approved', value: safeSummary.approvedRequests, color: COLORS.green },
@@ -98,6 +107,24 @@ export function DashboardVisuals({ summary, isLoading, showAttendanceAnalytics }
 
   return (
     <div className="space-y-4">
+      <section aria-label="Portfolio overview" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {portfolioCards.map((metric) => {
+          const Icon = metric.icon;
+          return (
+            <article key={metric.label} className="dashboard-metric">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="dashboard-eyebrow">{metric.label}</p>
+                  {isLoading ? <Skeleton className="mt-2 h-8 w-16" /> : <p className="mt-1 text-[28px] font-semibold leading-none tracking-[-.04em] text-slate-900">{metric.value.toLocaleString()}</p>}
+                </div>
+                <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${metric.tone.icon}`}><Icon className="h-[18px] w-[18px]" /></span>
+              </div>
+              <p className="mt-3 text-[11px] text-slate-500">{metric.detail}</p>
+            </article>
+          );
+        })}
+      </section>
+
       <section aria-label="Key operational metrics" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${metrics.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-3 xl:grid-cols-5'}`}>
         {metrics.map((metric) => {
           const Icon = METRIC_ICONS[metric.label] ?? BadgeCheck;
@@ -208,6 +235,9 @@ const emptySummary = {
   comparison: { currentApprovalRate: 0 },
   expiry: { expired: 0, next7Days: 0, days8To30: 0, days31To60: 0, days61To90: 0 },
   workforce: { eligibleWorkers: 0, pendingWorkers: 0, submittedWorkers: 0, underReviewWorkers: 0, clearedWorkers: 0, returnedWorkers: 0, readinessRate: 0 },
+  portfolio: { registeredWorkers: 0, projects: 0, sites: 0, externalCompanies: 0, consultants: 0 },
+  accessRequests: [],
+  mapSites: [],
   trends: [],
   sites: [],
 } as unknown as DashboardSummary;

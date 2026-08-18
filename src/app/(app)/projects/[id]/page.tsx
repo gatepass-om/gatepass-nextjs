@@ -19,7 +19,7 @@ import { useSession } from '@/providers/session-provider';
 import type { ProjectRecord } from '@/components/projects/project-wizard-dialog';
 import { getProjectStatusPresentation } from '@/components/projects/project-workflow';
 import {
-  getProjectActions, getProjectWorkflowStages, getWorkPassActions,
+  getProjectWorkflowStages, getWorkPassActions,
   type CommandCenterWorkPass,
 } from '@/components/projects/project-command-center';
 import { getEligibleProjectWorkers, getProjectSites } from '@/components/projects/project-worker-access';
@@ -86,7 +86,6 @@ export default function ProjectCommandCenterPage() {
     const byId = new Map(users.map((item) => [item.id, item]));
     return {
       supervisor: project ? byId.get(project.supervisorUserId) : undefined,
-      consultant: project ? byId.get(project.consultantUserId) : undefined,
     };
   }, [project, users]);
   const stages = useMemo(() => project ? getProjectWorkflowStages(project, workPasses) : [], [project, workPasses]);
@@ -123,20 +122,9 @@ export default function ProjectCommandCenterPage() {
     }
   }
 
-  async function resubmitProject() {
-    if (!token || !project) return;
-    try {
-      await apiRequest(`/projects/${project.id}/resubmit`, { method: 'POST', token });
-      await load();
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'The project could not be resubmitted.');
-    }
-  }
-
   if (loading) return <ProjectLoading />;
   if (!project) return <div className="p-6"><p className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{error || 'Project not found.'}</p></div>;
   const status = getProjectStatusPresentation(project);
-  const projectActions = getProjectActions(project, { id: user?.id, role: user?.role });
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -151,7 +139,6 @@ export default function ProjectCommandCenterPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => void load()}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</Button>
-          {projectActions.includes('resubmit') ? <Button onClick={() => void resubmitProject()}><ArrowRight className="mr-2 h-4 w-4" /> Resubmit for approval</Button> : null}
           {canCreateRequest ? <Button onClick={() => setRequestOpen(true)}><ClipboardCheck className="mr-2 h-4 w-4" /> Request worker access</Button> : null}
         </div>
       </header>
@@ -168,7 +155,7 @@ export default function ProjectCommandCenterPage() {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between"><div><h2 className="font-semibold text-slate-950">Workflow</h2><p className="text-sm text-slate-500">Live project and worker-access stages</p></div><span className="text-xs font-medium text-slate-400">Updates automatically</span></div>
-        <div className="mt-6 grid gap-3 lg:grid-cols-5">
+        <div className="mt-6 grid gap-3 lg:grid-cols-4">
           {stages.map((stage, index) => <div key={stage.id} className="relative">
             <div className={`rounded-xl border p-4 ${stageClass(stage.state)}`}>
               <div className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/80 text-xs font-bold">{stage.state === 'completed' ? <Check className="h-3.5 w-3.5" /> : index + 1}</span><span className="text-sm font-semibold">{stage.label}</span></div>
@@ -187,7 +174,7 @@ export default function ProjectCommandCenterPage() {
         </section>
 
         <div className="space-y-6">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-950">Project responsibility</h2><div className="mt-4 space-y-4"><PersonRow label="Supervisor" user={stakeholders.supervisor} fallbackId={project.supervisorUserId} /><PersonRow label="Consultant" user={stakeholders.consultant} fallbackId={project.consultantUserId} /></div></section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-950">Project responsibility</h2><div className="mt-4 space-y-4"><PersonRow label="Supervisor" user={stakeholders.supervisor} fallbackId={project.supervisorUserId} /><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Consultant company</p><p className="mt-1 text-sm font-medium text-slate-900">{project.consultantCompanyName}</p><p className="text-xs text-slate-500">{project.members.filter((member) => project.consultantReviewerUserIds.includes(member.userId)).map((member) => member.name).join(', ') || 'No reviewers assigned'}</p></div></div></section>
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-950">Sites & requirements</h2><div className="mt-4 space-y-3">{sites.map((site) => <div key={site.id} className="rounded-xl border border-slate-200 p-3"><div className="flex items-center justify-between gap-3"><span className="font-medium text-slate-900">{site.name}</span><span className="text-xs font-semibold text-slate-500">{site.requiresAccessApproval === false ? 'Compliance only' : 'Authorization'}</span></div><p className="mt-2 text-xs text-slate-500">{site.requiredCertificates?.length ? `Required: ${site.requiredCertificates.join(', ')}` : 'No site certificates configured'}</p></div>)}</div></section>
         </div>
       </div>

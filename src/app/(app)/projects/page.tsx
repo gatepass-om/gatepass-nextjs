@@ -23,7 +23,9 @@ import {
   listOperatorsRequest,
   listSitesRequest,
   listUsersRequest,
+  listProjectRolesRequest,
 } from '@/lib/api';
+import type { Contractor, ProjectRole } from '@/lib/types';
 import { useSession } from '@/providers/session-provider';
 import {
   ProjectWizardDialog,
@@ -41,9 +43,10 @@ export default function ProjectsPage() {
   const { token, user } = useSession();
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [operators, setOperators] = useState<NamedOption[]>([]);
-  const [contractors, setContractors] = useState<NamedOption[]>([]);
+  const [contractors, setContractors] = useState<Contractor[]>([]);
   const [sites, setSites] = useState<Array<NamedOption & { operatorId?: string; location?: string }>>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [projectRoles, setProjectRoles] = useState<ProjectRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -61,18 +64,20 @@ export default function ProjectsPage() {
     setLoading(true);
     setError('');
     try {
-      const [projectData, operatorData, contractorData, userData, siteData] = await Promise.all([
+      const [projectData, operatorData, contractorData, userData, siteData, roleData] = await Promise.all([
         apiRequest<ProjectRecord[]>('/projects', { token }),
         canConfigureProjects ? listOperatorsRequest(token) : Promise.resolve([]),
         canConfigureProjects ? listContractorsRequest(token) : Promise.resolve([]),
         canConfigureProjects ? listUsersRequest(token, { pageSize: 250 }) : Promise.resolve([]),
         canConfigureProjects ? listSitesRequest(token) : Promise.resolve([]),
+        canConfigureProjects ? listProjectRolesRequest(token) : Promise.resolve([]),
       ]);
       setProjects(projectData);
       setOperators(operatorData as NamedOption[]);
-      setContractors(contractorData as NamedOption[]);
+      setContractors(contractorData as Contractor[]);
       setUsers(userData as UserOption[]);
       setSites(siteData);
+      setProjectRoles(roleData);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load the project workspace.');
     } finally {
@@ -218,11 +223,8 @@ export default function ProjectsPage() {
               <ProjectRow
                 key={project.id}
                 project={project}
-                token={token ?? ''}
-                currentUserId={user?.id}
                 onEdit={() => startEditing(project)}
                 canEdit={canConfigureProjects && (user?.role !== 'Supervisor' || project.supervisorUserId === user.id)}
-                onSaved={handleSaved}
               />
             ))}
           </div>
@@ -247,6 +249,7 @@ export default function ProjectsPage() {
           contractors={contractors}
           sites={sites}
           users={users}
+          projectRoles={projectRoles}
           currentUserRole={user?.role}
           currentUserOperatorId={user?.operatorId ?? undefined}
           onOpenChange={setWizardOpen}
@@ -257,12 +260,9 @@ export default function ProjectsPage() {
   );
 }
 
-function ProjectRow({ project, token, currentUserId, onEdit, onSaved, canEdit }: {
+function ProjectRow({ project, onEdit, canEdit }: {
   project: ProjectRecord;
-  token: string;
-  currentUserId?: string;
   onEdit: () => void;
-  onSaved: (project: ProjectRecord) => void;
   canEdit: boolean;
 }) {
   const endsAt = new Date(project.validToUtc);
@@ -293,30 +293,6 @@ function ProjectRow({ project, token, currentUserId, onEdit, onSaved, canEdit }:
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {project.status === 'PendingConsultantApproval' && project.consultantUserId === currentUserId ? (
-          <>
-            <Button variant="outline" size="sm" onClick={async () => {
-              const comments = window.prompt('Reason for rejecting this project:');
-              if (comments === null) return;
-              const rejected = await apiRequest<ProjectRecord>(`/projects/${project.id}/consultant-decision`, {
-                method: 'POST',
-                token,
-                body: { approved: false, comments },
-              });
-              onSaved(rejected);
-            }}>Reject</Button>
-            <Button size="sm" onClick={async () => {
-              const approved = await apiRequest<ProjectRecord>(`/projects/${project.id}/consultant-decision`, {
-                method: 'POST',
-                token,
-                body: { approved: true },
-              });
-              onSaved(approved);
-            }}>
-              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve
-            </Button>
-          </>
-        ) : null}
         {canEdit ? <Button variant="outline" size="sm" onClick={onEdit}><Edit3 className="mr-1.5 h-4 w-4" /> Edit</Button> : null}
         <Button asChild size="sm"><Link href={`/projects/${project.id}`}>Manage <ArrowUpRight className="ml-1.5 h-4 w-4" /></Link></Button>
       </div>

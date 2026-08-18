@@ -3,23 +3,24 @@ export type CommandCenterProject = {
   name: string;
   status: string;
   supervisorUserId: string;
-  consultantUserId: string;
+  consultantCompanyId: string;
+  consultantReviewerUserIds: string[];
   consultantApprovedAtUtc?: string | null;
 };
 
 export type CommandCenterWorkPass = {
   id: string;
+  projectId: string;
   status: string;
   submittedByUserId: string;
 };
 
 export type WorkflowActor = { id?: string; role?: string };
 export type WorkPassAction = 'submit' | 'approve' | 'second-approve' | 'reject';
-export type ProjectAction = 'resubmit';
 export type WorkflowStageState = 'completed' | 'current' | 'upcoming' | 'attention';
 
 export type WorkflowStage = {
-  id: 'project-approval' | 'contractor-preparation' | 'consultant-access' | 'supervisor-access' | 'access-granted';
+  id: 'contractor-preparation' | 'consultant-access' | 'supervisor-access' | 'access-granted';
   label: string;
   description: string;
   state: WorkflowStageState;
@@ -33,20 +34,32 @@ export function getWorkPassActions(
 ): WorkPassAction[] {
   if (!actor.id) return [];
   if (workPass.status === 'Draft' && workPass.submittedByUserId === actor.id) return ['submit'];
-  if (workPass.status === 'Submitted' && project.consultantUserId === actor.id) return ['approve', 'reject'];
+  if (workPass.status === 'Submitted' && project.consultantReviewerUserIds.includes(actor.id)) return ['approve', 'reject'];
   if (workPass.status === 'PendingSecondApproval' && project.supervisorUserId === actor.id) return ['second-approve', 'reject'];
   return [];
 }
 
-export function getProjectActions(project: CommandCenterProject, actor: WorkflowActor): ProjectAction[] {
-  return project.status === 'Rejected' && project.supervisorUserId === actor.id ? ['resubmit'] : [];
+export function getWorkPassQueueItems<T extends CommandCenterWorkPass>(
+  workPasses: T[],
+  projects: CommandCenterProject[],
+  actor: WorkflowActor,
+) {
+  const projectsById = new Map(projects.map((project) => [project.id, project]));
+  return workPasses.map((workPass) => {
+    const project = projectsById.get(workPass.projectId);
+    return {
+      workPass,
+      project,
+      actions: project ? getWorkPassActions(workPass, project, actor) : [],
+    };
+  });
 }
 
 export function getProjectWorkflowStages(
   project: CommandCenterProject,
   workPasses: CommandCenterWorkPass[],
 ): WorkflowStage[] {
-  const projectApproved = project.status === 'Active' && Boolean(project.consultantApprovedAtUtc);
+  const projectActive = project.status === 'Active';
   const submitted = workPasses.filter((pass) => pass.status === 'Submitted').length;
   const secondApproval = workPasses.filter((pass) => pass.status === 'PendingSecondApproval').length;
   const granted = workPasses.filter((pass) => pass.status === 'Approved').length;
@@ -54,16 +67,10 @@ export function getProjectWorkflowStages(
 
   return [
     {
-      id: 'project-approval',
-      label: 'Project approval',
-      description: project.status === 'Rejected' ? 'Consultant returned the project for correction' : 'Consultant confirms project scope',
-      state: project.status === 'Rejected' ? 'attention' : projectApproved ? 'completed' : 'current',
-    },
-    {
       id: 'contractor-preparation',
       label: 'Contractor preparation',
       description: 'Contractors select workers, site and validity',
-      state: !projectApproved ? 'upcoming' : workPasses.length ? 'completed' : 'current',
+      state: !projectActive ? 'upcoming' : workPasses.length ? 'completed' : 'current',
       count: workPasses.length,
     },
     {

@@ -6,7 +6,6 @@ export const PERSONNEL_PAGE_ROLES: UserRole[] = [
   'Contractor Admin',
   'Manager',
   'Supervisor',
-  'Consultant',
 ];
 
 export function canEditUserRecord(canMutateUsers: boolean, _role: UserRole) {

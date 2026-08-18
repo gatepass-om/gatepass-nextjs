@@ -8,7 +8,8 @@ const validDraft = {
   clientReference: '  PO-2044 ',
   description: '  Phase one access programme  ',
   operatorId: 'operator-1',
-  consultantUserId: '',
+  consultantCompanyId: 'consultant-company-1',
+  consultantReviewerUserIds: ['reviewer-1'],
   validFromUtc: '2026-08-01',
   validToUtc: '2026-10-31',
   contractorIds: ['contractor-1'],
@@ -48,7 +49,8 @@ test('create payload trims text and converts project dates to UTC boundaries', (
     clientReference: 'PO-2044',
     description: 'Phase one access programme',
     operatorId: 'operator-1',
-    consultantUserId: null,
+    consultantCompanyId: 'consultant-company-1',
+    consultantReviewerUserIds: ['reviewer-1'],
     siteIds: ['site-1'],
     validFromUtc: '2026-08-01T00:00:00.000Z',
     validToUtc: '2026-10-31T23:59:59.000Z',
@@ -79,18 +81,16 @@ test('project workflow statuses are shown as clear business-facing labels', () =
     validToUtc: '2026-08-31T23:59:59Z',
   };
 
-  assert.equal(getProjectStatusPresentation({ ...base, status: 'PendingConsultantApproval' }, now).label, 'Pending consultant approval');
-  assert.equal(getProjectStatusPresentation({ ...base, status: 'Rejected' }, now).label, 'Rejected by consultant');
   assert.equal(getProjectStatusPresentation({ ...base, status: 'Closed' }, now).label, 'Closed');
   assert.deepEqual(getProjectStatusPresentation({ ...base, status: 'Expired' }, now), {
     label: 'Expired',
     tone: 'slate',
     detail: 'The project period ended and new worker access requests are disabled.',
   });
-  assert.equal(getProjectStatusPresentation({ ...base, status: 'Active', consultantApprovedAtUtc: '2026-08-01T10:00:00Z' }, now).label, 'Approved · active');
+  assert.equal(getProjectStatusPresentation({ ...base, status: 'Active', consultantApprovedAtUtc: '2026-08-01T10:00:00Z' }, now).label, 'Active');
   assert.equal(getProjectStatusPresentation({ ...base, status: 'Active' }, now).label, 'Active');
-  assert.equal(getProjectStatusPresentation({ ...base, status: 'Active', consultantApprovedAtUtc: '2026-08-01T10:00:00Z', validFromUtc: '2026-08-10T00:00:00Z' }, now).label, 'Approved · upcoming');
-  assert.equal(getProjectStatusPresentation({ ...base, status: 'Active', consultantApprovedAtUtc: '2026-08-01T10:00:00Z', validToUtc: '2026-08-01T00:00:00Z' }, now).label, 'Approved · expired');
+  assert.equal(getProjectStatusPresentation({ ...base, status: 'Active', consultantApprovedAtUtc: '2026-08-01T10:00:00Z', validFromUtc: '2026-08-10T00:00:00Z' }, now).label, 'Upcoming');
+  assert.equal(getProjectStatusPresentation({ ...base, status: 'Active', consultantApprovedAtUtc: '2026-08-01T10:00:00Z', validToUtc: '2026-08-01T00:00:00Z' }, now).label, 'Expired');
 });
 
 test('operator-scoped users are always locked to their own operator', () => {

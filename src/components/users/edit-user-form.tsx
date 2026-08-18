@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { User, UserRole, Certificate, CertificateType, Site, UserStatus, Contractor, Operator } from "@/lib/types";
+import type { User, UserRole, Certificate, CertificateType, Site, UserStatus, Contractor, Operator, JobPosition } from "@/lib/types";
 import { CalendarIcon, FileText, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
@@ -19,12 +19,13 @@ import { format, parseISO } from "date-fns";
 import { Calendar } from "../ui/calendar";
 import { useMediaQuery } from "react-responsive";
 import { useSession } from "@/providers/session-provider";
-import { listCertificateTypesRequest } from "@/lib/api";
+import { listCertificateTypesRequest, type UpdateUserInput } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { WorkerDocuments } from "@/components/workers/worker-documents";
 import { WorkerClearance } from "@/components/workers/worker-clearance";
 import { WorkerTimeline } from "@/components/workers/worker-timeline";
 import { shouldShowWorkerDocuments } from "./user-actions";
+import { buildEmploymentPayload } from '@/components/compliance/compliance-model';
 
 
 const formSchema = z.object({
@@ -32,7 +33,7 @@ const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
   idNumber: z.string().optional(),
   nationality: z.string().optional(),
-  role: z.enum(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Consultant', 'Inspector']),
+  role: z.enum(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector']),
   status: z.enum(['Active', 'Inactive']),
   notes: z.string().optional(),
   certificates: z.array(z.object({
@@ -42,6 +43,7 @@ const formSchema = z.object({
   assignedSiteId: z.string().optional(),
   contractorId: z.string().optional(),
   operatorId: z.string().optional(),
+  jobPositionId: z.string().optional(),
   interactiveAccountEnabled: z.boolean(),
   preferredName: z.string().optional(),
   preferredLanguage: z.string().optional(),
@@ -59,20 +61,21 @@ type FormValues = z.infer<typeof formSchema>;
 
 interface EditUserFormProps {
     user: User;
-    onUpdateUser: (userId: string, originalUser: User, updatedData: Omit<User, 'id' >) => Promise<boolean>;
+    onUpdateUser: (userId: string, originalUser: User, updatedData: UpdateUserInput) => Promise<boolean>;
     sites: Site[];
     contractors: Contractor[];
     operators: Operator[];
+    jobPositions: JobPosition[];
     isLoading: boolean;
     closeDialog: () => void;
 }
 
-export function EditUserForm({ user, onUpdateUser, sites, contractors, operators, isLoading, closeDialog }: EditUserFormProps) {
+export function EditUserForm({ user, onUpdateUser, sites, contractors, operators, jobPositions, isLoading, closeDialog }: EditUserFormProps) {
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const { token } = useSession();
     const { toast } = useToast();
-    const roles: UserRole[] = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Consultant', 'Inspector'];
+    const roles: UserRole[] = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector'];
     const statuses: UserStatus[] = ['Active', 'Inactive'];
 
     const form = useForm<FormValues>({
@@ -92,6 +95,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
             assignedSiteId: user.assignedSiteId || "",
             contractorId: user.contractorId || "",
             operatorId: user.operatorId || "",
+            jobPositionId: user.employment?.jobPositionId || "",
             interactiveAccountEnabled: user.interactiveAccountEnabled ?? true,
             preferredName: user.preferredName || "",
             preferredLanguage: user.preferredLanguage || "en",
@@ -158,7 +162,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
         const selectedOperator = operators.find(o => o.id === values.operatorId);
 
         const isContractorRole = ['Worker', 'Supervisor', 'Contractor Admin'].includes(values.role);
-        const isOperatorRole = ['Manager', 'Operator Admin', 'Admin', 'Consultant', 'Inspector'].includes(values.role);
+        const isOperatorRole = ['Manager', 'Operator Admin', 'Admin', 'Inspector'].includes(values.role);
 
         const contractorIdValue = isContractorRole
             ? values.contractorId || null
@@ -179,7 +183,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
             companyValue = user.company ?? null;
         }
 
-        const updatedData: Omit<User, 'id' | 'idCardImageUrl'> = {
+        const updatedData: UpdateUserInput = {
             name: values.name,
             role: values.role,
             status: values.status,
@@ -204,6 +208,12 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
             largeTextPreferred: values.largeTextPreferred,
             interpreterRequired: values.interpreterRequired,
             registrationChannel: values.needsAssistedWorkflow ? 'Assisted' : user.registrationChannel || 'SelfService',
+            employment: ['Worker', 'Supervisor'].includes(values.role) ? buildEmploymentPayload({
+              jobPositionId: values.jobPositionId,
+              contractorId: contractorIdValue ?? undefined,
+              operatorId: operatorIdValue ?? undefined,
+              existing: user.employment,
+            }) : null,
         };
 
         const success = await onUpdateUser(user.id, user, updatedData);
@@ -390,6 +400,19 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                     </FormItem>
                     )}
                 />
+                )}
+                {(selectedRole === "Worker" || selectedRole === "Supervisor") && (
+                  <FormField control={form.control} name="jobPositionId" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Job Position</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Assign a job position" /></SelectTrigger></FormControl>
+                        <SelectContent>{jobPositions.map((position) => <SelectItem key={position.id} value={position.id}>{position.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <FormDescription>The position determines required certificates and credentials.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                 )}
                 {(selectedRole === "Manager" || selectedRole === "Operator Admin") && (
                 <FormField

@@ -8,7 +8,7 @@
     "start": "NODE_OPTIONS=--no-experimental-webstorage next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node --test src/components/dashboard/*.test.ts src/components/workers/*.test.ts",
+    "test:unit": "node --test src/components/compliance/*.test.ts src/components/dashboard/*.test.ts src/components/projects/*.test.ts src/components/users/*.test.ts src/components/workers/*.test.ts",
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed"
   },

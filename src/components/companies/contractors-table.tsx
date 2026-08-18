@@ -10,7 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import type { Contractor, User, AccessRequest } from '@/lib/types';
+import type { Contractor, User, AccessRequest, ExternalCompanyType } from '@/lib/types';
 import { Loader2, ClipboardList, User as UserIcon, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
@@ -28,13 +28,16 @@ import {
 import { Input } from '../ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { useState } from 'react';
+import { Badge } from '../ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { EXTERNAL_COMPANY_TYPES, externalCompanyTypeLabel, normalizeExternalCompanyType } from '@/components/compliance/compliance-model';
 
 interface ContractorsTableProps {
   contractors: Contractor[];
   users: User[];
   accessRequests: AccessRequest[];
   isLoading?: boolean;
-  onRenameContractor?: (contractorId: string, name: string) => void;
+  onRenameContractor?: (contractorId: string, name: string, companyType: ExternalCompanyType) => void;
   onDeleteContractor?: (contractorId: string, name: string) => void;
   canManage?: boolean;
 }
@@ -43,6 +46,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null);
   const [editedName, setEditedName] = useState('');
+  const [editedType, setEditedType] = useState<ExternalCompanyType>(1);
   
   const getContractorPersonnelCount = (contractorId: string) => {
     return users.filter(u => u.contractorId === contractorId && (u.role === 'Worker' || u.role === 'Supervisor')).length;
@@ -55,15 +59,16 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
   return (
     <Card>
       <CardHeader>
-        <CardTitle>All Contractors</CardTitle>
-        <CardDescription>A list of all contractor companies in the system.</CardDescription>
+        <CardTitle>External Companies</CardTitle>
+        <CardDescription>Contractors, consultants, vendors, and other third parties connected to an operator.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Contractor Name</TableHead>
+                <TableHead>Company Name</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Personnel</TableHead>
                 <TableHead>Active Requests</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -71,7 +76,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={4} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
               ) : contractors.length > 0 ? (
 		                contractors.map((contractor) => (
 	                  <TableRow key={contractor.id}>
@@ -80,6 +85,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                         {contractor.name}
                       </Link>
                     </TableCell>
+                    <TableCell><Badge variant="outline">{externalCompanyTypeLabel(contractor.companyType)}</Badge></TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <UserIcon className="h-4 w-4 text-muted-foreground" />
@@ -111,6 +117,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                             onSelect={() => {
                               setEditingContractor(contractor);
                               setEditedName(contractor.name);
+                              setEditedType(normalizeExternalCompanyType(contractor.companyType));
                               setIsEditOpen(true);
                             }}
                           >
@@ -129,7 +136,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Delete contractor?</AlertDialogTitle>
+                                <AlertDialogTitle>Delete external company?</AlertDialogTitle>
                                 <AlertDialogDescription>
                                   This will remove {contractor.name} if it has no linked users or requests.
                                 </AlertDialogDescription>
@@ -151,7 +158,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
 	                  </TableRow>
                   ))
               ) : (
-                <TableRow><TableCell colSpan={4} className="h-24 text-center">No contractors found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="h-24 text-center">No external companies found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -170,7 +177,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Rename Contractor</DialogTitle>
+            <DialogTitle>Edit External Company</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <Input
@@ -178,10 +185,14 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
               onChange={(event) => setEditedName(event.target.value)}
               placeholder="Contractor name"
             />
+            <Select value={String(editedType)} onValueChange={(value) => setEditedType(Number(value) as ExternalCompanyType)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{EXTERNAL_COMPANY_TYPES.map((type) => <SelectItem key={type.value} value={String(type.value)}>{type.label}</SelectItem>)}</SelectContent>
+            </Select>
             <Button
               onClick={() => {
                 if (!editingContractor) return;
-                onRenameContractor?.(editingContractor.id, editedName.trim());
+                onRenameContractor?.(editingContractor.id, editedName.trim(), editedType);
                 setIsEditOpen(false);
               }}
               disabled={!editedName.trim()}

@@ -13,7 +13,6 @@ export const workspaceLandingByRole: Record<UserRole, string> = {
   Supervisor: '/access-requests',
   Worker: '/permits',
   Visitor: '/profile',
-  Consultant: '/projects',
   Inspector: '/scan',
 };
 

@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
-import type { Operator, Contractor, User, Site, AccessRequest } from '@/lib/types';
+import type { Operator, Contractor, User, Site, AccessRequest, ExternalCompanyType } from '@/lib/types';
 import { OperatorsTable } from '@/components/companies/operators-table';
 import { ContractorsTable } from '@/components/companies/contractors-table';
 import { NewCompanyForm } from '@/components/companies/new-company-form';
@@ -13,16 +13,16 @@ import { Building2, HardHat } from 'lucide-react';
 import { useSession } from '@/providers/session-provider';
 import {
   listOperatorsRequest,
-  listContractorsRequest,
+  listExternalCompaniesRequest,
   listUsersRequest,
   listSitesRequest,
   listAccessRequestsRequest,
   createOperatorRequest,
-  createContractorRequest,
+  createExternalCompanyRequest,
   updateOperatorRequest,
-  updateContractorRequest,
+  updateExternalCompanyRequest,
   deleteOperatorRequest,
-  deleteContractorRequest,
+  deleteExternalCompanyRequest,
 } from '@/lib/api';
 import { usePolling } from '@/lib/polling';
 
@@ -48,7 +48,7 @@ export default function CompaniesPage() {
     try {
       const [operatorsData, contractorsData, usersData, sitesData, requestData] = await Promise.all([
         listOperatorsRequest(token),
-        listContractorsRequest(token),
+        listExternalCompaniesRequest(token),
         listUsersRequest(token),
         listSitesRequest(token),
         listAccessRequestsRequest(token),
@@ -81,14 +81,14 @@ export default function CompaniesPage() {
     void fetchData();
   }, 20000);
 
-  const handleAddCompany = async (name: string, type: 'operator' | 'contractor'): Promise<boolean> => {
+  const handleAddCompany = async (name: string, type: 'operator' | 'contractor', externalType?: ExternalCompanyType): Promise<boolean> => {
     const trimmed = name.trim();
     if (!token || !trimmed) return false;
     try {
       if (type === 'operator') {
         await createOperatorRequest(token, { name: trimmed });
       } else {
-        await createContractorRequest(token, { name: trimmed });
+        await createExternalCompanyRequest(token, { name: trimmed, companyType: externalType ?? 1 });
       }
       toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} Created`, description: `Company "${trimmed}" has been added.` });
       void fetchData();
@@ -113,12 +113,12 @@ export default function CompaniesPage() {
     }
   };
 
-  const handleRenameContractor = async (contractorId: string, name: string) => {
+  const handleRenameContractor = async (contractorId: string, name: string, companyType: ExternalCompanyType) => {
     const trimmed = name.trim();
     if (!token || !trimmed) return;
     try {
-      await updateContractorRequest(token, contractorId, { name: trimmed });
-      toast({ title: "Contractor Updated", description: "Contractor name has been updated." });
+      await updateExternalCompanyRequest(token, contractorId, { name: trimmed, companyType });
+      toast({ title: "External Company Updated", description: "Company details have been updated." });
       void fetchData();
     } catch (error: any) {
       console.error('Error renaming contractor:', error);
@@ -141,8 +141,8 @@ export default function CompaniesPage() {
   const handleDeleteContractor = async (contractorId: string, name: string) => {
     if (!token) return;
     try {
-      await deleteContractorRequest(token, contractorId);
-      toast({ title: "Contractor Deleted", description: `${name} has been removed.` });
+      await deleteExternalCompanyRequest(token, contractorId);
+      toast({ title: "External Company Deleted", description: `${name} has been removed.` });
       void fetchData();
     } catch (error: any) {
       console.error('Error deleting contractor:', error);
@@ -165,8 +165,8 @@ export default function CompaniesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Company Management</h1>
           <p className="text-muted-foreground">
             {canManageCompanies
-              ? 'Overview of Operator and Contractor companies in the system.'
-              : 'Contractor companies connected to your operator sites and access requests.'}
+              ? 'Overview of operators and all connected external companies.'
+              : 'External companies connected to your operator sites and access requests.'}
           </p>
         </div>
         {canManageCompanies && (
@@ -177,7 +177,7 @@ export default function CompaniesPage() {
             </Button>
             <Button onClick={() => setIsContractorFormOpen(true)}>
               <HardHat className="mr-2 h-4 w-4" />
-              New contractor
+              New external company
             </Button>
           </div>
         )}

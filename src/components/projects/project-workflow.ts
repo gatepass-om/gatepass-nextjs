@@ -5,7 +5,8 @@ export type ProjectDraft = {
   clientReference: string;
   description: string;
   operatorId: string;
-  consultantUserId: string;
+  consultantCompanyId: string;
+  consultantReviewerUserIds: string[];
   validFromUtc: string;
   validToUtc: string;
   contractorIds: string[];
@@ -34,20 +35,6 @@ export function getProjectStatusPresentation(
   now = new Date(),
 ): ProjectStatusPresentation {
   const normalized = project.status.toLowerCase();
-  if (normalized === 'pendingconsultantapproval') {
-    return {
-      label: 'Pending consultant approval',
-      tone: 'amber',
-      detail: 'Waiting for the assigned consultant to approve or reject the project.',
-    };
-  }
-  if (normalized === 'rejected') {
-    return {
-      label: 'Rejected by consultant',
-      tone: 'red',
-      detail: 'The assigned consultant rejected this project.',
-    };
-  }
   if (normalized === 'closed') {
     return {
       label: 'Closed',
@@ -64,31 +51,24 @@ export function getProjectStatusPresentation(
   }
   if (normalized === 'active') {
     const nowTime = now.getTime();
-    const isConsultantApproved = Boolean(project.consultantApprovedAtUtc);
     if (new Date(project.validFromUtc).getTime() > nowTime) {
       return {
-        label: isConsultantApproved ? 'Approved · upcoming' : 'Upcoming',
+        label: 'Upcoming',
         tone: 'blue',
-        detail: isConsultantApproved
-          ? 'Consultant approval is complete; the project has not started yet.'
-          : 'The project has not started yet.',
+        detail: 'The project has not started yet.',
       };
     }
     if (new Date(project.validToUtc).getTime() < nowTime) {
       return {
-        label: isConsultantApproved ? 'Approved · expired' : 'Expired',
+        label: 'Expired',
         tone: 'slate',
-        detail: isConsultantApproved
-          ? 'Consultant approval is complete, but the project period has ended.'
-          : 'The project period has ended.',
+        detail: 'The project period has ended.',
       };
     }
     return {
-      label: isConsultantApproved ? 'Approved · active' : 'Active',
+      label: 'Active',
       tone: 'emerald',
-      detail: isConsultantApproved
-        ? 'Consultant approval is complete and the project is currently active.'
-        : 'The project is currently active.',
+      detail: 'The project is currently active.',
     };
   }
 
@@ -106,6 +86,13 @@ export function validateProjectStep(
 ) {
   if (step === 'sites') {
     return draft.siteIds.length ? {} : { siteIds: 'Select at least one project site.' };
+  }
+  if (step === 'participants') {
+    const errors: Record<string, string> = {};
+    if (!draft.consultantCompanyId) errors.consultantCompanyId = 'Select a consultant company.';
+    if (!draft.consultantReviewerUserIds.length) errors.consultantReviewerUserIds = 'Select at least one consultant reviewer.';
+    if (!draft.contractorIds.length) errors.contractorIds = 'Select at least one delivery contractor.';
+    return errors;
   }
   if (step !== 'details') return {};
 
@@ -129,7 +116,8 @@ export function buildCreateProjectPayload(draft: ProjectDraft) {
     clientReference: draft.clientReference.trim() || null,
     description: draft.description.trim() || null,
     operatorId: draft.operatorId,
-    consultantUserId: draft.consultantUserId || null,
+    consultantCompanyId: draft.consultantCompanyId,
+    consultantReviewerUserIds: draft.consultantReviewerUserIds,
     siteIds: draft.siteIds,
     validFromUtc: new Date(`${draft.validFromUtc}T00:00:00Z`).toISOString(),
     validToUtc: new Date(`${draft.validToUtc}T23:59:59Z`).toISOString(),

@@ -135,6 +135,34 @@ export type DashboardSummary = {
     returnedWorkers: number;
     readinessRate: number;
   };
+  portfolio: {
+    registeredWorkers: number;
+    projects: number;
+    sites: number;
+    externalCompanies: number;
+    consultants: number;
+  };
+  accessRequests: Array<{
+    id: string;
+    status: 'Pending' | 'Approved' | 'Denied' | string;
+    siteId: string;
+    siteName: string;
+    contractorId: string;
+    contractorName: string;
+    contractNumber: string;
+    requestedAtUtc: string;
+    workerCount: number;
+  }>;
+  mapSites: Array<{
+    siteId: string;
+    siteName: string;
+    registeredWorkers: number;
+    projects: number;
+    externalCompanies: number;
+    pendingRequests: number;
+    approvedRequests: number;
+    deniedRequests: number;
+  }>;
   expiry: {
     expired: number;
     next7Days: number;
@@ -385,11 +413,12 @@ export async function fetchCurrentUserRequest(token: string) {
 
 export async function fetchDashboardSummaryRequest(
   token: string,
-  input?: { operatorId?: string; siteId?: string; fromUtc?: string; toUtc?: string }
+  input?: { operatorId?: string; siteId?: string; externalCompanyId?: string; fromUtc?: string; toUtc?: string }
 ) {
   const params = new URLSearchParams();
   if (input?.operatorId && input.operatorId !== 'all') params.set('operatorId', input.operatorId);
   if (input?.siteId && input.siteId !== 'all') params.set('siteId', input.siteId);
+  if (input?.externalCompanyId && input.externalCompanyId !== 'all') params.set('externalCompanyId', input.externalCompanyId);
   if (input?.fromUtc) params.set('fromUtc', input.fromUtc);
   if (input?.toUtc) params.set('toUtc', input.toUtc);
   const query = params.toString();
@@ -714,6 +743,10 @@ export async function listContractorsRequest(token: string) {
   return apiRequest<any[]>('/companies/contractors', { token });
 }
 
+export async function listExternalCompaniesRequest(token: string) {
+  return apiRequest<any[]>('/companies/external', { token });
+}
+
 export async function getContractorDetailRequest(token: string, contractorId: string) {
   return apiRequest<ContractorDetail>(`/companies/contractors/${contractorId}`, { token });
 }
@@ -749,6 +782,10 @@ export async function createContractorRequest(token: string, input: { name: stri
   });
 }
 
+export async function createExternalCompanyRequest(token: string, input: { name: string; companyType: number }) {
+  return apiRequest<any>('/companies/external', { method: 'POST', token, body: input });
+}
+
 export async function updateContractorRequest(token: string, contractorId: string, input: { name: string }) {
   return apiRequest<any>(`/companies/contractors/${contractorId}`, {
     method: 'PUT',
@@ -757,11 +794,68 @@ export async function updateContractorRequest(token: string, contractorId: strin
   });
 }
 
+export async function updateExternalCompanyRequest(token: string, companyId: string, input: { name: string; companyType: number }) {
+  return apiRequest<any>(`/companies/external/${companyId}`, { method: 'PUT', token, body: input });
+}
+
 export async function deleteContractorRequest(token: string, contractorId: string) {
   return apiRequest<void>(`/companies/contractors/${contractorId}`, {
     method: 'DELETE',
     token,
   });
+}
+
+export async function deleteExternalCompanyRequest(token: string, companyId: string) {
+  return apiRequest<void>(`/companies/external/${companyId}`, { method: 'DELETE', token });
+}
+
+export async function listJobPositionsRequest(token: string) {
+  return apiRequest<import('./types').JobPosition[]>('/compliance/job-positions', { token });
+}
+
+export async function createJobPositionRequest(token: string, input: {
+  name: string;
+  description?: string | null;
+  credentialRequirements: Array<{ certificateTypeId: string; minimumValidityDays: number }>;
+}) {
+  return apiRequest<import('./types').JobPosition>('/compliance/job-positions', { method: 'POST', token, body: input });
+}
+
+export async function updateJobPositionRequest(token: string, id: string, input: {
+  name?: string;
+  description?: string | null;
+  isActive?: boolean;
+  credentialRequirements?: Array<{ certificateTypeId: string; minimumValidityDays: number }>;
+}) {
+  return apiRequest<import('./types').JobPosition>(`/compliance/job-positions/${id}`, { method: 'PUT', token, body: input });
+}
+
+export async function assessWorkerPositionRequest(token: string, userId: string) {
+  return apiRequest<import('./types').WorkerPositionCompliance>(`/compliance/job-positions/workers/${userId}/assessment`, { token });
+}
+
+export async function listProjectRolesRequest(token: string) {
+  return apiRequest<import('./types').ProjectRole[]>('/projects/roles', { token });
+}
+
+export async function createProjectRoleRequest(token: string, input: {
+  name: string;
+  grantsFullProjectAccess: boolean;
+  isSecondSignatory: boolean;
+  canManageCrew: boolean;
+  dutyKeys: string[];
+}) {
+  return apiRequest<import('./types').ProjectRole>('/projects/roles', { method: 'POST', token, body: input });
+}
+
+export async function updateProjectRoleRequest(token: string, id: string, input: {
+  name?: string;
+  grantsFullProjectAccess?: boolean;
+  isSecondSignatory?: boolean;
+  canManageCrew?: boolean;
+  dutyKeys?: string[];
+}) {
+  return apiRequest<import('./types').ProjectRole>(`/projects/roles/${id}`, { method: 'PUT', token, body: input });
 }
 
 export async function listTenantsRequest(token: string, input?: { includeInactive?: boolean }) {
@@ -1024,6 +1118,18 @@ export type CreateUserInput = {
   accessibilitySupportNotes?: string;
   registrationChannel?: 'SelfService' | 'Assisted' | 'BulkImport' | 'Kiosk' | 'Integration' | null;
   assistedByUserId?: string;
+  employment?: {
+    contractorId?: string;
+    operatorId?: string;
+    employeeNumber?: string;
+    trade?: string;
+    jobPositionId?: string;
+    department?: string;
+    supervisorUserId?: string;
+    employmentType: string;
+    validFromUtc: string;
+    validToUtc?: string;
+  };
 };
 
 function toCreateUserRequestBody(input: CreateUserInput) {
@@ -1119,7 +1225,7 @@ export async function bulkRegisterUsersRequest(token: string, input: {
   });
 }
 
-export async function updateUserRequest(token: string, userId: string, input: {
+export type UpdateUserInput = {
   name?: string;
   email?: string | null;
   role?: string;
@@ -1149,7 +1255,10 @@ export async function updateUserRequest(token: string, userId: string, input: {
   interpreterRequired?: boolean;
   accessibilitySupportNotes?: string | null;
   registrationChannel?: 'SelfService' | 'Assisted' | 'BulkImport' | 'Kiosk' | 'Integration' | null;
-}) {
+  employment?: CreateUserInput['employment'] | null;
+};
+
+export async function updateUserRequest(token: string, userId: string, input: UpdateUserInput) {
   const { company, idNumber, password, ...rest } = input;
   return apiRequest<User>(`/users/${userId}`, {
     method: 'PUT',

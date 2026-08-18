@@ -41,7 +41,6 @@ const roleThemes: Record<string, Omit<WorkerCardTheme, 'slug'>> = {
   security: { label: 'SECURITY', color: '#b42318', softColor: '#feebe9' },
   inspector: { label: 'INSPECTOR', color: '#0f766e', softColor: '#e6f5f3' },
   supervisor: { label: 'SUPERVISOR', color: '#6d28d9', softColor: '#f1eafe' },
-  consultant: { label: 'CONSULTANT', color: '#087f8c', softColor: '#e4f5f6' },
   manager: { label: 'MANAGER', color: '#334155', softColor: '#edf1f5' },
   contractoradmin: { label: 'CONTRACTOR', color: '#167442', softColor: '#e9f6ef' },
   operatoradmin: { label: 'OPERATOR', color: '#075985', softColor: '#e6f3f8' },

@@ -1,5 +1,5 @@
 
-export type UserRole = 'Admin' | 'Operator Admin' | 'Contractor Admin' | 'Manager' | 'Security' | 'Visitor' | 'Worker' | 'Supervisor' | 'Consultant' | 'Inspector';
+export type UserRole = 'Admin' | 'Operator Admin' | 'Contractor Admin' | 'Manager' | 'Security' | 'Visitor' | 'Worker' | 'Supervisor' | 'Inspector';
 export type UserStatus = 'Active' | 'Inactive';
 
 export type Certificate = {
@@ -50,6 +50,7 @@ export type User = {
   registrationChannel?: 'SelfService' | 'Assisted' | 'BulkImport' | 'Kiosk' | 'Integration' | null;
   clearanceStatus?: 'Pending' | 'Submitted' | 'UnderReview' | 'Cleared' | 'Returned' | null;
   assignedSiteId?: string | null;
+  employment?: WorkerEmployment | null;
   presence?: UserPresence;
   impersonatedBy?: {
     id: string;
@@ -141,9 +142,74 @@ export type Contractor = {
     id: string;
     tenantId?: string | null;
     name: string;
+    companyType?: ExternalCompanyType | keyof typeof ExternalCompanyTypeNames;
     userCount?: number;
     requestCount?: number;
 }
+
+export const ExternalCompanyTypeNames = {
+  Contractor: 1,
+  Consultant: 2,
+  Vendor: 3,
+  Subcontractor: 4,
+  Auditor: 5,
+  Other: 6,
+} as const;
+
+export type ExternalCompanyType = typeof ExternalCompanyTypeNames[keyof typeof ExternalCompanyTypeNames];
+
+export type WorkerEmployment = {
+  id: string;
+  contractorId?: string | null;
+  operatorId?: string | null;
+  employeeNumber?: string | null;
+  trade?: string | null;
+  jobPositionId?: string | null;
+  jobPositionName?: string | null;
+  department?: string | null;
+  supervisorUserId?: string | null;
+  employmentType: string;
+  validFromUtc: string;
+  validToUtc?: string | null;
+};
+
+export type JobPositionCredentialRequirement = {
+  certificateTypeId: string;
+  certificateTypeName: string;
+  minimumValidityDays: number;
+};
+
+export type JobPosition = {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  credentialRequirements: JobPositionCredentialRequirement[];
+};
+
+export type ProjectRole = {
+  id: string;
+  name: string;
+  grantsFullProjectAccess: boolean;
+  isSecondSignatory: boolean;
+  canManageCrew: boolean;
+  isDefault: boolean;
+  dutyKeys: string[];
+};
+
+export type WorkerPositionCompliance = {
+  userId: string;
+  jobPositionId?: string | null;
+  jobPositionName?: string | null;
+  isCompliant: boolean;
+  credentials: Array<{
+    certificateTypeId: string;
+    certificateTypeName: string;
+    minimumValidityDays: number;
+    expiresAtUtc?: string | null;
+    status: 'Missing' | 'Expired' | 'InsufficientValidity' | 'Valid' | string;
+  }>;
+};
 
 export type WorkerProfile = {
   id: string;

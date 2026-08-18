@@ -90,8 +90,7 @@ export function WorkerDocuments({
 
   const canReview = user?.role === 'Admin'
     || user?.role === 'Operator Admin'
-    || user?.role === 'Manager'
-    || user?.role === 'Consultant';
+    || user?.role === 'Manager';
 
   const handleReview = async (doc: WorkerDocument, decision: 'Verified' | 'Rejected') => {
     if (!token) return;

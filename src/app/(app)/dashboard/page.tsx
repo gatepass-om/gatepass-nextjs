@@ -1,8 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, Bell, MapPinned, Radio, Search, SlidersHorizontal } from 'lucide-react';
+import { externalCompanyTypeLabel } from '@/components/compliance/compliance-model';
 import { DashboardTools, type ReportingWindow } from '@/components/dashboard/dashboard-tools';
 import { shouldShowAttendanceAnalytics } from '@/components/dashboard/dashboard-mode';
 import { DataQualityPanel } from '@/components/dashboard/data-quality-panel';
@@ -13,7 +15,7 @@ import { RecentActivityTable } from '@/components/dashboard/recent-activity-tabl
 import { RegistrationFunnelPanel } from '@/components/dashboard/registration-funnel-panel';
 import { ReportSchedulesPanel } from '@/components/dashboard/report-schedules-panel';
 import { ShiftRostersPanel } from '@/components/dashboard/shift-rosters-panel';
-import type { OpsZone } from '@/components/maps/ops-map';
+import type { OpsPoint, OpsZone } from '@/components/maps/ops-map';
 import {
   Select,
   SelectContent,
@@ -28,13 +30,14 @@ import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useLiveEvents } from '@/hooks/use-live-events';
 import {
   fetchDashboardSummaryRequest,
+  listExternalCompaniesRequest,
   listOperatorsRequest,
   listSitesRequest,
   type DashboardSummary,
 } from '@/lib/api';
 import { listGeoRegions, type GeoRegion } from '@/lib/location-governance-api';
 import { usePolling } from '@/lib/polling';
-import type { Operator, Site, UserRole } from '@/lib/types';
+import type { Contractor, Operator, Site, UserRole } from '@/lib/types';
 import { useSession } from '@/providers/session-provider';
 
 const DashboardVisuals = dynamic(
@@ -53,8 +56,9 @@ const OpsMap = dynamic(
   },
 );
 
-const DASHBOARD_ROLES: UserRole[] = ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Consultant', 'Contractor Admin'];
+const DASHBOARD_ROLES: UserRole[] = ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin'];
 const ROSTER_ROLES: UserRole[] = ['Admin', 'Operator Admin', 'Manager'];
+const EMPTY_MAP_SITES: DashboardSummary['mapSites'] = [];
 
 export default function DashboardPage() {
   const {
@@ -66,6 +70,7 @@ export default function DashboardPage() {
   const { token } = useSession();
   const [sites, setSites] = useState<Site[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
+  const [externalCompanies, setExternalCompanies] = useState<Contractor[]>([]);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [zones, setZones] = useState<GeoRegion[]>([]);
   const [loadingZones, setLoadingZones] = useState(true);
@@ -73,6 +78,9 @@ export default function DashboardPage() {
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [selectedOperatorId, setSelectedOperatorId] = useState('all');
   const [selectedSiteId, setSelectedSiteId] = useState('all');
+  const [selectedExternalCompanyId, setSelectedExternalCompanyId] = useState('all');
+  const [requestStatusFilter, setRequestStatusFilter] = useState('all');
+  const mapSiteSummaries = summary?.mapSites ?? EMPTY_MAP_SITES;
   const showAttendanceAnalytics = useMemo(
     () => shouldShowAttendanceAnalytics(
       sites,
@@ -125,9 +133,13 @@ export default function DashboardPage() {
 
     setLoadingData(true);
     try {
-      const sitesData = userRole === 'Operator Admin' && userOperatorId
-        ? await listSitesRequest(token, { operatorId: userOperatorId })
-        : await listSitesRequest(token);
+      const [sitesData, operatorsData, companiesData] = await Promise.all([
+        userRole === 'Operator Admin' && userOperatorId
+          ? listSitesRequest(token, { operatorId: userOperatorId })
+          : listSitesRequest(token),
+        isAdmin ? listOperatorsRequest(token) : Promise.resolve([]),
+        listExternalCompaniesRequest(token),
+      ]);
 
       setSites(sitesData.map((site) => ({
         id: site.id,
@@ -138,9 +150,8 @@ export default function DashboardPage() {
         maximumOccupancy: site.maximumOccupancy ?? undefined,
       })));
 
-      if (isAdmin) {
-        setOperators(await listOperatorsRequest(token));
-      }
+      setOperators(operatorsData);
+      setExternalCompanies(companiesData);
     } catch (error) {
       console.error('Failed to fetch dashboard reference data', error);
     } finally {
@@ -169,6 +180,7 @@ export default function DashboardPage() {
       setSummary(await fetchDashboardSummaryRequest(token, {
         operatorId: selectedOperatorId,
         siteId: selectedSiteId,
+        externalCompanyId: selectedExternalCompanyId,
         fromUtc: fromUtc.toISOString(),
         toUtc: toUtc.toISOString(),
       }));
@@ -184,6 +196,7 @@ export default function DashboardPage() {
     isAuthorized,
     reportingWindow,
     selectedOperatorId,
+    selectedExternalCompanyId,
     selectedSiteId,
     token,
     userRole,
@@ -234,7 +247,18 @@ export default function DashboardPage() {
     void fetchSummary();
   }, 45_000);
 
-  const opsZones = useMemo<OpsZone[]>(() => zones.map((region) => {
+  const visibleZones = useMemo(() => zones.filter((region) => {
+    if (selectedSiteId !== 'all' && region.siteId !== selectedSiteId) return false;
+    if (selectedOperatorId !== 'all' && region.operatorId !== selectedOperatorId) return false;
+    if (selectedExternalCompanyId !== 'all') {
+      const visibleSiteIds = new Set(mapSiteSummaries.map((site) => site.siteId));
+      return region.contractorId === selectedExternalCompanyId
+        || (!!region.siteId && visibleSiteIds.has(region.siteId));
+    }
+    return true;
+  }), [mapSiteSummaries, selectedExternalCompanyId, selectedOperatorId, selectedSiteId, zones]);
+
+  const opsZones = useMemo<OpsZone[]>(() => visibleZones.map((region) => {
     const hasCenter = region.centerLatitude !== null
       && region.centerLatitude !== undefined
       && region.centerLongitude !== null
@@ -259,14 +283,49 @@ export default function DashboardPage() {
       meta: region.siteName || region.governanceMode,
       active: region.isActive,
     };
-  }), [zones]);
+  }), [visibleZones]);
 
-  const hasMappableZones = useMemo(
-    () => opsZones.some(
+  const mapPoints = useMemo<OpsPoint[]>(() => {
+    const pointsBySite = new Map<string, OpsPoint>();
+    for (const region of visibleZones) {
+      if (!region.siteId || pointsBySite.has(region.siteId)) continue;
+      const polygon = region.polygon ?? [];
+      const position: [number, number] | null = region.centerLatitude != null && region.centerLongitude != null
+        ? [region.centerLatitude, region.centerLongitude]
+        : polygon.length > 0
+          ? [
+              polygon.reduce((sum, point) => sum + point.latitude, 0) / polygon.length,
+              polygon.reduce((sum, point) => sum + point.longitude, 0) / polygon.length,
+            ]
+          : null;
+      if (!position) continue;
+      const overview = mapSiteSummaries.find((site) => site.siteId === region.siteId);
+      if (!overview) continue;
+      const requestCount = overview.pendingRequests + overview.approvedRequests + overview.deniedRequests;
+      pointsBySite.set(region.siteId, {
+        id: `site-${region.siteId}`,
+        position,
+        label: overview.siteName,
+        meta: `${overview.registeredWorkers} workers · ${overview.projects} projects · ${overview.externalCompanies} companies · ${requestCount} requests`,
+        tone: overview.pendingRequests > 0 ? 'warning' : 'success',
+      });
+    }
+    return [...pointsBySite.values()];
+  }, [mapSiteSummaries, visibleZones]);
+
+  const hasMappableData = useMemo(
+    () => mapPoints.length > 0 || opsZones.some(
       (zone) => (zone.center && zone.center.length === 2)
         || (zone.polygon && zone.polygon.length > 0),
     ),
-    [opsZones],
+    [mapPoints.length, opsZones],
+  );
+
+  const filteredDashboardRequests = useMemo(
+    () => (summary?.accessRequests ?? []).filter(
+      (request) => requestStatusFilter === 'all' || request.status === requestStatusFilter,
+    ),
+    [requestStatusFilter, summary?.accessRequests],
   );
 
   if (loading) {
@@ -367,6 +426,24 @@ export default function DashboardPage() {
               </SelectContent>
             </Select>
           )}
+
+          {loadingData ? (
+            <Skeleton className="h-10 w-full sm:w-[220px]" />
+          ) : (
+            <Select value={selectedExternalCompanyId} onValueChange={setSelectedExternalCompanyId}>
+              <SelectTrigger aria-label="External company" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm sm:w-[220px]">
+                <SelectValue placeholder="External company" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All contractors & consultants</SelectItem>
+                {externalCompanies.map((company) => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name} · {externalCompanyTypeLabel(company.companyType)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </header>
 
@@ -454,8 +531,8 @@ export default function DashboardPage() {
               <div className="p-4">
                 {loadingZones ? (
                   <Skeleton className="h-[340px] w-full rounded-xl" />
-                ) : hasMappableZones ? (
-                  <OpsMap zones={opsZones} className="h-[340px] w-full overflow-hidden rounded-xl" />
+                ) : hasMappableData ? (
+                  <OpsMap zones={opsZones} points={mapPoints} className="h-[340px] w-full overflow-hidden rounded-xl" />
                 ) : (
                   <div className="flex h-[340px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/15">
                     <p className="text-xs text-muted-foreground">No mapped zones</p>
@@ -464,6 +541,56 @@ export default function DashboardPage() {
               </div>
             </section>
           </div>
+
+          <section className="ops-panel overflow-hidden" aria-label="Access requests overview">
+            <header className="flex flex-col gap-3 border-b border-border/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Access requests</h2>
+                <p className="mt-1 text-xs text-muted-foreground">Pending, approved, and rejected requests in the selected scope.</p>
+              </div>
+              <Select value={requestStatusFilter} onValueChange={setRequestStatusFilter}>
+                <SelectTrigger aria-label="Access request status" className="h-9 w-full sm:w-[170px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Approved">Approved</SelectItem>
+                  <SelectItem value="Denied">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </header>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-xs">
+                <thead className="bg-muted/30 text-muted-foreground">
+                  <tr>
+                    <th className="px-5 py-3 font-medium">Request</th>
+                    <th className="px-5 py-3 font-medium">Company</th>
+                    <th className="px-5 py-3 font-medium">Site</th>
+                    <th className="px-5 py-3 font-medium">Workers</th>
+                    <th className="px-5 py-3 font-medium">Submitted</th>
+                    <th className="px-5 py-3 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {loadingSummary ? (
+                    <tr><td className="px-5 py-6 text-muted-foreground" colSpan={6}>Loading access requests…</td></tr>
+                  ) : filteredDashboardRequests.length === 0 ? (
+                    <tr><td className="px-5 py-6 text-muted-foreground" colSpan={6}>No requests match this filter.</td></tr>
+                  ) : filteredDashboardRequests.map((request) => (
+                    <tr key={request.id} className="hover:bg-muted/20">
+                      <td className="px-5 py-3 font-medium"><Link className="text-primary hover:underline" href={`/access-requests?requestId=${request.id}`}>{request.contractNumber}</Link></td>
+                      <td className="px-5 py-3">{request.contractorName}</td>
+                      <td className="px-5 py-3">{request.siteName}</td>
+                      <td className="px-5 py-3 tabular-nums">{request.workerCount}</td>
+                      <td className="px-5 py-3">{new Date(request.requestedAtUtc).toLocaleDateString()}</td>
+                      <td className="px-5 py-3"><RequestStatus status={request.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
           {showAttendanceAnalytics ? (
             <RecentActivityTable activity={summary?.recentActivity ?? []} isLoading={loadingSummary} />
@@ -527,6 +654,16 @@ function EmptyTab({ label }: { label: string }) {
       <p className="text-sm text-muted-foreground">{label}</p>
     </div>
   );
+}
+
+function RequestStatus({ status }: { status: string }) {
+  const label = status === 'Denied' ? 'Rejected' : status;
+  const tone = status === 'Approved'
+    ? 'bg-emerald-50 text-emerald-700'
+    : status === 'Pending'
+      ? 'bg-amber-50 text-amber-700'
+      : 'bg-rose-50 text-rose-700';
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${tone}`}>{label}</span>;
 }
 
 function toLocalDateTimeValue(date: Date) {

@@ -22,23 +22,30 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { FilePlus2 } from "lucide-react";
 import { useSession } from "@/providers/session-provider";
-import { listAccessRequestsPageRequest, listSitesRequest, listOperatorsRequest, listContractorsRequest, updateAccessRequest, deleteAccessRequest } from "@/lib/api";
+import { apiRequest, listAccessRequestsPageRequest, listSitesRequest, listOperatorsRequest, listContractorsRequest, updateAccessRequest, deleteAccessRequest } from "@/lib/api";
 import { usePolling } from "@/lib/polling";
 import { useLiveEvents } from "@/hooks/use-live-events";
 import { RequestWorkflowStrip } from "@/components/access-requests/request-workflow-strip";
 import { buildAccessApprovalUpdate } from "@/lib/access-request-contract";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import {
+  ProjectWorkPassQueue,
+  type ProjectWorkPassRecord,
+} from "@/components/access-requests/project-work-pass-queue";
+import type { ProjectRecord } from "@/components/projects/project-wizard-dialog";
+import { getWorkPassQueueItems, type WorkPassAction } from "@/components/projects/project-command-center";
 
 const ACCESS_REQUEST_PAGE_SIZE = 20;
 
 export default function AccessRequestsPage() {
-  const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Worker', 'Supervisor', 'Consultant']);
+  const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Worker', 'Supervisor']);
   const { token } = useSession();
   const { toast } = useToast();
 
   const isManager = useMemo(() => currentUser?.role === 'Manager' || currentUser?.role === 'Operator Admin' || currentUser?.role === 'Admin', [currentUser?.role]);
   const isSupervisor = useMemo(() => currentUser?.role === 'Supervisor' || currentUser?.role === 'Contractor Admin' || currentUser?.role === 'Admin', [currentUser?.role]);
   const isWorker = useMemo(() => currentUser?.role === 'Worker', [currentUser?.role]);
+  const canViewProjectWorkPasses = !isWorker;
   const canDelete = useMemo(() => ['Admin', 'Operator Admin', 'Manager'].includes(currentUser?.role ?? ''), [currentUser?.role]);
 
   const [myRequests, setMyRequests] = useState<AccessRequest[]>([]);
@@ -46,6 +53,8 @@ export default function AccessRequestsPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
+  const [projects, setProjects] = useState<ProjectRecord[]>([]);
+  const [projectWorkPasses, setProjectWorkPasses] = useState<ProjectWorkPassRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [requestPage, setRequestPage] = useState(1);
   const [requestTotalPages, setRequestTotalPages] = useState(0);
@@ -61,11 +70,20 @@ export default function AccessRequestsPage() {
   const [denyReason, setDenyReason] = useState('');
   const [denyBusy, setDenyBusy] = useState(false);
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
+  const [busyWorkPassId, setBusyWorkPassId] = useState<string | null>(null);
+  const [rejectWorkPass, setRejectWorkPass] = useState<ProjectWorkPassRecord | null>(null);
+  const [workPassRejectReason, setWorkPassRejectReason] = useState('');
 
+  const workPassQueueItems = useMemo(() => getWorkPassQueueItems(
+    projectWorkPasses,
+    projects,
+    { id: currentUser?.id, role: currentUser?.role },
+  ), [projectWorkPasses, projects, currentUser?.id, currentUser?.role]);
   const defaultTab = useMemo(() => {
+    if (workPassQueueItems.some((item) => item.actions.length > 0)) return "work-passes";
     if (isManager) return "approve";
     return "my-requests-log";
-  }, [isManager]);
+  }, [isManager, workPassQueueItems]);
 
   const fetchRequests = useCallback(async () => {
     if (!token || !currentUser) {
@@ -75,10 +93,29 @@ export default function AccessRequestsPage() {
 
     setLoading(true);
     try {
-      const [sitesData, operatorsData, contractorsData] = await Promise.all([
+      const requestFilter: { supervisorId?: string; workerId?: string } = {};
+      if (isWorker) {
+        requestFilter.workerId = currentUser.id;
+      } else if (currentUser.role === 'Supervisor') {
+        requestFilter.supervisorId = currentUser.id;
+      }
+
+      const [sitesData, operatorsData, contractorsData, projectsData, workPassData, requestResult, pendingResult] = await Promise.all([
         listSitesRequest(token),
         listOperatorsRequest(token),
         listContractorsRequest(token),
+        canViewProjectWorkPasses ? apiRequest<ProjectRecord[]>('/projects', { token }) : Promise.resolve([]),
+        canViewProjectWorkPasses ? apiRequest<ProjectWorkPassRecord[]>('/work-passes', { token }) : Promise.resolve([]),
+        listAccessRequestsPageRequest(token, {
+          ...requestFilter,
+          page: requestPage,
+          pageSize: ACCESS_REQUEST_PAGE_SIZE,
+        }),
+        isManager ? listAccessRequestsPageRequest(token, {
+          status: 'Pending',
+          page: pendingPage,
+          pageSize: ACCESS_REQUEST_PAGE_SIZE,
+        }) : Promise.resolve(null),
       ]);
 
       const mappedSites = (sitesData as any[]).map((site) => ({
@@ -95,30 +132,14 @@ export default function AccessRequestsPage() {
       setSites(mappedSites);
       setOperators(operatorsData as Operator[]);
       setContractors(contractorsData as Contractor[]);
-
-      const requestFilter: { supervisorId?: string; workerId?: string } = {};
-      if (isWorker) {
-        requestFilter.workerId = currentUser.id;
-      } else if (currentUser.role === 'Supervisor') {
-        requestFilter.supervisorId = currentUser.id;
-      }
-
-      const requestResult = await listAccessRequestsPageRequest(token, {
-        ...requestFilter,
-        page: requestPage,
-        pageSize: ACCESS_REQUEST_PAGE_SIZE,
-      });
+      setProjects(projectsData);
+      setProjectWorkPasses(workPassData);
       setMyRequests(requestResult.items);
       setRequestTotalPages(requestResult.totalPages);
       setRequestHasPreviousPage(requestResult.hasPreviousPage);
       setRequestHasNextPage(requestResult.hasNextPage);
 
-      if (isManager) {
-        const pendingResult = await listAccessRequestsPageRequest(token, {
-          status: 'Pending',
-          page: pendingPage,
-          pageSize: ACCESS_REQUEST_PAGE_SIZE,
-        });
+      if (pendingResult) {
         setPendingRequests(pendingResult.items);
         setPendingTotalPages(pendingResult.totalPages);
         setPendingHasPreviousPage(pendingResult.hasPreviousPage);
@@ -134,7 +155,7 @@ export default function AccessRequestsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, currentUser, isWorker, isManager, requestPage, pendingPage]);
+  }, [token, currentUser, isWorker, isManager, canViewProjectWorkPasses, requestPage, pendingPage]);
 
   useEffect(() => {
     fetchRequests();
@@ -204,6 +225,60 @@ export default function AccessRequestsPage() {
     }
   };
 
+  const handleWorkPassAction = async (
+    workPass: ProjectWorkPassRecord,
+    action: Exclude<WorkPassAction, 'reject'>,
+  ) => {
+    if (!token) return;
+    setBusyWorkPassId(workPass.id);
+    try {
+      const result = await apiRequest<ProjectWorkPassRecord | { workPass: ProjectWorkPassRecord; warnings: string[] }>(
+        `/work-passes/${workPass.id}/${action}`,
+        { method: 'POST', token },
+      );
+      const warnings = 'warnings' in result ? result.warnings : [];
+      toast({
+        title: action === 'submit' ? 'Work pass submitted' : 'Work pass approved',
+        description: warnings.length > 0
+          ? `Approved with compliance follow-up: ${warnings.join(' ')}`
+          : `${workPass.passNumber} moved to the next workflow stage.`,
+      });
+      await fetchRequests();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Work-pass action failed',
+        description: error instanceof Error ? error.message : 'The work pass could not be updated.',
+      });
+    } finally {
+      setBusyWorkPassId(null);
+    }
+  };
+
+  const handleConfirmWorkPassReject = async () => {
+    if (!token || !rejectWorkPass || !workPassRejectReason.trim()) return;
+    setBusyWorkPassId(rejectWorkPass.id);
+    try {
+      await apiRequest(`/work-passes/${rejectWorkPass.id}/reject`, {
+        method: 'POST',
+        token,
+        body: { reason: workPassRejectReason.trim() },
+      });
+      toast({ title: 'Work pass rejected', description: `${rejectWorkPass.passNumber} was returned with a reason.` });
+      setRejectWorkPass(null);
+      setWorkPassRejectReason('');
+      await fetchRequests();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Work-pass rejection failed',
+        description: error instanceof Error ? error.message : 'The work pass could not be rejected.',
+      });
+    } finally {
+      setBusyWorkPassId(null);
+    }
+  };
+
   const handleDeleteRequest = async (request: AccessRequest) => {
     if (!token) {
       toast({ variant: "destructive", title: "Session expired", description: "Please log in again to continue." });
@@ -230,6 +305,10 @@ export default function AccessRequestsPage() {
 
   const getVisibleTabs = () => {
     const tabs = [];
+
+    if (canViewProjectWorkPasses) {
+      tabs.push({ value: "work-passes", label: "Project Work Passes" });
+    }
 
     if (isSupervisor || isWorker || isManager) {
       tabs.push({ value: "my-requests-log", label: "Requests Log" });
@@ -284,6 +363,23 @@ export default function AccessRequestsPage() {
         <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, 1fr)` }}>
           {visibleTabs.map(tab => <TabsTrigger key={tab.value} value={tab.value}>{tab.label}</TabsTrigger>)}
         </TabsList>
+
+        {canViewProjectWorkPasses && (
+          <TabsContent value="work-passes">
+            <ProjectWorkPassQueue
+              workPasses={projectWorkPasses}
+              projects={projects}
+              actor={{ id: currentUser.id, role: currentUser.role }}
+              isLoading={loading}
+              busyWorkPassId={busyWorkPassId}
+              onAction={(workPass, action) => void handleWorkPassAction(workPass, action)}
+              onReject={(workPass) => {
+                setRejectWorkPass(workPass);
+                setWorkPassRejectReason('');
+              }}
+            />
+          </TabsContent>
+        )}
 
         {(isSupervisor || isWorker || isManager) && (
           <TabsContent value="my-requests-log">
@@ -361,6 +457,35 @@ export default function AccessRequestsPage() {
             </Button>
             <Button variant="destructive" onClick={handleConfirmDeny} disabled={denyBusy || !denyReason.trim()}>
               {denyBusy ? 'Denying…' : 'Deny request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!rejectWorkPass} onOpenChange={(open) => { if (!open) { setRejectWorkPass(null); setWorkPassRejectReason(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject project work pass</DialogTitle>
+            <DialogDescription>
+              Record what the contractor must correct. The reason remains on the work-pass audit trail.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="work-pass-reject-reason">Reason</Label>
+            <Textarea
+              id="work-pass-reject-reason"
+              value={workPassRejectReason}
+              onChange={(event) => setWorkPassRejectReason(event.target.value)}
+              placeholder="e.g. Worker credentials are incomplete."
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setRejectWorkPass(null); setWorkPassRejectReason(''); }} disabled={Boolean(busyWorkPassId)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void handleConfirmWorkPassReject()} disabled={!workPassRejectReason.trim() || Boolean(busyWorkPassId)}>
+              {busyWorkPassId ? 'Rejecting…' : 'Reject work pass'}
             </Button>
           </DialogFooter>
         </DialogContent>
