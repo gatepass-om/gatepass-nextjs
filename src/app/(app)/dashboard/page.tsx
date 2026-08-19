@@ -345,7 +345,7 @@ export default function DashboardPage() {
   const firstName = currentUser.name.split(/\s+/)[0] || 'there';
 
   return (
-    <div className="dashboard-home -mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[#eaf5f1] p-0 md:-mx-6 md:-my-6 md:p-0 lg:-mx-8 lg:-my-8 lg:p-0">
+    <div className="dashboard-home -mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[#f4f8fa] p-0 md:-mx-6 md:-my-6 md:p-0 lg:-mx-8 lg:-my-8 lg:p-0">
       <div className="dashboard-frame mx-auto max-w-[1600px] bg-transparent p-0 shadow-none">
       <div className="dashboard-reference-topbar">
         <SidebarTrigger
@@ -364,7 +364,7 @@ export default function DashboardPage() {
       </div>
       <header className="dashboard-header flex flex-col gap-5 px-1 pb-5 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0">
-          <p className="dashboard-eyebrow text-emerald-700">Command center · operations</p>
+          <p className="dashboard-eyebrow text-primary">Command center · operations</p>
           <div className="mt-1 flex flex-wrap items-center gap-3">
             <h1 className="text-[26px] font-semibold tracking-[-.04em] text-slate-900">Good morning, {firstName}</h1>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-emerald-700">
@@ -478,15 +478,15 @@ export default function DashboardPage() {
       <Tabs defaultValue="overview" className="space-y-4">
         <div className="dashboard-controlbar flex flex-wrap items-center justify-between gap-3 border-y border-slate-200/80 py-2">
           <TabsList className="h-9 w-full justify-start rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:w-auto">
-            <TabsTrigger value="overview" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+            <TabsTrigger value="overview" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Activity className="h-3.5 w-3.5" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="planning" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+            <TabsTrigger value="planning" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <SlidersHorizontal className="h-3.5 w-3.5" />
               Planning
             </TabsTrigger>
-            <TabsTrigger value="insights" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+            <TabsTrigger value="insights" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <MapPinned className="h-3.5 w-3.5" />
               Insights
             </TabsTrigger>

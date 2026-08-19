@@ -124,15 +124,15 @@ export function DashboardTools({
   return (
     <section className="flex flex-wrap items-center justify-end gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={saveCurrentView} className="inline-flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
+        <button type="button" onClick={saveCurrentView} className="inline-flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:border-primary/30 hover:bg-primary/5 hover:text-primary">
           <Save className="h-4 w-4" />
           Save view
         </button>
-        <button type="button" onClick={() => setShowGlossary((value) => !value)} className="inline-flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
+        <button type="button" onClick={() => setShowGlossary((value) => !value)} className="inline-flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:border-primary/30 hover:bg-primary/5 hover:text-primary">
           <BookOpen className="h-4 w-4" />
           Glossary
         </button>
-        <button type="button" onClick={exportCsv} disabled={!summary} className="inline-flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50">
+        <button type="button" onClick={exportCsv} disabled={!summary} className="inline-flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:border-primary/30 hover:bg-primary/5 hover:text-primary disabled:opacity-50">
           <Download className="h-4 w-4" />
           Export CSV
         </button>

@@ -46,8 +46,8 @@ type DashboardVisualsProps = {
 };
 
 const COLORS = {
-  teal: 'hsl(164 56% 37%)',
-  tealSoft: 'hsl(164 56% 37% / .12)',
+  teal: 'hsl(176 76% 36%)',
+  tealSoft: 'hsl(176 76% 36% / .12)',
   ink: 'hsl(220 28% 16%)',
   blue: 'hsl(199 75% 46%)',
   green: 'hsl(151 52% 40%)',
@@ -65,7 +65,7 @@ const METRIC_ICONS: Record<string, LucideIcon> = {
 };
 
 const METRIC_TONES = {
-  teal: { icon: 'bg-emerald-100 text-emerald-700', bar: 'bg-emerald-500' },
+  teal: { icon: 'bg-accent/15 text-accent', bar: 'bg-accent' },
   blue: { icon: 'bg-sky-100 text-sky-700', bar: 'bg-sky-500' },
   amber: { icon: 'bg-amber-100 text-amber-700', bar: 'bg-amber-500' },
   green: { icon: 'bg-green-100 text-green-700', bar: 'bg-green-500' },
@@ -269,7 +269,7 @@ function BreakdownRow({ color, label, value, total }: { color: string; label: st
 }
 
 function SiteBar({ name, value, max, rank }: { name: string; value: number; max: number; rank: number }) {
-  return <div className="flex items-center gap-3"><span className="w-4 text-[10px] font-semibold tabular-nums text-slate-300">0{rank}</span><span className="w-28 truncate text-[11px] font-medium text-slate-600">{name}</span><span className="h-2 flex-1 rounded-full bg-slate-100"><span className="block h-2 rounded-full bg-emerald-500" style={{ width: `${Math.max(4, (value / max) * 100)}%` }} /></span><span className="w-8 text-right text-[11px] font-semibold tabular-nums text-slate-800">{value}</span></div>;
+  return <div className="flex items-center gap-3"><span className="w-4 text-[10px] font-semibold tabular-nums text-slate-300">0{rank}</span><span className="w-28 truncate text-[11px] font-medium text-slate-600">{name}</span><span className="h-2 flex-1 rounded-full bg-slate-100"><span className="block h-2 rounded-full bg-primary" style={{ width: `${Math.max(4, (value / max) * 100)}%` }} /></span><span className="w-8 text-right text-[11px] font-semibold tabular-nums text-slate-800">{value}</span></div>;
 }
 
 function DonutChart({ data, total, centerValue, centerLabel, emptyLabel, size = 'large' }: { data: Array<{ name: string; value: number; color: string }>; total: number; centerValue: string; centerLabel: string; emptyLabel: string; size?: 'small' | 'large' }) {
