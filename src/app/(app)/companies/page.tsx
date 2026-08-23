@@ -42,9 +42,9 @@ export default function CompaniesPage() {
   const canManageCompanies = currentUser?.role === 'Admin';
   const canRegisterExternalCompany = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin';
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (options?: { silent?: boolean }) => {
     if (!token || !currentUser?.id) return;
-    setLoadingData(true);
+    if (!options?.silent) setLoadingData(true);
 
     try {
       const [operatorsData, contractorsData, usersData, sitesData, requestData] = await Promise.all([
@@ -70,7 +70,7 @@ export default function CompaniesPage() {
       console.error('Failed to load companies data', error);
       toast({ variant: "destructive", title: "Loading Failed", description: "Could not load company data." });
     } finally {
-      setLoadingData(false);
+      if (!options?.silent) setLoadingData(false);
     }
   }, [token, currentUser?.id, toast]);
 
@@ -79,7 +79,7 @@ export default function CompaniesPage() {
   }, [fetchData]);
 
   usePolling(() => {
-    void fetchData();
+    void fetchData({ silent: true });
   }, 20000);
 
   const handleAddCompany = async (input: { name: string; type: 'operator' | 'contractor'; externalType?: ExternalCompanyType; operatorId?: string; adminName?: string; adminEmail?: string }): Promise<boolean> => {
