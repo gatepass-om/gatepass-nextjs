@@ -40,6 +40,7 @@ export default function CompaniesPage() {
 
   const { toast } = useToast();
   const canManageCompanies = currentUser?.role === 'Admin';
+  const canRegisterExternalCompany = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin';
 
   const fetchData = useCallback(async () => {
     if (!token || !currentUser?.id) return;
@@ -81,14 +82,21 @@ export default function CompaniesPage() {
     void fetchData();
   }, 20000);
 
-  const handleAddCompany = async (name: string, type: 'operator' | 'contractor', externalType?: ExternalCompanyType): Promise<boolean> => {
-    const trimmed = name.trim();
+  const handleAddCompany = async (input: { name: string; type: 'operator' | 'contractor'; externalType?: ExternalCompanyType; operatorId?: string; adminName?: string; adminEmail?: string }): Promise<boolean> => {
+    const { type } = input;
+    const trimmed = input.name.trim();
     if (!token || !trimmed) return false;
     try {
       if (type === 'operator') {
         await createOperatorRequest(token, { name: trimmed });
       } else {
-        await createExternalCompanyRequest(token, { name: trimmed, companyType: externalType ?? 1 });
+        await createExternalCompanyRequest(token, {
+          name: trimmed,
+          companyType: input.externalType ?? 1,
+          operatorId: input.operatorId,
+          adminName: input.adminName ?? '',
+          adminEmail: input.adminEmail ?? '',
+        });
       }
       toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} Created`, description: `Company "${trimmed}" has been added.` });
       void fetchData();
@@ -166,15 +174,15 @@ export default function CompaniesPage() {
           <p className="text-muted-foreground">
             {canManageCompanies
               ? 'Overview of operators and all connected external companies.'
-              : 'External companies connected to your operator sites and access requests.'}
+              : 'External companies registered for your operator.'}
           </p>
         </div>
-        {canManageCompanies && (
+        {canRegisterExternalCompany && (
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={() => setIsOperatorFormOpen(true)}>
+            {canManageCompanies && <Button variant="outline" onClick={() => setIsOperatorFormOpen(true)}>
               <Building2 className="mr-2 h-4 w-4" />
               New operator
-            </Button>
+            </Button>}
             <Button onClick={() => setIsContractorFormOpen(true)}>
               <HardHat className="mr-2 h-4 w-4" />
               New external company
@@ -183,19 +191,21 @@ export default function CompaniesPage() {
         )}
       </header>
 
-      {canManageCompanies && (
+      {canRegisterExternalCompany && (
         <>
-          <NewCompanyForm
+          {canManageCompanies && <NewCompanyForm
             companyType="operator"
             onAddCompany={handleAddCompany}
             open={isOperatorFormOpen}
             onOpenChange={setIsOperatorFormOpen}
-          />
+          />}
           <NewCompanyForm
             companyType="contractor"
             onAddCompany={handleAddCompany}
             open={isContractorFormOpen}
             onOpenChange={setIsContractorFormOpen}
+            operators={operators}
+            currentOperatorId={currentUser.operatorId ?? undefined}
           />
         </>
       )}

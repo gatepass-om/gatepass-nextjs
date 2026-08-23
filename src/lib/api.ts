@@ -782,7 +782,13 @@ export async function createContractorRequest(token: string, input: { name: stri
   });
 }
 
-export async function createExternalCompanyRequest(token: string, input: { name: string; companyType: number }) {
+export async function createExternalCompanyRequest(token: string, input: {
+  name: string;
+  companyType: number;
+  operatorId?: string;
+  adminName: string;
+  adminEmail: string;
+}) {
   return apiRequest<any>('/companies/external', { method: 'POST', token, body: input });
 }
 

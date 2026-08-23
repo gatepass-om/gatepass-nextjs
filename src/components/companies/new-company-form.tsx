@@ -20,35 +20,69 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2 } from "lucide-react";
 import { EXTERNAL_COMPANY_TYPES } from '@/components/compliance/compliance-model';
 import type { ExternalCompanyType } from '@/lib/types';
+import type { Operator } from '@/lib/types';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Company name must be at least 2 characters." }),
+  operatorId: z.string().optional(),
+  adminName: z.string().optional(),
+  adminEmail: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface NewCompanyFormProps {
     companyType: 'operator' | 'contractor';
-    onAddCompany: (name: string, type: 'operator' | 'contractor', externalType?: ExternalCompanyType) => Promise<boolean> | boolean | void;
+    onAddCompany: (input: {
+        name: string;
+        type: 'operator' | 'contractor';
+        externalType?: ExternalCompanyType;
+        operatorId?: string;
+        adminName?: string;
+        adminEmail?: string;
+    }) => Promise<boolean> | boolean | void;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    operators?: Operator[];
+    currentOperatorId?: string;
 }
 
-export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange }: NewCompanyFormProps) {
+export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, operators = [], currentOperatorId }: NewCompanyFormProps) {
     const [submitting, setSubmitting] = useState(false);
     const [externalType, setExternalType] = useState<ExternalCompanyType>(1);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
-        defaultValues: { name: "" },
+        defaultValues: { name: "", operatorId: "", adminName: "", adminEmail: "" },
     });
 
     const typeCapitalized = companyType.charAt(0).toUpperCase() + companyType.slice(1);
 
     async function onSubmit(values: FormValues) {
+        if (companyType === 'contractor') {
+            if (!currentOperatorId && !values.operatorId) {
+                form.setError('operatorId', { message: 'Select the operator registering this company.' });
+                return;
+            }
+            if (!values.adminName?.trim()) {
+                form.setError('adminName', { message: 'Administrator name is required.' });
+                return;
+            }
+            if (!values.adminEmail?.trim() || !z.string().email().safeParse(values.adminEmail).success) {
+                form.setError('adminEmail', { message: 'Enter a valid administrator email.' });
+                return;
+            }
+        }
         setSubmitting(true);
         try {
-            const result = await onAddCompany(values.name, companyType, companyType === 'contractor' ? externalType : undefined);
+            const result = await onAddCompany({
+                name: values.name,
+                type: companyType,
+                externalType: companyType === 'contractor' ? externalType : undefined,
+                operatorId: currentOperatorId || values.operatorId || undefined,
+                adminName: values.adminName?.trim(),
+                adminEmail: values.adminEmail?.trim(),
+            });
             if (result !== false) {
                 form.reset();
                 onOpenChange(false);
@@ -87,13 +121,32 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange }
                             )}
                         />
                         {companyType === 'contractor' && (
-                            <div className="space-y-2">
-                                <FormLabel>Relationship type</FormLabel>
-                                <Select value={String(externalType)} onValueChange={(value) => setExternalType(Number(value) as ExternalCompanyType)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>{EXTERNAL_COMPANY_TYPES.map((type) => <SelectItem key={type.value} value={String(type.value)}>{type.label}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </div>
+                            <>
+                                <div className="space-y-2">
+                                    <FormLabel>Relationship type</FormLabel>
+                                    <Select value={String(externalType)} onValueChange={(value) => setExternalType(Number(value) as ExternalCompanyType)}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>{EXTERNAL_COMPANY_TYPES.map((type) => <SelectItem key={type.value} value={String(type.value)}>{type.label}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                                {!currentOperatorId && (
+                                    <FormField control={form.control} name="operatorId" render={({ field }) => (
+                                        <FormItem><FormLabel>Register for operator</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select operator" /></SelectTrigger></FormControl><SelectContent>{operators.map((operator) => <SelectItem key={operator.id} value={operator.id}>{operator.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                                    )} />
+                                )}
+                                <div className="rounded-lg border bg-muted/30 p-4">
+                                    <p className="mb-3 text-sm font-medium">Contractor administrator</p>
+                                    <div className="space-y-4">
+                                        <FormField control={form.control} name="adminName" render={({ field }) => (
+                                            <FormItem><FormLabel>Administrator name</FormLabel><FormControl><Input autoComplete="name" placeholder="Full name" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="adminEmail" render={({ field }) => (
+                                            <FormItem><FormLabel>Administrator email</FormLabel><FormControl><Input type="email" autoComplete="email" placeholder="admin@company.com" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                    </div>
+                                    <p className="mt-3 text-xs text-muted-foreground">GatePass sends a secure activation invitation after registration.</p>
+                                </div>
+                            </>
                         )}
                         <DialogFooter>
                             <Button
@@ -106,7 +159,7 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange }
                             </Button>
                             <Button type="submit" disabled={submitting}>
                                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Add {companyType === 'contractor' ? 'External Company' : typeCapitalized}
+                                {companyType === 'contractor' ? 'Register company & invite admin' : `Add ${typeCapitalized}`}
                             </Button>
                         </DialogFooter>
                     </form>

@@ -92,7 +92,7 @@ export default function UsersPage() {
                 : undefined
             )
           : Promise.resolve([]),
-        listContractorsRequest(token),
+        currentUser.role === "Operator Admin" ? Promise.resolve([]) : listContractorsRequest(token),
         listOperatorsRequest(token),
         listRegistrationProfilesRequest(token, "Worker"),
         listRegistrationProfilesRequest(token, "Visitor"),
@@ -162,6 +162,7 @@ export default function UsersPage() {
 
     if (currentUser.role === "Operator Admin") {
       operatorId = currentUser.operatorId ?? undefined;
+      contractorId = undefined;
     }
     if (currentUser.role === "Contractor Admin") {
       contractorId = currentUser.contractorId ?? undefined;

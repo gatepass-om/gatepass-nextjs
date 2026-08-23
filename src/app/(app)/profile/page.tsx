@@ -7,13 +7,13 @@ import { QrCode } from '@/components/qr-code';
 import { WorkerBadge } from '@/components/worker-badge';
 import { WorkerDocuments } from '@/components/workers/worker-documents';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { User } from '@/lib/types';
+import type { CertificateType, User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShieldCheck, AlertTriangle, KeyRound, RefreshCw, Clock } from 'lucide-react';
 import { format, isBefore, parseISO, differenceInSeconds } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/providers/session-provider';
-import { fetchQrCredential } from '@/lib/api';
+import { fetchQrCredential, listCertificateTypesRequest } from '@/lib/api';
 
 const QR_REFRESH_BUFFER_SECONDS = 60; // refresh 60s before expiry
 
@@ -101,6 +101,7 @@ function ProfileSkeleton() {
 export default function ProfilePage() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const { user: sessionUser, token, loading: sessionLoading } = useSession();
     const router = useRouter();
     const { qrToken, secondsLeft, loading: qrLoading, error: qrError, refresh: refreshQr } = useTimeBoundQr(token);
@@ -110,6 +111,13 @@ export default function ProfilePage() {
         setUser(sessionUser ?? null);
         setLoading(false);
     }, [sessionUser, sessionLoading]);
+
+    useEffect(() => {
+        if (!token) return;
+        void listCertificateTypesRequest(token)
+            .then((types) => setCertificateTypes(types as CertificateType[]))
+            .catch(() => setCertificateTypes([]));
+    }, [token]);
 
     const isCertificateExpired = (expiresAtUtc?: string | null) => {
         if (!expiresAtUtc) return false;
@@ -211,7 +219,7 @@ export default function ProfilePage() {
         </Card>
       </div>
 
-       <WorkerDocuments workerId={user.id} canManage={user.role !== 'Worker'} />
+       <WorkerDocuments workerId={user.id} certificateTypes={certificateTypes} canManage={user.role !== 'Worker'} />
 
        {user.certificates && user.certificates.length > 0 && (
           <Card>

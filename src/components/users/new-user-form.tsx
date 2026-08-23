@@ -248,7 +248,7 @@ export function NewUserForm({
             {selectedRole === 'Operator Admin' && currentUserRole === 'Admin' && (
               <SimpleSelect label="Operator company" value={form.watch('operatorId')} onChange={(value) => form.setValue('operatorId', value)} options={operators} disabled={isLoading} />
             )}
-            {(selectedRole === 'Worker' || selectedRole === 'Supervisor') && currentUserRole !== 'Contractor Admin' && (
+            {(selectedRole === 'Worker' || selectedRole === 'Supervisor') && currentUserRole !== 'Contractor Admin' && currentUserRole !== 'Operator Admin' && (
               <SimpleSelect label="External company" value={form.watch('contractorId')} onChange={(value) => form.setValue('contractorId', value)} options={contractors} disabled={isLoading} />
             )}
             {(selectedRole === 'Worker' || selectedRole === 'Supervisor') && (

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft, ArrowRight, BriefcaseBusiness, CalendarDays, Check, CheckCircle2,
+  ArrowLeft, ArrowRight, BriefcaseBusiness, CheckCircle2,
   ClipboardCheck, FileWarning, MapPin, RefreshCw, ShieldCheck, UsersRound, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,10 +18,7 @@ import type { Site, User } from '@/lib/types';
 import { useSession } from '@/providers/session-provider';
 import type { ProjectRecord } from '@/components/projects/project-wizard-dialog';
 import { getProjectStatusPresentation } from '@/components/projects/project-workflow';
-import {
-  getProjectWorkflowStages, getWorkPassActions,
-  type CommandCenterWorkPass,
-} from '@/components/projects/project-command-center';
+import { getWorkPassActions, type CommandCenterWorkPass } from '@/components/projects/project-command-center';
 import { getEligibleProjectWorkers, getProjectSites } from '@/components/projects/project-worker-access';
 
 type WorkPass = CommandCenterWorkPass & {
@@ -88,7 +85,6 @@ export default function ProjectCommandCenterPage() {
       supervisor: project ? byId.get(project.supervisorUserId) : undefined,
     };
   }, [project, users]);
-  const stages = useMemo(() => project ? getProjectWorkflowStages(project, workPasses) : [], [project, workPasses]);
   const pending = workPasses.filter((pass) => ['Submitted', 'PendingSecondApproval'].includes(pass.status)).length;
   const granted = workPasses.filter((pass) => pass.status === 'Approved').length;
   const canCreateRequest = Boolean(project && user && project.status === 'Active'
@@ -136,6 +132,7 @@ export default function ProjectCommandCenterPage() {
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(status.tone)}`}>{status.label}</span>
           </div>
           <p className="mt-1 text-sm text-slate-500">{project.clientReference || 'No client reference'} · {project.operatorName}</p>
+          <p className="mt-1 text-xs text-slate-400">{status.detail} {formatDate(project.validFromUtc)} – {formatDate(project.validToUtc)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => void load()}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</Button>
@@ -151,19 +148,6 @@ export default function ProjectCommandCenterPage() {
         <Metric label="Project personnel" value={project.members.length} icon={UsersRound} />
         <Metric label="Pending decisions" value={pending} icon={FileWarning} accent={pending ? 'amber' : 'slate'} />
         <Metric label="Access granted" value={granted} icon={ShieldCheck} accent="emerald" />
-      </section>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between"><div><h2 className="font-semibold text-slate-950">Workflow</h2><p className="text-sm text-slate-500">Live project and worker-access stages</p></div><span className="text-xs font-medium text-slate-400">Updates automatically</span></div>
-        <div className="mt-6 grid gap-3 lg:grid-cols-4">
-          {stages.map((stage, index) => <div key={stage.id} className="relative">
-            <div className={`rounded-xl border p-4 ${stageClass(stage.state)}`}>
-              <div className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/80 text-xs font-bold">{stage.state === 'completed' ? <Check className="h-3.5 w-3.5" /> : index + 1}</span><span className="text-sm font-semibold">{stage.label}</span></div>
-              <p className="mt-2 text-xs leading-5 opacity-80">{stage.description}</p>
-              {stage.count !== undefined ? <p className="mt-2 text-xs font-semibold">{stage.count} item{stage.count === 1 ? '' : 's'}</p> : null}
-            </div>
-          </div>)}
-        </div>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
@@ -213,7 +197,6 @@ function PersonRow({ label, user, fallbackId }: { label: string; user?: User; fa
 function Metric({ label, value, icon: Icon, accent = 'blue' }: { label: string; value: number; icon: typeof BriefcaseBusiness; accent?: string }) { const colors: Record<string, string> = { blue: 'bg-blue-50 text-blue-700', amber: 'bg-amber-50 text-amber-700', emerald: 'bg-emerald-50 text-emerald-700', slate: 'bg-slate-100 text-slate-600' }; return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between"><div><p className="text-sm font-medium text-slate-500">{label}</p><p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p></div><span className={`rounded-xl p-2.5 ${colors[accent]}`}><Icon className="h-5 w-5" /></span></div></div>; }
 function ProjectLoading() { return <div className="space-y-6 p-6"><Skeleton className="h-20 w-2/3" /><div className="grid grid-cols-4 gap-3">{[1,2,3,4].map((item) => <Skeleton key={item} className="h-28" />)}</div><Skeleton className="h-48" /><Skeleton className="h-80" /></div>; }
 function statusClass(tone: string) { return { amber: 'bg-amber-100 text-amber-800', emerald: 'bg-emerald-50 text-emerald-700', blue: 'bg-blue-50 text-blue-700', red: 'bg-red-50 text-red-700', slate: 'bg-slate-100 text-slate-600' }[tone] || 'bg-slate-100 text-slate-600'; }
-function stageClass(state: string) { return { completed: 'border-emerald-200 bg-emerald-50 text-emerald-800', current: 'border-blue-300 bg-blue-50 text-blue-800 ring-2 ring-blue-100', attention: 'border-red-200 bg-red-50 text-red-800', upcoming: 'border-slate-200 bg-slate-50 text-slate-500' }[state] || ''; }
 function workPassStatusClass(status: string) { return { Draft: 'bg-slate-100 text-slate-700', Submitted: 'bg-amber-100 text-amber-800', PendingSecondApproval: 'bg-violet-100 text-violet-800', Approved: 'bg-emerald-100 text-emerald-800', Rejected: 'bg-red-100 text-red-800', Cancelled: 'bg-slate-100 text-slate-500', Completed: 'bg-blue-100 text-blue-800' }[status] || 'bg-slate-100 text-slate-600'; }
 function workPassLabel(status: string) { return ({ Draft: 'Draft', Submitted: 'Pending consultant approval', PendingSecondApproval: 'Pending supervisor approval', Approved: 'Access granted', Rejected: 'Rejected', Cancelled: 'Cancelled', Completed: 'Completed' } as Record<string, string>)[status] || status; }
 function formatDate(value: string) { return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)); }
