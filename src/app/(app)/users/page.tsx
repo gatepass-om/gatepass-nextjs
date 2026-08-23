@@ -352,7 +352,6 @@ export default function UsersPage() {
                 operators={operators}
                 isLoading={loading}
                 currentUserRole={currentUser.role}
-                currentUserId={currentUser.id}
                 currentUserOperatorId={currentUser.operatorId ?? undefined}
                 currentUserContractorId={currentUser.contractorId ?? undefined}
                 registrationProfiles={registrationProfiles}

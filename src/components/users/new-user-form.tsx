@@ -15,38 +15,15 @@ import type { CreateUserInput, RegistrationProfile } from '@/lib/api';
 import { buildEmploymentPayload } from '@/components/compliance/compliance-model';
 
 const roleValues = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector'] as const;
-const interactionModes = ['Web', 'MobileApp', 'PrintedCard', 'Kiosk', 'Sms', 'SupervisorAssisted'] as const;
-
 const formSchema = z.object({
   name: z.string().trim().min(2, 'Enter the person’s full name.'),
-  preferredName: z.string().trim().optional(),
-  nameInOriginalScript: z.string().trim().optional(),
-  email: z.string().trim().optional(),
+  idNumber: z.string().trim().min(1, 'Enter the National ID number.').max(100, 'National ID number is too long.'),
+  email: z.string().trim().email('Enter a valid email address.'),
   role: z.enum(roleValues),
   assignedSiteId: z.string().optional(),
   contractorId: z.string().optional(),
   operatorId: z.string().optional(),
   jobPositionId: z.string().optional(),
-  interactiveAccountEnabled: z.boolean(),
-  preferredLanguage: z.string().min(2),
-  secondaryLanguages: z.string().optional(),
-  preferredInteractionMode: z.enum(interactionModes),
-  needsAssistedWorkflow: z.boolean(),
-  personalDeviceAvailable: z.boolean(),
-  canReceiveSms: z.boolean(),
-  offlineCardRequired: z.boolean(),
-  audioInstructionsPreferred: z.boolean(),
-  largeTextPreferred: z.boolean(),
-  interpreterRequired: z.boolean(),
-  accessibilitySupportNotes: z.string().max(1000).optional(),
-}).superRefine((values, context) => {
-  if (values.interactiveAccountEnabled && !z.string().email().safeParse(values.email).success) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['email'],
-      message: 'Add an email for direct sign-in, or turn off direct sign-in for a managed worker record.',
-    });
-  }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -61,37 +38,10 @@ interface NewUserFormProps {
   operators: Operator[];
   isLoading: boolean;
   currentUserRole: UserRole;
-  currentUserId: string;
   currentUserOperatorId?: string;
   currentUserContractorId?: string;
   registrationProfiles: RegistrationProfile[];
   jobPositions: JobPosition[];
-}
-
-function PreferenceCheckbox({
-  checked,
-  onCheckedChange,
-  label,
-  description,
-}: {
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  label: string;
-  description?: string;
-}) {
-  return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
-      <Checkbox
-        checked={checked}
-        onCheckedChange={(value) => onCheckedChange(value === true)}
-        className="mt-0.5"
-      />
-      <span>
-        <span className="block text-sm font-medium">{label}</span>
-        {description && <span className="block text-xs text-muted-foreground">{description}</span>}
-      </span>
-    </label>
-  );
 }
 
 export function NewUserForm({
@@ -101,7 +51,6 @@ export function NewUserForm({
   operators,
   isLoading,
   currentUserRole,
-  currentUserId,
   currentUserOperatorId,
   currentUserContractorId,
   registrationProfiles,
@@ -118,32 +67,17 @@ export function NewUserForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
-      preferredName: '',
-      nameInOriginalScript: '',
+      idNumber: '',
       email: '',
       role: availableRoles[0] || 'Worker',
       assignedSiteId: '',
       contractorId: '',
       operatorId: '',
       jobPositionId: '',
-      interactiveAccountEnabled: true,
-      preferredLanguage: 'en',
-      secondaryLanguages: '',
-      preferredInteractionMode: 'Web',
-      needsAssistedWorkflow: false,
-      personalDeviceAvailable: true,
-      canReceiveSms: true,
-      offlineCardRequired: false,
-      audioInstructionsPreferred: false,
-      largeTextPreferred: false,
-      interpreterRequired: false,
-      accessibilitySupportNotes: '',
     },
   });
 
   const selectedRole = useWatch({ control: form.control, name: 'role' });
-  const interactiveAccountEnabled = useWatch({ control: form.control, name: 'interactiveAccountEnabled' });
-  const needsAssistedWorkflow = useWatch({ control: form.control, name: 'needsAssistedWorkflow' });
   const isPersonnel = selectedRole === 'Worker' || selectedRole === 'Visitor';
   const [selectedProfileId, setSelectedProfileId] = React.useState('');
   const [customValues, setCustomValues] = React.useState<Record<string, unknown>>({});
@@ -174,28 +108,15 @@ export function NewUserForm({
     const operatorId = currentUserRole === 'Operator Admin' ? currentUserOperatorId : values.operatorId || undefined;
     onNewUser({
       name: values.name,
-      email: values.email || undefined,
+      idNumber: values.idNumber,
+      email: values.email,
       role: values.role,
       operatorId,
       contractorId,
       assignedSiteId: values.assignedSiteId || undefined,
-      sendWelcomeEmail: values.interactiveAccountEnabled && Boolean(values.email),
-      interactiveAccountEnabled: values.interactiveAccountEnabled,
-      preferredName: values.preferredName || undefined,
-      nameInOriginalScript: values.nameInOriginalScript || undefined,
-      preferredLanguage: values.preferredLanguage,
-      secondaryLanguages: values.secondaryLanguages?.split(',').map((language) => language.trim()).filter(Boolean),
-      preferredInteractionMode: values.preferredInteractionMode,
-      needsAssistedWorkflow: values.needsAssistedWorkflow,
-      personalDeviceAvailable: values.personalDeviceAvailable,
-      canReceiveSms: values.canReceiveSms,
-      offlineCardRequired: values.offlineCardRequired,
-      audioInstructionsPreferred: values.audioInstructionsPreferred,
-      largeTextPreferred: values.largeTextPreferred,
-      interpreterRequired: values.interpreterRequired,
-      accessibilitySupportNotes: values.accessibilitySupportNotes || undefined,
-      registrationChannel: values.needsAssistedWorkflow ? 'Assisted' : 'SelfService',
-      assistedByUserId: values.needsAssistedWorkflow ? currentUserId : undefined,
+      sendWelcomeEmail: true,
+      interactiveAccountEnabled: true,
+      registrationChannel: 'SelfService',
       employment: ['Worker', 'Supervisor'].includes(values.role)
         ? buildEmploymentPayload({ jobPositionId: values.jobPositionId, contractorId, operatorId })
         : undefined,
@@ -209,30 +130,27 @@ export function NewUserForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-2">
-        <p className="text-sm text-muted-foreground">
-          Start with what is known. Optional details can be completed later by the person,
-          a supervisor, or registration staff.
-        </p>
+        <p className="text-sm text-muted-foreground">Enter the person’s identity and account details. All fields marked with * are required.</p>
 
         <div className="max-h-[70vh] space-y-6 overflow-y-auto px-1 pr-4">
           <section className="space-y-4 rounded-xl border p-4">
             <div>
-              <h3 className="font-semibold">1. Who is this person?</h3>
-              <p className="text-sm text-muted-foreground">Use the name they want staff to call them.</p>
+              <h3 className="font-semibold">Person details</h3>
+              <p className="text-sm text-muted-foreground">These details identify the person and create their GatePass account.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Full legal name</FormLabel><FormControl><Input autoComplete="name" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Full legal name *</FormLabel><FormControl><Input autoComplete="name" required {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control} name="preferredName" render={({ field }) => (
-                <FormItem><FormLabel>Preferred name <span className="font-normal text-muted-foreground">(optional)</span></FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="idNumber" render={({ field }) => (
+                <FormItem><FormLabel>National ID number *</FormLabel><FormControl><Input autoComplete="off" required {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control} name="nameInOriginalScript" render={({ field }) => (
-                <FormItem><FormLabel>Name in their own writing <span className="font-normal text-muted-foreground">(optional)</span></FormLabel><FormControl><Input dir="auto" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem><FormLabel>Email address *</FormLabel><FormControl><Input type="email" inputMode="email" autoComplete="email" required {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="role" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Type of person</FormLabel>
+                  <FormLabel>Type of person *</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>{availableRoles.map((role) => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent>
@@ -259,93 +177,10 @@ export function NewUserForm({
             )}
           </section>
 
-          <section className="space-y-4 rounded-xl border p-4">
-            <div>
-              <h3 className="font-semibold">2. How will they use GatePass?</h3>
-              <p className="text-sm text-muted-foreground">A login is optional. Printed cards, kiosks, and supervisor help remain available.</p>
-            </div>
-            <FormField control={form.control} name="interactiveAccountEnabled" render={({ field }) => (
-              <PreferenceCheckbox checked={field.value} onCheckedChange={field.onChange} label="This person will sign in to GatePass" description="Turn this off for a record-only worker, visitor, or printed-card user." />
-            )} />
-            <FormField control={form.control} name="email" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email address {interactiveAccountEnabled ? '' : '(optional)'}</FormLabel>
-                <FormControl><Input type="email" inputMode="email" autoComplete="email" {...field} /></FormControl>
-                <FormDescription>
-                  {interactiveAccountEnabled
-                    ? 'Required for direct sign-in and account recovery in this registration flow.'
-                    : 'Leave blank when the person has no email. GatePass will not generate a fake address.'}
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )} />
-            {isPersonnel && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <FormField control={form.control} name="preferredInteractionMode" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Easiest way for them to use the system</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="Web">Web browser</SelectItem>
-                        <SelectItem value="MobileApp">Mobile app</SelectItem>
-                        <SelectItem value="PrintedCard">Printed QR card</SelectItem>
-                        <SelectItem value="Kiosk">Shared kiosk</SelectItem>
-                        <SelectItem value="Sms">Text message</SelectItem>
-                        <SelectItem value="SupervisorAssisted">Supervisor helps</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="preferredLanguage" render={({ field }) => (
-                  <FormItem><FormLabel>Preferred language code</FormLabel><FormControl><Input placeholder="en, ar, hi, ur…" maxLength={20} {...field} /></FormControl><FormDescription>Use a short language code.</FormDescription><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="secondaryLanguages" render={({ field }) => (
-                  <FormItem className="md:col-span-2"><FormLabel>Other languages <span className="font-normal text-muted-foreground">(optional)</span></FormLabel><FormControl><Input placeholder="en, ur" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
-            )}
-          </section>
-
-          {isPersonnel && (
-            <section className="space-y-4 rounded-xl border p-4">
-              <div>
-                <h3 className="font-semibold">3. What help is useful?</h3>
-                <p className="text-sm text-muted-foreground">These choices only change how help is provided. They do not approve or deny access.</p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                {([
-                  ['needsAssistedWorkflow', 'A staff member will help', 'Useful when the person is not comfortable with apps.'],
-                  ['personalDeviceAvailable', 'Has a personal phone or device', undefined],
-                  ['canReceiveSms', 'Can receive text messages', undefined],
-                  ['offlineCardRequired', 'Needs a printed card that works offline', undefined],
-                  ['audioInstructionsPreferred', 'Audio instructions would help', undefined],
-                  ['largeTextPreferred', 'Large text would help', undefined],
-                  ['interpreterRequired', 'Interpreter support is needed', undefined],
-                ] as const).map(([name, label, description]) => (
-                  <FormField key={name} control={form.control} name={name} render={({ field }) => (
-                    <PreferenceCheckbox checked={field.value} onCheckedChange={field.onChange} label={label} description={description} />
-                  )} />
-                ))}
-              </div>
-              {needsAssistedWorkflow && (
-                <FormField control={form.control} name="accessibilitySupportNotes" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Instructions for the person helping</FormLabel>
-                    <FormControl><Textarea placeholder="For example: explain each step verbally; contact the supervisor for confirmation." {...field} /></FormControl>
-                    <FormDescription>Do not add medical details unless they are necessary and authorized.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              )}
-            </section>
-          )}
-
           {isPersonnel && availableProfiles.length > 0 && (
             <section className="space-y-4 rounded-xl border p-4">
               <div>
-                <h3 className="font-semibold">4. Client-specific details</h3>
+                <h3 className="font-semibold">Client-specific details</h3>
                 <p className="text-sm text-muted-foreground">
                   Choose a registration checklist only when it applies to this person.
                 </p>
