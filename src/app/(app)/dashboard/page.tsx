@@ -345,7 +345,7 @@ export default function DashboardPage() {
   const firstName = currentUser.name.split(/\s+/)[0] || 'there';
 
   return (
-    <div className="dashboard-home -mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[#f4f8fa] p-0 md:-mx-6 md:-my-6 md:p-0 lg:-mx-8 lg:-my-8 lg:p-0">
+    <div className="dashboard-home -mx-4 -my-4 min-h-[calc(100vh-4rem)] bg-[#f6f6f6] p-0 md:-mx-6 md:-my-6 md:p-0 lg:-mx-8 lg:-my-8 lg:p-0">
       <div className="dashboard-frame mx-auto max-w-[1600px] bg-transparent p-0 shadow-none">
       <div className="dashboard-reference-topbar">
         <SidebarTrigger

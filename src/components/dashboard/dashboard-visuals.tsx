@@ -46,8 +46,8 @@ type DashboardVisualsProps = {
 };
 
 const COLORS = {
-  teal: 'hsl(176 76% 36%)',
-  tealSoft: 'hsl(176 76% 36% / .12)',
+  teal: 'hsl(0 0% 32%)',
+  tealSoft: 'hsl(0 0% 32% / .12)',
   ink: 'hsl(220 28% 16%)',
   blue: 'hsl(199 75% 46%)',
   green: 'hsl(151 52% 40%)',
@@ -65,7 +65,7 @@ const METRIC_ICONS: Record<string, LucideIcon> = {
 };
 
 const METRIC_TONES = {
-  teal: { icon: 'bg-accent/15 text-accent', bar: 'bg-accent' },
+  teal: { icon: 'bg-accent/40 text-primary', bar: 'bg-primary' },
   blue: { icon: 'bg-sky-100 text-sky-700', bar: 'bg-sky-500' },
   amber: { icon: 'bg-amber-100 text-amber-700', bar: 'bg-amber-500' },
   green: { icon: 'bg-green-100 text-green-700', bar: 'bg-green-500' },
