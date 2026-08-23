@@ -27,6 +27,10 @@ test('uses the black, white and grey product palette', () => {
 test('keeps the dashboard frame aligned with the shared palette', () => {
   assert.match(globalStyles, /background: #141414;/i);
   assert.match(globalStyles, /background: #ffffff !important;/i);
+  assert.match(
+    globalStyles,
+    /\[data-sidebar="header"\] \.bg-primary \.text-primary-foreground\s*\{[^}]*color: #141414 !important;/i,
+  );
   assert.doesNotMatch(globalStyles, /#087a9c|#07566d|#16a39a|194 90%|176 76%/i);
 });
 

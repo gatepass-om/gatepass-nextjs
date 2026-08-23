@@ -169,6 +169,10 @@
     background: #ffffff !important;
   }
 
+  .dashboard-sidebar [data-sidebar="header"] .bg-primary .text-primary-foreground {
+    color: #141414 !important;
+  }
+
   .dashboard-sidebar [data-sidebar="content"] {
     padding-inline: .65rem;
     gap: .35rem;
