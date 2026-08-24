@@ -15,7 +15,7 @@ const summary = {
 test('dashboard metric row prioritizes operational readiness and exceptions', () => {
   assert.deepEqual(
     getDashboardMetricCards(summary, true).map((metric) => metric.label),
-    ['On site', 'Movement volume', 'Pending decisions', 'Readiness', 'Exceptions'],
+    ['On site', 'Pending decisions', 'Readiness', 'Exceptions'],
   );
 });
 

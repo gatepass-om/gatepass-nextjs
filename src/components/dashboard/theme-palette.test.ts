@@ -37,7 +37,6 @@ test('keeps the dashboard frame aligned with the shared palette', () => {
 test('uses theme colors for dashboard brand surfaces while preserving semantic statuses', () => {
   assert.match(dashboardPage, /bg-\[#f6f6f6\]/i);
   assert.match(dashboardPage, /text-primary/);
-  assert.match(dashboardPage, /data-\[state=active\]:bg-primary/);
   assert.match(dashboardTools, /hover:bg-primary\/5 hover:text-primary/);
   assert.match(dashboardVisuals, /teal: 'hsl\(0 0% 32%\)'/);
   assert.match(dashboardVisuals, /teal: \{ icon: 'bg-accent\/40 text-primary', bar: 'bg-primary' \}/);

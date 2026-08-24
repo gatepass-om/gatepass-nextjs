@@ -34,3 +34,13 @@ test('dashboard includes a filterable access request list for all decision state
   assert.match(dashboardSource, /Rejected/);
   assert.match(dashboardSource, /summary\?\.accessRequests/);
 });
+
+test('dashboard presents one daily operations view without planning or insights tabs', () => {
+  assert.doesNotMatch(dashboardPage, /TabsTrigger/);
+  assert.doesNotMatch(dashboardPage, />\s*Planning\s*</);
+  assert.doesNotMatch(dashboardPage, />\s*Insights\s*</);
+  assert.doesNotMatch(dashboardPage, /ReportSchedulesPanel|ShiftRostersPanel|ManagementScorecards|RegistrationFunnelPanel|InclusiveAdoptionPanel|DataQualityPanel/);
+  assert.match(dashboardPage, /<OperationsActionQueue/);
+  assert.match(dashboardPage, /Operational map/);
+  assert.match(dashboardPage, /Access requests/);
+});

@@ -26,12 +26,6 @@ export function getDashboardMetricCards(
       tone: 'teal',
     },
     {
-      label: 'Movement volume',
-      value: summary.movements.total,
-      detail: `${summary.movements.entries} in · ${summary.movements.exits} out`,
-      tone: 'blue',
-    },
-    {
       label: 'Pending decisions',
       value: summary.pendingRequests,
       detail: 'access requests to review',
@@ -53,7 +47,7 @@ export function getDashboardMetricCards(
 
   return showAttendanceAnalytics
     ? cards
-    : cards.filter((card) => card.label !== 'On site' && card.label !== 'Movement volume');
+    : cards.filter((card) => card.label !== 'On site');
 }
 
 export function getDashboardChartTitle(showAttendanceAnalytics: boolean) {

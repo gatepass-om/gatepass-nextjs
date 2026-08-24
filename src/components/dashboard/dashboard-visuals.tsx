@@ -17,13 +17,10 @@ import {
   YAxis,
 } from 'recharts';
 import {
-  ArrowDownRight,
-  ArrowUpRight,
   BadgeCheck,
   BriefcaseBusiness,
   Building2,
   Clock3,
-  LogIn,
   ShieldAlert,
   UsersRound,
   MapPinned,
@@ -58,7 +55,6 @@ const COLORS = {
 
 const METRIC_ICONS: Record<string, LucideIcon> = {
   'On site': UsersRound,
-  'Movement volume': LogIn,
   'Pending decisions': Clock3,
   Readiness: BadgeCheck,
   Exceptions: ShieldAlert,

@@ -3,18 +3,12 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Bell, MapPinned, Radio, Search, SlidersHorizontal } from 'lucide-react';
+import { Bell, MapPinned, Radio, Search } from 'lucide-react';
 import { externalCompanyTypeLabel } from '@/components/compliance/compliance-model';
 import { DashboardTools, type ReportingWindow } from '@/components/dashboard/dashboard-tools';
 import { shouldShowAttendanceAnalytics } from '@/components/dashboard/dashboard-mode';
-import { DataQualityPanel } from '@/components/dashboard/data-quality-panel';
-import { InclusiveAdoptionPanel } from '@/components/dashboard/inclusive-adoption-panel';
-import { ManagementScorecards } from '@/components/dashboard/management-scorecards';
 import { OperationsActionQueue } from '@/components/dashboard/operations-action-queue';
 import { RecentActivityTable } from '@/components/dashboard/recent-activity-table';
-import { RegistrationFunnelPanel } from '@/components/dashboard/registration-funnel-panel';
-import { ReportSchedulesPanel } from '@/components/dashboard/report-schedules-panel';
-import { ShiftRostersPanel } from '@/components/dashboard/shift-rosters-panel';
 import type { OpsPoint, OpsZone } from '@/components/maps/ops-map';
 import {
   Select,
@@ -25,7 +19,6 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useLiveEvents } from '@/hooks/use-live-events';
 import {
@@ -57,7 +50,6 @@ const OpsMap = dynamic(
 );
 
 const DASHBOARD_ROLES: UserRole[] = ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin'];
-const ROSTER_ROLES: UserRole[] = ['Admin', 'Operator Admin', 'Manager'];
 const EMPTY_MAP_SITES: DashboardSummary['mapSites'] = [];
 
 export default function DashboardPage() {
@@ -99,8 +91,6 @@ export default function DashboardPage() {
   const userId = currentUser?.id;
   const userOperatorId = currentUser?.operatorId;
   const isAdmin = userRole === 'Admin';
-  const canManageRosters = !!userRole && ROSTER_ROLES.includes(userRole);
-  const canScheduleReports = summary?.audience.visiblePanels.includes('portfolio') ?? false;
   const customRangeError = useMemo(
     () => reportingWindow === 'custom'
       ? validateCustomRange(customFromLocal, customToLocal)
@@ -475,22 +465,8 @@ export default function DashboardPage() {
         </section>
       ) : null}
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <div className="dashboard-controlbar flex flex-wrap items-center justify-between gap-3 border-y border-slate-200/80 py-2">
-          <TabsList className="h-9 w-full justify-start rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:w-auto">
-            <TabsTrigger value="overview" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Activity className="h-3.5 w-3.5" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="planning" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              Planning
-            </TabsTrigger>
-            <TabsTrigger value="insights" className="gap-2 rounded-lg px-4 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <MapPinned className="h-3.5 w-3.5" />
-              Insights
-            </TabsTrigger>
-          </TabsList>
+      <div className="space-y-4">
+        <div className="dashboard-controlbar flex flex-wrap items-center justify-end gap-3 border-y border-slate-200/80 py-2">
           <DashboardTools
             summary={summary}
             showAttendanceAnalytics={showAttendanceAnalytics}
@@ -509,7 +485,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        <TabsContent value="overview" className="mt-0 space-y-4">
+        <div className="space-y-4">
           <DashboardVisuals
             summary={summary}
             isLoading={loadingSummary}
@@ -595,40 +571,8 @@ export default function DashboardPage() {
           {showAttendanceAnalytics ? (
             <RecentActivityTable activity={summary?.recentActivity ?? []} isLoading={loadingSummary} />
           ) : null}
-        </TabsContent>
-
-        <TabsContent value="planning" className="mt-0 space-y-4">
-          {token && canScheduleReports ? (
-            <ReportSchedulesPanel token={token} sites={filteredSites} />
-          ) : null}
-          {token && canManageRosters ? (
-            <ShiftRostersPanel token={token} sites={filteredSites} />
-          ) : null}
-          {!canScheduleReports && !canManageRosters ? (
-            <EmptyTab label="No planning tools are available for this role." />
-          ) : null}
-        </TabsContent>
-
-        <TabsContent value="insights" className="mt-0 space-y-4">
-          {summary?.audience.visiblePanels.includes('portfolio') ? (
-            <ManagementScorecards summary={summary} />
-          ) : null}
-          {summary?.audience.visiblePanels.includes('adoption') ? (
-            <>
-              <RegistrationFunnelPanel summary={summary} />
-              <InclusiveAdoptionPanel summary={summary} />
-            </>
-          ) : null}
-          {summary?.audience.visiblePanels.includes('data-quality') ? (
-            <DataQualityPanel summary={summary} />
-          ) : null}
-          {!summary?.audience.visiblePanels.some(
-            (panel) => ['portfolio', 'adoption', 'data-quality'].includes(panel),
-          ) ? (
-            <EmptyTab label="No additional insights are available for this scope." />
-          ) : null}
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
       </div>
     </div>
   );
@@ -644,14 +588,6 @@ function DashboardLoading() {
         ))}
       </div>
       <Skeleton className="h-[420px] w-full" />
-    </div>
-  );
-}
-
-function EmptyTab({ label }: { label: string }) {
-  return (
-    <div className="ops-panel flex min-h-48 items-center justify-center p-6">
-      <p className="text-sm text-muted-foreground">{label}</p>
     </div>
   );
 }
