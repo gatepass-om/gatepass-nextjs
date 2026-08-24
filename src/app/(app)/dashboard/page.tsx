@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, MapPinned, Radio } from 'lucide-react';
+import { Bell, MapPinned } from 'lucide-react';
 import { externalCompanyTypeLabel } from '@/components/compliance/compliance-model';
 import {
   DashboardTools,
@@ -409,9 +409,6 @@ export default function DashboardPage() {
     return null;
   }
 
-  const generatedAt = summary?.generatedAtUtc
-    ? new Date(summary.generatedAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : null;
   const summaryFreshness = getDashboardFreshness(
     freshnessNowMs,
     summary?.generatedAtUtc,
@@ -443,38 +440,16 @@ export default function DashboardPage() {
           <div className="dashboard-reference-avatar">{firstName.slice(0, 2).toUpperCase()}</div>
         </div>
       </div>
-      <header className="dashboard-header flex flex-col gap-5 px-1 pb-5 xl:flex-row xl:items-end xl:justify-between">
-        <div className="min-w-0">
-          <p className="dashboard-eyebrow text-primary">Command center · operations</p>
-          <div className="mt-1 flex flex-wrap items-center gap-3">
-            <h1 className="text-[26px] font-semibold tracking-[-.04em] text-slate-900">Good morning, {firstName}</h1>
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] ${summaryFreshness.isStale ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-              <Radio className="h-3 w-3" /> {summaryFreshness.isStale ? 'Stale' : 'Live'}
-            </span>
-          </div>
-          <p className="mt-1.5 text-xs text-slate-500">
-            {generatedAt ? `Updated ${generatedAt}` : 'Syncing live operations'}
-            {summaryFreshness.message ? ` · ${summaryFreshness.message}` : ''}
-            {' · '}A focused {summary?.audience?.profileKey?.replaceAll('-', ' ') ?? 'operations'} view of the work that needs attention.
-          </p>
-        </div>
+      <header className="dashboard-header px-1 pb-4">
+        <p className="dashboard-eyebrow text-primary">Command center · operations</p>
+        <h1 className="mt-1 text-[26px] font-semibold tracking-[-.04em] text-slate-900">Good morning, {firstName}</h1>
+      </header>
 
-        <div aria-label="Dashboard filters" className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Select value={reportingWindow} onValueChange={(value) => setReportingWindow(value as ReportingWindow)}>
-            <SelectTrigger aria-label="Reporting window" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm sm:w-[148px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="24h">Last 24 hours</SelectItem>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="custom">Custom range</SelectItem>
-            </SelectContent>
-          </Select>
-
+      <section aria-label="Dashboard filters" className="dashboard-controlbar flex flex-col gap-3 border-y border-slate-200/80 py-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className={`grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 ${isAdmin && !userContractorId ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
           {isAdmin ? (
             loadingData ? (
-              <Skeleton className="h-10 w-full sm:w-[190px]" />
+              <Skeleton className="h-9 w-full" />
             ) : (
               <Select
                 value={selectedOperatorId}
@@ -484,7 +459,7 @@ export default function DashboardPage() {
                   setSelectedExternalCompanyId('all');
                 }}
               >
-                <SelectTrigger aria-label="Operator" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm sm:w-[170px]">
+                <SelectTrigger aria-label="Operator" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm">
                   <SelectValue placeholder="Operator" />
                 </SelectTrigger>
                 <SelectContent>
@@ -498,14 +473,14 @@ export default function DashboardPage() {
           ) : null}
 
           {loadingData ? (
-            <Skeleton className="h-10 w-full sm:w-[190px]" />
+            <Skeleton className="h-9 w-full" />
           ) : (
             <Select
               value={selectedSiteId}
               onValueChange={setSelectedSiteId}
               disabled={isAdmin && selectedOperatorId === 'all'}
             >
-              <SelectTrigger aria-label="Site" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm sm:w-[170px]">
+              <SelectTrigger aria-label="Site" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm">
                 <SelectValue placeholder="Site" />
               </SelectTrigger>
               <SelectContent>
@@ -519,10 +494,10 @@ export default function DashboardPage() {
 
           {!userContractorId ? (
             loadingData ? (
-              <Skeleton className="h-10 w-full sm:w-[220px]" />
+              <Skeleton className="h-9 w-full" />
             ) : (
               <Select value={selectedExternalCompanyId} onValueChange={setSelectedExternalCompanyId}>
-                <SelectTrigger aria-label="External company" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm sm:w-[220px]">
+                <SelectTrigger aria-label="External company" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm">
                   <SelectValue placeholder="External company" />
                 </SelectTrigger>
                 <SelectContent>
@@ -536,11 +511,45 @@ export default function DashboardPage() {
               </Select>
             )
           ) : null}
+
+          <Select value={reportingWindow} onValueChange={(value) => setReportingWindow(value as ReportingWindow)}>
+            <SelectTrigger aria-label="Reporting window" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="24h">Last 24 hours</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="custom">Custom range</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-      </header>
+
+        <DashboardTools
+          summary={summary}
+          showAttendanceAnalytics={showAttendanceAnalytics}
+          operatorId={selectedOperatorId}
+          siteId={selectedSiteId}
+          externalCompanyId={effectiveExternalCompanyId}
+          externalCompanyName={effectiveExternalCompanyName}
+          accessRequestStatus={requestStatusFilter}
+          reportingWindow={reportingWindow}
+          customFromLocal={customFromLocal}
+          customToLocal={customToLocal}
+          onApplyView={(view) => {
+            setSelectedOperatorId(view.operatorId);
+            setSelectedSiteId(view.siteId);
+            setSelectedExternalCompanyId(userContractorId ?? view.externalCompanyId);
+            setRequestStatusFilter(view.accessRequestStatus);
+            setReportingWindow(view.reportingWindow);
+            if (view.customFromLocal) setCustomFromLocal(view.customFromLocal);
+            if (view.customToLocal) setCustomToLocal(view.customToLocal);
+          }}
+        />
+      </section>
 
       {reportingWindow === 'custom' ? (
-          <section aria-label="Custom reporting range" className="dashboard-panel grid gap-3 p-4 sm:grid-cols-2">
+          <section aria-label="Custom reporting range" className="dashboard-panel mt-3 grid gap-3 p-4 sm:grid-cols-2">
           <label className="grid gap-1 text-xs font-medium text-foreground">
             From
             <input
@@ -567,31 +576,7 @@ export default function DashboardPage() {
         </section>
       ) : null}
 
-      <div className="space-y-4">
-        <div className="dashboard-controlbar flex flex-wrap items-center justify-end gap-3 border-y border-slate-200/80 py-2">
-          <DashboardTools
-            summary={summary}
-            showAttendanceAnalytics={showAttendanceAnalytics}
-            operatorId={selectedOperatorId}
-            siteId={selectedSiteId}
-            externalCompanyId={effectiveExternalCompanyId}
-            externalCompanyName={effectiveExternalCompanyName}
-            accessRequestStatus={requestStatusFilter}
-            reportingWindow={reportingWindow}
-            customFromLocal={customFromLocal}
-            customToLocal={customToLocal}
-            onApplyView={(view) => {
-              setSelectedOperatorId(view.operatorId);
-              setSelectedSiteId(view.siteId);
-              setSelectedExternalCompanyId(userContractorId ?? view.externalCompanyId);
-              setRequestStatusFilter(view.accessRequestStatus);
-              setReportingWindow(view.reportingWindow);
-              if (view.customFromLocal) setCustomFromLocal(view.customFromLocal);
-              if (view.customToLocal) setCustomToLocal(view.customToLocal);
-            }}
-          />
-        </div>
-
+      <div className="space-y-4 pt-4">
         <div className="space-y-4">
           <DashboardVisuals
             summary={summary}

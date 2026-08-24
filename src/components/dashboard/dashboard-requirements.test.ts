@@ -27,6 +27,27 @@ test('dashboard keeps portfolio context available and the company filter scoped'
   assert.match(dashboardPage, /aria-label=["']External company["']/);
 });
 
+test('dashboard header is concise and filters follow the scope hierarchy responsively', () => {
+  assert.doesNotMatch(dashboardPage, /A focused .* view of the work that needs attention/);
+  assert.doesNotMatch(dashboardPage, /const generatedAt =/);
+
+  const filtersStart = dashboardPage.indexOf('aria-label="Dashboard filters"');
+  const filtersEnd = dashboardPage.indexOf("reportingWindow === 'custom'", filtersStart);
+  const filtersSection = dashboardPage.slice(filtersStart, filtersEnd);
+  const operatorIndex = filtersSection.indexOf('aria-label="Operator"');
+  const siteIndex = filtersSection.indexOf('aria-label="Site"');
+  const companyIndex = filtersSection.indexOf('aria-label="External company"');
+  const windowIndex = filtersSection.indexOf('aria-label="Reporting window"');
+
+  assert.ok(filtersStart >= 0 && filtersEnd > filtersStart);
+  assert.ok(operatorIndex >= 0 && operatorIndex < siteIndex);
+  assert.ok(siteIndex < companyIndex);
+  assert.ok(companyIndex < windowIndex);
+  assert.match(filtersSection, /sm:grid-cols-2/);
+  assert.match(filtersSection, /lg:grid-cols-4/);
+  assert.match(filtersSection, /<DashboardTools/);
+});
+
 test('changing the operator clears dependent site and company filters', () => {
   assert.match(
     dashboardPage,
