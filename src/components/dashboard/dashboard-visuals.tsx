@@ -17,10 +17,15 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
   BadgeCheck,
   BriefcaseBusiness,
   Building2,
+  CircleSlash2,
   Clock3,
+  FileWarning,
+  ListChecks,
   ShieldAlert,
   UsersRound,
   MapPinned,
@@ -31,7 +36,9 @@ import type { DashboardSummary } from '@/lib/api';
 import {
   getDashboardChartTitle,
   getDashboardMetricCards,
+  getDashboardMetricGridClass,
   getDashboardTrendSeries,
+  getPrimaryDashboardPanelKeys,
   getRankedSiteBreakdown,
   getWorkforceStatusData,
 } from './dashboard-layout';
@@ -54,10 +61,20 @@ const COLORS = {
 };
 
 const METRIC_ICONS: Record<string, LucideIcon> = {
-  'On site': UsersRound,
-  'Pending decisions': Clock3,
-  Readiness: BadgeCheck,
-  Exceptions: ShieldAlert,
+  'people-on-site': UsersRound,
+  'pending-decisions': Clock3,
+  'assigned-decisions': ListChecks,
+  'workforce-readiness': BadgeCheck,
+  'workers-needing-action': FileWarning,
+  'credential-risk': ShieldAlert,
+  'compliance-exceptions': ShieldAlert,
+  'registered-workers': UsersRound,
+  projects: BriefcaseBusiness,
+  sites: MapPinned,
+  'external-companies': Building2,
+  entries: ArrowDownToLine,
+  exits: ArrowUpFromLine,
+  'denied-attempts': CircleSlash2,
 };
 
 const METRIC_TONES = {
@@ -69,14 +86,19 @@ const METRIC_TONES = {
 } as const;
 
 export function DashboardVisuals({ summary, isLoading, showAttendanceAnalytics }: DashboardVisualsProps) {
+  if (!summary && isLoading) {
+    return <div className="space-y-4"><Skeleton className="h-28 w-full rounded-xl" /><Skeleton className="h-[360px] w-full rounded-xl" /></div>;
+  }
+
   const safeSummary = summary ?? emptySummary;
+  const panelKeys = new Set(safeSummary.audience.panelKeys ?? []);
   const portfolioCards = [
-    { label: 'Registered workers', value: safeSummary.portfolio.registeredWorkers, detail: 'Workers in the selected scope', icon: UsersRound, tone: METRIC_TONES.teal },
-    { label: 'Projects', value: safeSummary.portfolio.projects, detail: 'Projects assigned to visible sites', icon: BriefcaseBusiness, tone: METRIC_TONES.blue },
-    { label: 'Sites', value: safeSummary.portfolio.sites, detail: 'Operational sites in scope', icon: MapPinned, tone: METRIC_TONES.green },
-    { label: 'Contractors & consultants', value: safeSummary.portfolio.externalCompanies, detail: `${safeSummary.portfolio.consultants} consultant companies included`, icon: Building2, tone: METRIC_TONES.amber },
+    { label: 'Registered workers', value: safeSummary.portfolio.registeredWorkers },
+    { label: 'Projects', value: safeSummary.portfolio.projects },
+    { label: 'Sites', value: safeSummary.portfolio.sites },
+    { label: 'Contractors & consultants', value: safeSummary.portfolio.externalCompanies },
   ];
-  const metrics = getDashboardMetricCards(safeSummary, showAttendanceAnalytics);
+  const metrics = getDashboardMetricCards(safeSummary);
   const decisionData = [
     { name: 'Approved', value: safeSummary.approvedRequests, color: COLORS.green },
     { name: 'Pending', value: safeSummary.pendingRequests, color: COLORS.amber },
@@ -100,33 +122,42 @@ export function DashboardVisuals({ summary, isLoading, showAttendanceAnalytics }
   ];
   const workforceStatusData = getWorkforceStatusData(safeSummary.workforce);
   const trendData = getDashboardTrendSeries(safeSummary.trends);
+  const primaryPanelKeys = getPrimaryDashboardPanelKeys(
+    safeSummary.audience.panelKeys ?? [],
+    showAttendanceAnalytics,
+  );
+  const showDecisionHealth = panelKeys.has('decision-health');
+  const showSitePulse = showAttendanceAnalytics && panelKeys.has('site-pulse');
+  const showWorkforceReadiness = panelKeys.has('workforce-readiness');
+  const showCredentialWatch = panelKeys.has('credential-watch');
+  const showPrimaryChart = primaryPanelKeys.length > 0;
+  const showRiskPanels = showSitePulse || showWorkforceReadiness || showCredentialWatch;
 
   return (
     <div className="space-y-4">
-      <section aria-label="Portfolio overview" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {portfolioCards.map((metric) => {
-          const Icon = metric.icon;
-          return (
-            <article key={metric.label} className="dashboard-metric">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="dashboard-eyebrow">{metric.label}</p>
-                  {isLoading ? <Skeleton className="mt-2 h-8 w-16" /> : <p className="mt-1 text-[28px] font-semibold leading-none tracking-[-.04em] text-slate-900">{metric.value.toLocaleString()}</p>}
-                </div>
-                <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${metric.tone.icon}`}><Icon className="h-[18px] w-[18px]" /></span>
-              </div>
-              <p className="mt-3 text-[11px] text-slate-500">{metric.detail}</p>
-            </article>
-          );
-        })}
-      </section>
+      {panelKeys.has('scope-overview') ? (
+        <section aria-label="Portfolio overview" className="dashboard-panel overflow-hidden">
+          <header className="border-b border-slate-100 px-5 py-3">
+            <h2 className="text-[13px] font-semibold text-slate-900">Current scope</h2>
+            <p className="mt-0.5 text-[10px] text-slate-400">Context for the selected operator, site, company, and reporting window</p>
+          </header>
+          <div className="grid grid-cols-2 divide-x divide-y divide-slate-100 md:grid-cols-4 md:divide-y-0">
+            {portfolioCards.map((metric) => (
+              <article key={metric.label} className="px-5 py-3.5">
+                <p className="dashboard-eyebrow">{metric.label}</p>
+                <p className="mt-1 text-[22px] font-semibold leading-none tracking-[-.04em] text-slate-900">{metric.value.toLocaleString()}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-      <section aria-label="Key operational metrics" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${metrics.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-3 xl:grid-cols-5'}`}>
+      {metrics.length > 0 ? <section aria-label="Key operational metrics" className={getDashboardMetricGridClass(metrics.length)}>
         {metrics.map((metric) => {
-          const Icon = METRIC_ICONS[metric.label] ?? BadgeCheck;
+          const Icon = METRIC_ICONS[metric.key] ?? BadgeCheck;
           const tone = METRIC_TONES[metric.tone];
           return (
-            <article key={metric.label} className="dashboard-metric group">
+            <article key={metric.key} className="dashboard-metric group">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="dashboard-eyebrow">{metric.label}</p>
@@ -139,15 +170,18 @@ export function DashboardVisuals({ summary, isLoading, showAttendanceAnalytics }
             </article>
           );
         })}
-      </section>
+      </section> : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(19rem,.75fr)]">
-        <DashboardPanel
-          title={getDashboardChartTitle(showAttendanceAnalytics)}
-          subtitle={showAttendanceAnalytics ? `${safeSummary.trends.length > 14 ? 'Aggregated ' : ''}entries, exits and denied attempts across the selected window` : `${safeSummary.workforce.eligibleWorkers} eligible workers by clearance status`}
-          trailing={<span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">LIVE</span>}
-        >
-          {isLoading ? <Skeleton className="h-[268px] w-full rounded-xl" /> : showAttendanceAnalytics ? (
+      {showPrimaryChart || showDecisionHealth ? <div className={`grid gap-4 ${primaryPanelKeys.length + Number(showDecisionHealth) > 1 ? 'xl:grid-cols-2' : ''}`}>
+        {primaryPanelKeys.map((panelKey) => {
+          const showMovement = panelKey === 'movement-activity';
+          return <DashboardPanel
+            key={panelKey}
+            title={getDashboardChartTitle(showMovement)}
+            subtitle={showMovement ? `${safeSummary.trends.length > 14 ? 'Aggregated ' : ''}entries, exits and denied attempts across the selected window` : `${safeSummary.workforce.eligibleWorkers} eligible workers by clearance status`}
+            trailing={showMovement ? <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">Selected window</span> : undefined}
+          >
+            {showMovement ? (
             <div className="h-[268px] min-h-0 w-full">
               <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 640, height: 268 }}>
                 <AreaChart data={trendData} margin={{ top: 12, right: 8, left: -18, bottom: 0 }}>
@@ -165,7 +199,7 @@ export function DashboardVisuals({ summary, isLoading, showAttendanceAnalytics }
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          ) : (
+            ) : (
             <div className="h-[268px] min-h-0 w-full">
                 <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 640, height: 268 }}>
                 <BarChart data={workforceStatusData} margin={{ top: 24, right: 8, left: -18, bottom: 0 }} barCategoryGap="22%">
@@ -180,13 +214,14 @@ export function DashboardVisuals({ summary, isLoading, showAttendanceAnalytics }
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          )}
-          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-slate-500">
-            {showAttendanceAnalytics ? <><LegendDot color={COLORS.teal} label="Entries" /><LegendDot color={COLORS.blue} label="Exits" /><LegendDot color={COLORS.red} label="Denied" /></> : <><LegendDot color={COLORS.green} label="Cleared" /><LegendDot color={COLORS.blue} label="Under review" /><LegendDot color={COLORS.teal} label="Submitted" /><LegendDot color={COLORS.amber} label="Pending" /><LegendDot color={COLORS.red} label="Returned" /></>}
-          </div>
-        </DashboardPanel>
+            )}
+            <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-slate-500">
+              {showMovement ? <><LegendDot color={COLORS.teal} label="Entries" /><LegendDot color={COLORS.blue} label="Exits" /><LegendDot color={COLORS.red} label="Denied" /></> : <><LegendDot color={COLORS.green} label="Cleared" /><LegendDot color={COLORS.blue} label="Under review" /><LegendDot color={COLORS.teal} label="Submitted" /><LegendDot color={COLORS.amber} label="Pending" /><LegendDot color={COLORS.red} label="Returned" /></>}
+            </div>
+          </DashboardPanel>;
+        })}
 
-        <DashboardPanel title="Decision health" subtitle="How access requests are moving through review">
+        {showDecisionHealth ? <DashboardPanel title="Decision health" subtitle="How access requests are moving through review">
           <div className="grid grid-cols-[150px_minmax(0,1fr)] items-center gap-3">
             <DonutChart data={decisionData} total={decisionTotal} centerValue={decisionTotal.toLocaleString()} centerLabel="decisions" emptyLabel="No requests" size="small" />
             <div className="space-y-3">
@@ -194,17 +229,19 @@ export function DashboardVisuals({ summary, isLoading, showAttendanceAnalytics }
             </div>
           </div>
           <div className="mt-4 rounded-xl bg-slate-50 px-3 py-2.5 text-[11px] text-slate-500">Approval rate <span className="float-right font-semibold text-slate-800">{safeSummary.comparison.currentApprovalRate}%</span></div>
-        </DashboardPanel>
-      </div>
+        </DashboardPanel> : null}
+      </div> : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,.8fr)]">
-        <DashboardPanel title={showAttendanceAnalytics ? 'Site pulse' : 'Workforce readiness'} subtitle={showAttendanceAnalytics ? 'People currently present by site' : 'Clearance mix for the visible workforce'} trailing={showAttendanceAnalytics ? <span className="text-[11px] font-medium text-slate-400">Top 5 sites</span> : undefined}>
-          {showAttendanceAnalytics ? (
-            rankedSites.length === 0 ? <EmptyChart label="No personnel currently on site" /> : <div className="space-y-3 pt-1">{rankedSites.map((site, index) => <SiteBar key={site.name} name={site.name} value={site.count} max={rankedSites[0]?.count ?? 1} rank={index + 1} />)}</div>
-            ) : <DonutChart data={workforceData} total={workforceTotal} centerValue={`${safeSummary.workforce.readinessRate}%`} centerLabel="cleared" emptyLabel="No workers" />}
-        </DashboardPanel>
+      {showRiskPanels ? <div className="grid gap-4 xl:grid-cols-2">
+        {showSitePulse ? <DashboardPanel title="Site pulse" subtitle="People currently present by site" trailing={<span className="text-[11px] font-medium text-slate-400">Top 5 sites</span>}>
+          {rankedSites.length === 0 ? <EmptyChart label="No personnel currently on site" /> : <div className="space-y-3 pt-1">{rankedSites.map((site, index) => <SiteBar key={site.name} name={site.name} value={site.count} max={rankedSites[0]?.count ?? 1} rank={index + 1} />)}</div>}
+        </DashboardPanel> : null}
 
-        <DashboardPanel title="Credential watch" subtitle="Certificates and credentials needing attention">
+        {showWorkforceReadiness ? <DashboardPanel title="Workforce readiness" subtitle="Clearance mix for the visible workforce">
+          <DonutChart data={workforceData} total={workforceTotal} centerValue={workforceTotal > 0 ? `${safeSummary.workforce.readinessRate}%` : '—'} centerLabel="cleared" emptyLabel="No workers" />
+        </DashboardPanel> : null}
+
+        {showCredentialWatch ? <DashboardPanel title="Credential watch" subtitle="Certificates and credentials needing attention">
           <div className="h-[220px] min-h-0 w-full">
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1} initialDimension={{ width: 420, height: 220 }}>
               <BarChart data={expiryData} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
@@ -216,8 +253,8 @@ export function DashboardVisuals({ summary, isLoading, showAttendanceAnalytics }
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </DashboardPanel>
-      </div>
+        </DashboardPanel> : null}
+      </div> : null}
     </div>
   );
 }
@@ -232,6 +269,8 @@ const emptySummary = {
   expiry: { expired: 0, next7Days: 0, days8To30: 0, days31To60: 0, days61To90: 0 },
   workforce: { eligibleWorkers: 0, pendingWorkers: 0, submittedWorkers: 0, underReviewWorkers: 0, clearedWorkers: 0, returnedWorkers: 0, readinessRate: 0 },
   portfolio: { registeredWorkers: 0, projects: 0, sites: 0, externalCompanies: 0, consultants: 0 },
+  actionQueue: [],
+  audience: { role: '', profileKey: '', visiblePanels: [], metricKeys: [], panelKeys: [] },
   accessRequests: [],
   mapSites: [],
   trends: [],

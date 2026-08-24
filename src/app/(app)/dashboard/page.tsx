@@ -2,11 +2,16 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, MapPinned, Radio, Search } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Bell, MapPinned, Radio } from 'lucide-react';
 import { externalCompanyTypeLabel } from '@/components/compliance/compliance-model';
-import { DashboardTools, type ReportingWindow } from '@/components/dashboard/dashboard-tools';
+import {
+  DashboardTools,
+  type DashboardRequestStatusFilter,
+  type ReportingWindow,
+} from '@/components/dashboard/dashboard-tools';
 import { shouldShowAttendanceAnalytics } from '@/components/dashboard/dashboard-mode';
+import { createLatestRequestCoordinator, getDashboardFreshness } from '@/components/dashboard/dashboard-refresh';
 import { OperationsActionQueue } from '@/components/dashboard/operations-action-queue';
 import { RecentActivityTable } from '@/components/dashboard/recent-activity-table';
 import type { OpsPoint, OpsZone } from '@/components/maps/ops-map';
@@ -49,7 +54,7 @@ const OpsMap = dynamic(
   },
 );
 
-const DASHBOARD_ROLES: UserRole[] = ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin'];
+const DASHBOARD_ROLES: UserRole[] = ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin', 'Security'];
 const EMPTY_MAP_SITES: DashboardSummary['mapSites'] = [];
 
 export default function DashboardPage() {
@@ -60,37 +65,62 @@ export default function DashboardPage() {
     UnauthorizedComponent,
   } = useAuthProtection(DASHBOARD_ROLES);
   const { token } = useSession();
+  const userRole = currentUser?.role;
+  const userId = currentUser?.id;
+  const userOperatorId = currentUser?.operatorId;
+  const userContractorId = currentUser?.contractorId;
+  const isAdmin = userRole === 'Admin';
+  const viewerScopeKey = currentUser
+    ? [currentUser.id, currentUser.role, currentUser.operatorId, currentUser.contractorId, currentUser.assignedSiteId].join(':')
+    : '';
   const [sites, setSites] = useState<Site[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [externalCompanies, setExternalCompanies] = useState<Contractor[]>([]);
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [summaryResult, setSummaryResult] = useState<{
+    displayScopeKey: string;
+    requestScopeKey: string;
+    data: DashboardSummary;
+  } | null>(null);
   const [zones, setZones] = useState<GeoRegion[]>([]);
   const [loadingZones, setLoadingZones] = useState(true);
   const [loadingData, setLoadingData] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(true);
+  const [freshnessNowMs, setFreshnessNowMs] = useState(() => Date.now());
+  const [failedSummaryScopeKey, setFailedSummaryScopeKey] = useState<string | null>(null);
   const [selectedOperatorId, setSelectedOperatorId] = useState('all');
   const [selectedSiteId, setSelectedSiteId] = useState('all');
   const [selectedExternalCompanyId, setSelectedExternalCompanyId] = useState('all');
-  const [requestStatusFilter, setRequestStatusFilter] = useState('all');
-  const mapSiteSummaries = summary?.mapSites ?? EMPTY_MAP_SITES;
-  const showAttendanceAnalytics = useMemo(
-    () => shouldShowAttendanceAnalytics(
-      sites,
-      selectedOperatorId === 'all' ? undefined : selectedOperatorId,
-      selectedSiteId === 'all' ? undefined : selectedSiteId,
-    ),
-    [selectedOperatorId, selectedSiteId, sites],
-  );
+  const [requestStatusFilter, setRequestStatusFilter] = useState<DashboardRequestStatusFilter>('all');
+  const effectiveExternalCompanyId = userContractorId ?? selectedExternalCompanyId;
+  const effectiveExternalCompanyName = externalCompanies
+    .find((company) => company.id === effectiveExternalCompanyId)?.name
+    ?? (userContractorId ? currentUser?.company ?? undefined : undefined);
+  const loadedSummaryDisplayScopeRef = useRef<string | null>(null);
+  const previousViewerScopeRef = useRef<string | null>(null);
+  const summaryRequestCoordinatorRef = useRef<ReturnType<typeof createLatestRequestCoordinator> | null>(null);
+  if (summaryRequestCoordinatorRef.current === null) {
+    summaryRequestCoordinatorRef.current = createLatestRequestCoordinator();
+  }
   const [reportingWindow, setReportingWindow] = useState<ReportingWindow>('24h');
   const [customFromLocal, setCustomFromLocal] = useState(
     () => toLocalDateTimeValue(new Date(Date.now() - 24 * 60 * 60 * 1000)),
   );
   const [customToLocal, setCustomToLocal] = useState(() => toLocalDateTimeValue(new Date()));
+  const summaryDisplayScopeKey = [
+    viewerScopeKey,
+    selectedOperatorId,
+    selectedSiteId,
+    effectiveExternalCompanyId,
+    reportingWindow,
+    reportingWindow === 'custom' ? customFromLocal : '',
+    reportingWindow === 'custom' ? customToLocal : '',
+  ].join('|');
+  const summaryRequestScopeKey = [summaryDisplayScopeKey, requestStatusFilter].join('|');
+  const summary = summaryResult?.displayScopeKey === summaryDisplayScopeKey ? summaryResult.data : null;
+  const mapSiteSummaries = summary?.mapSites ?? EMPTY_MAP_SITES;
+  const showAttendanceAnalytics = shouldShowAttendanceAnalytics(summary?.operatingModes);
+  const dashboardPanelKeys = summary?.audience.panelKeys ?? [];
 
-  const userRole = currentUser?.role;
-  const userId = currentUser?.id;
-  const userOperatorId = currentUser?.operatorId;
-  const isAdmin = userRole === 'Admin';
   const customRangeError = useMemo(
     () => reportingWindow === 'custom'
       ? validateCustomRange(customFromLocal, customToLocal)
@@ -112,8 +142,18 @@ export default function DashboardPage() {
   }, [selectedOperatorId, sites, userId, userOperatorId, userRole]);
 
   useEffect(() => {
+    if (!viewerScopeKey || previousViewerScopeRef.current === viewerScopeKey) return;
+    previousViewerScopeRef.current = viewerScopeKey;
+    setSelectedOperatorId('all');
     setSelectedSiteId('all');
-  }, [selectedOperatorId]);
+    setSelectedExternalCompanyId('all');
+  }, [viewerScopeKey]);
+
+  useEffect(() => {
+    if (selectedSiteId !== 'all' && !filteredSites.some((site) => site.id === selectedSiteId)) {
+      setSelectedSiteId('all');
+    }
+  }, [filteredSites, selectedSiteId]);
 
   const fetchReferenceData = useCallback(async () => {
     if (!token || !userRole || !isAuthorized) {
@@ -123,13 +163,23 @@ export default function DashboardPage() {
 
     setLoadingData(true);
     try {
-      const [sitesData, operatorsData, companiesData] = await Promise.all([
-        userRole === 'Operator Admin' && userOperatorId
-          ? listSitesRequest(token, { operatorId: userOperatorId })
-          : listSitesRequest(token),
-        isAdmin ? listOperatorsRequest(token) : Promise.resolve([]),
-        listExternalCompaniesRequest(token),
-      ]);
+      const sitesRequest = userRole === 'Operator Admin' && userOperatorId
+        ? listSitesRequest(token, { operatorId: userOperatorId })
+        : listSitesRequest(token);
+      const operatorsRequest = isAdmin
+        ? listOperatorsRequest(token).catch((error) => {
+          console.warn('Operator dashboard filter is unavailable', error);
+          return [];
+        })
+        : Promise.resolve([]);
+      const companiesRequest = userContractorId
+        ? Promise.resolve([])
+        : listExternalCompaniesRequest(token).catch((error) => {
+          console.warn('External-company dashboard filter is unavailable', error);
+          return [];
+        });
+      const sitesData = await sitesRequest;
+      const [operatorsData, companiesData] = await Promise.all([operatorsRequest, companiesRequest]);
 
       setSites(sitesData.map((site) => ({
         id: site.id,
@@ -137,6 +187,9 @@ export default function DashboardPage() {
         operatorId: (site as Site & { operator?: { id?: string } }).operator?.id ?? site.operatorId,
         managerIds: site.managerIds ?? [],
         requiredCertificates: site.requiredCertificates ?? [],
+        requiresAccessApproval: site.requiresAccessApproval ?? false,
+        usesSecurityCheckpoints: site.usesSecurityCheckpoints ?? false,
+        usesSmartAccess: site.usesSmartAccess ?? false,
         maximumOccupancy: site.maximumOccupancy ?? undefined,
       })));
 
@@ -147,47 +200,70 @@ export default function DashboardPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [isAdmin, isAuthorized, token, userOperatorId, userRole]);
+  }, [isAdmin, isAuthorized, token, userContractorId, userOperatorId, userRole]);
 
   const fetchSummary = useCallback(async () => {
+    const coordinator = summaryRequestCoordinatorRef.current!;
     if (!token || !userRole || !isAuthorized) {
+      coordinator.invalidate();
       setLoadingSummary(false);
       return;
     }
     if (reportingWindow === 'custom' && customRangeError) {
+      coordinator.invalidate();
       setLoadingSummary(false);
       return;
     }
 
-    setLoadingSummary(true);
-    try {
-      const toUtc = reportingWindow === 'custom' ? new Date(customToLocal) : new Date();
-      const windowHours = reportingWindow === '24h' ? 24 : reportingWindow === '7d' ? 168 : 720;
-      const fromUtc = reportingWindow === 'custom'
-        ? new Date(customFromLocal)
-        : new Date(toUtc.getTime() - windowHours * 60 * 60 * 1000);
+    if (loadedSummaryDisplayScopeRef.current !== summaryDisplayScopeKey) {
+      setLoadingSummary(true);
+    }
+    setFreshnessNowMs(Date.now());
+    const toUtc = reportingWindow === 'custom' ? new Date(customToLocal) : new Date();
+    const windowHours = reportingWindow === '24h' ? 24 : reportingWindow === '7d' ? 168 : 720;
+    const fromUtc = reportingWindow === 'custom'
+      ? new Date(customFromLocal)
+      : new Date(toUtc.getTime() - windowHours * 60 * 60 * 1000);
 
-      setSummary(await fetchDashboardSummaryRequest(token, {
+    const result = await coordinator.run(() => fetchDashboardSummaryRequest(token, {
         operatorId: selectedOperatorId,
         siteId: selectedSiteId,
-        externalCompanyId: selectedExternalCompanyId,
+        externalCompanyId: effectiveExternalCompanyId,
+        accessRequestStatus: requestStatusFilter === 'all' ? undefined : requestStatusFilter,
         fromUtc: fromUtc.toISOString(),
         toUtc: toUtc.toISOString(),
-      }));
-    } catch (error) {
-      console.error('Failed to fetch dashboard summary', error);
-    } finally {
-      setLoadingSummary(false);
+      }), summaryRequestScopeKey);
+    if (result.status === 'stale') {
+      return;
     }
+    if (result.status === 'failed') {
+      console.error('Failed to fetch dashboard summary', result.error);
+      setFailedSummaryScopeKey(summaryRequestScopeKey);
+      setLoadingSummary(false);
+      return;
+    }
+
+    setSummaryResult({
+      displayScopeKey: summaryDisplayScopeKey,
+      requestScopeKey: summaryRequestScopeKey,
+      data: result.value,
+    });
+    loadedSummaryDisplayScopeRef.current = summaryDisplayScopeKey;
+    setFailedSummaryScopeKey(null);
+    setFreshnessNowMs(Date.now());
+    setLoadingSummary(false);
   }, [
     customFromLocal,
     customRangeError,
     customToLocal,
     isAuthorized,
+    requestStatusFilter,
     reportingWindow,
     selectedOperatorId,
-    selectedExternalCompanyId,
+    effectiveExternalCompanyId,
     selectedSiteId,
+    summaryDisplayScopeKey,
+    summaryRequestScopeKey,
     token,
     userRole,
   ]);
@@ -218,6 +294,13 @@ export default function DashboardPage() {
   useEffect(() => {
     void fetchZones();
   }, [fetchZones]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setFreshnessNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => () => summaryRequestCoordinatorRef.current?.invalidate(), []);
 
   useLiveEvents(
     useCallback((event) => {
@@ -311,12 +394,10 @@ export default function DashboardPage() {
     [mapPoints.length, opsZones],
   );
 
-  const filteredDashboardRequests = useMemo(
-    () => (summary?.accessRequests ?? []).filter(
-      (request) => requestStatusFilter === 'all' || request.status === requestStatusFilter,
-    ),
-    [requestStatusFilter, summary?.accessRequests],
-  );
+  const hasMatchingRequestList = summaryResult?.requestScopeKey === summaryRequestScopeKey;
+  const requestListFailed = failedSummaryScopeKey === summaryRequestScopeKey;
+  const loadingAccessRequests = !hasMatchingRequestList && !requestListFailed;
+  const dashboardRequests = hasMatchingRequestList ? summaryResult.data.accessRequests : [];
 
   if (loading) {
     return <DashboardLoading />;
@@ -331,6 +412,15 @@ export default function DashboardPage() {
   const generatedAt = summary?.generatedAtUtc
     ? new Date(summary.generatedAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null;
+  const summaryFreshness = getDashboardFreshness(
+    freshnessNowMs,
+    summary?.generatedAtUtc,
+    failedSummaryScopeKey === summaryRequestScopeKey,
+  );
+  const showActionQueue = dashboardPanelKeys.includes('action-queue');
+  const showOperationsMap = dashboardPanelKeys.includes('operations-map');
+  const showAccessRequests = dashboardPanelKeys.includes('access-requests');
+  const showRecentActivity = dashboardPanelKeys.includes('recent-activity');
 
   const firstName = currentUser.name.split(/\s+/)[0] || 'there';
 
@@ -342,13 +432,14 @@ export default function DashboardPage() {
           aria-label="Open navigation"
           className="h-10 w-10 rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 md:hidden"
         />
-        <div className="dashboard-reference-search">
-          <Search className="h-3.5 w-3.5 text-slate-400" />
-          <input aria-label="Search dashboard" placeholder="Search…" />
-        </div>
         <div className="flex items-center gap-3">
-          <span className="dashboard-reference-status"><span className="status-dot status-dot--live" />Live</span>
-          <Bell className="h-4 w-4 text-slate-400" />
+          <span className="dashboard-reference-status">
+            <span className={`status-dot ${summaryFreshness.isStale ? 'bg-amber-500' : 'status-dot--live'}`} />
+            {summaryFreshness.isStale ? 'Stale' : 'Live'}
+          </span>
+          <Link href="/notifications" aria-label="Open notifications" className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
+            <Bell className="h-4 w-4" />
+          </Link>
           <div className="dashboard-reference-avatar">{firstName.slice(0, 2).toUpperCase()}</div>
         </div>
       </div>
@@ -357,12 +448,14 @@ export default function DashboardPage() {
           <p className="dashboard-eyebrow text-primary">Command center · operations</p>
           <div className="mt-1 flex flex-wrap items-center gap-3">
             <h1 className="text-[26px] font-semibold tracking-[-.04em] text-slate-900">Good morning, {firstName}</h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] text-emerald-700">
-              <Radio className="h-3 w-3" /> Live
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.12em] ${summaryFreshness.isStale ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+              <Radio className="h-3 w-3" /> {summaryFreshness.isStale ? 'Stale' : 'Live'}
             </span>
           </div>
           <p className="mt-1.5 text-xs text-slate-500">
-            {generatedAt ? `Updated ${generatedAt}` : 'Syncing live operations'} · A focused view of the work that needs attention.
+            {generatedAt ? `Updated ${generatedAt}` : 'Syncing live operations'}
+            {summaryFreshness.message ? ` · ${summaryFreshness.message}` : ''}
+            {' · '}A focused {summary?.audience?.profileKey?.replaceAll('-', ' ') ?? 'operations'} view of the work that needs attention.
           </p>
         </div>
 
@@ -383,7 +476,14 @@ export default function DashboardPage() {
             loadingData ? (
               <Skeleton className="h-10 w-full sm:w-[190px]" />
             ) : (
-              <Select value={selectedOperatorId} onValueChange={setSelectedOperatorId}>
+              <Select
+                value={selectedOperatorId}
+                onValueChange={(operatorId) => {
+                  setSelectedOperatorId(operatorId);
+                  setSelectedSiteId('all');
+                  setSelectedExternalCompanyId('all');
+                }}
+              >
                 <SelectTrigger aria-label="Operator" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm sm:w-[170px]">
                   <SelectValue placeholder="Operator" />
                 </SelectTrigger>
@@ -417,23 +517,25 @@ export default function DashboardPage() {
             </Select>
           )}
 
-          {loadingData ? (
-            <Skeleton className="h-10 w-full sm:w-[220px]" />
-          ) : (
-            <Select value={selectedExternalCompanyId} onValueChange={setSelectedExternalCompanyId}>
-              <SelectTrigger aria-label="External company" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm sm:w-[220px]">
-                <SelectValue placeholder="External company" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All contractors & consultants</SelectItem>
-                {externalCompanies.map((company) => (
-                  <SelectItem key={company.id} value={company.id}>
-                    {company.name} · {externalCompanyTypeLabel(company.companyType)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          {!userContractorId ? (
+            loadingData ? (
+              <Skeleton className="h-10 w-full sm:w-[220px]" />
+            ) : (
+              <Select value={selectedExternalCompanyId} onValueChange={setSelectedExternalCompanyId}>
+                <SelectTrigger aria-label="External company" className="h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm sm:w-[220px]">
+                  <SelectValue placeholder="External company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All contractors & consultants</SelectItem>
+                  {externalCompanies.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name} · {externalCompanyTypeLabel(company.companyType)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )
+          ) : null}
         </div>
       </header>
 
@@ -472,12 +574,17 @@ export default function DashboardPage() {
             showAttendanceAnalytics={showAttendanceAnalytics}
             operatorId={selectedOperatorId}
             siteId={selectedSiteId}
+            externalCompanyId={effectiveExternalCompanyId}
+            externalCompanyName={effectiveExternalCompanyName}
+            accessRequestStatus={requestStatusFilter}
             reportingWindow={reportingWindow}
             customFromLocal={customFromLocal}
             customToLocal={customToLocal}
             onApplyView={(view) => {
               setSelectedOperatorId(view.operatorId);
               setSelectedSiteId(view.siteId);
+              setSelectedExternalCompanyId(userContractorId ?? view.externalCompanyId);
+              setRequestStatusFilter(view.accessRequestStatus);
               setReportingWindow(view.reportingWindow);
               if (view.customFromLocal) setCustomFromLocal(view.customFromLocal);
               if (view.customToLocal) setCustomToLocal(view.customToLocal);
@@ -492,9 +599,10 @@ export default function DashboardPage() {
             showAttendanceAnalytics={showAttendanceAnalytics}
           />
 
-          <div className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
-            <OperationsActionQueue summary={summary} isLoading={loadingSummary} />
-            <section className="ops-panel overflow-hidden">
+          {showActionQueue || showOperationsMap ? (
+          <div className={`grid gap-4 ${showActionQueue && showOperationsMap ? 'xl:grid-cols-[22rem_minmax(0,1fr)]' : ''}`}>
+            {showActionQueue ? <OperationsActionQueue summary={summary} isLoading={loadingSummary} /> : null}
+            {showOperationsMap ? <section className="ops-panel overflow-hidden">
               <header className="flex h-14 items-center justify-between border-b border-border/70 px-5">
                 <div className="flex items-center gap-2">
                   <MapPinned className="h-4 w-4 text-muted-foreground" />
@@ -515,16 +623,20 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-            </section>
+            </section> : null}
           </div>
+          ) : null}
 
-          <section className="ops-panel overflow-hidden" aria-label="Access requests overview">
+          {showAccessRequests ? <section className="ops-panel overflow-hidden" aria-label="Access requests overview">
             <header className="flex flex-col gap-3 border-b border-border/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Access requests</h2>
                 <p className="mt-1 text-xs text-muted-foreground">Pending, approved, and rejected requests in the selected scope.</p>
               </div>
-              <Select value={requestStatusFilter} onValueChange={setRequestStatusFilter}>
+              <Select
+                value={requestStatusFilter}
+                onValueChange={(value) => setRequestStatusFilter(value as DashboardRequestStatusFilter)}
+              >
                 <SelectTrigger aria-label="Access request status" className="h-9 w-full sm:w-[170px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -549,11 +661,13 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {loadingSummary ? (
+                  {loadingAccessRequests ? (
                     <tr><td className="px-5 py-6 text-muted-foreground" colSpan={6}>Loading access requests…</td></tr>
-                  ) : filteredDashboardRequests.length === 0 ? (
+                  ) : requestListFailed && !hasMatchingRequestList ? (
+                    <tr><td className="px-5 py-6 text-amber-700" colSpan={6}>Could not refresh requests for this filter. Other dashboard data is retained.</td></tr>
+                  ) : dashboardRequests.length === 0 ? (
                     <tr><td className="px-5 py-6 text-muted-foreground" colSpan={6}>No requests match this filter.</td></tr>
-                  ) : filteredDashboardRequests.map((request) => (
+                  ) : dashboardRequests.map((request) => (
                     <tr key={request.id} className="hover:bg-muted/20">
                       <td className="px-5 py-3 font-medium"><Link className="text-primary hover:underline" href={`/access-requests?requestId=${request.id}`}>{request.contractNumber}</Link></td>
                       <td className="px-5 py-3">{request.contractorName}</td>
@@ -566,9 +680,9 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
-          </section>
+          </section> : null}
 
-          {showAttendanceAnalytics ? (
+          {showRecentActivity && showAttendanceAnalytics ? (
             <RecentActivityTable activity={summary?.recentActivity ?? []} isLoading={loadingSummary} />
           ) : null}
         </div>

@@ -2,28 +2,32 @@
 
 import { useEffect, useState } from 'react';
 import { BookOpen, Download, Save } from 'lucide-react';
+import { getDashboardExportRows } from '@/components/dashboard/dashboard-export';
+import {
+  parseDashboardSavedViews,
+  type DashboardSavedView,
+  type DashboardRequestStatusFilter,
+  type ReportingWindow,
+} from '@/components/dashboard/dashboard-saved-views';
 import type { DashboardSummary } from '@/lib/api';
 
-export type ReportingWindow = '24h' | '7d' | '30d' | 'custom';
-type SavedView = {
-  id: string;
-  name: string;
-  operatorId: string;
-  siteId: string;
-  reportingWindow: ReportingWindow;
-  customFromLocal?: string;
-  customToLocal?: string;
-};
+export type {
+  DashboardRequestStatusFilter,
+  ReportingWindow,
+} from '@/components/dashboard/dashboard-saved-views';
 
 type Props = {
   summary: DashboardSummary | null;
   showAttendanceAnalytics: boolean;
   operatorId: string;
   siteId: string;
+  externalCompanyId: string;
+  externalCompanyName?: string;
+  accessRequestStatus: DashboardRequestStatusFilter;
   reportingWindow: ReportingWindow;
   customFromLocal: string;
   customToLocal: string;
-  onApplyView: (view: Omit<SavedView, 'id' | 'name'>) => void;
+  onApplyView: (view: Omit<DashboardSavedView, 'id' | 'name'>) => void;
 };
 
 const STORAGE_KEY = 'gatepass.dashboard.saved-views.v1';
@@ -45,12 +49,15 @@ export function DashboardTools({
   showAttendanceAnalytics,
   operatorId,
   siteId,
+  externalCompanyId,
+  externalCompanyName,
+  accessRequestStatus,
   reportingWindow,
   customFromLocal,
   customToLocal,
   onApplyView,
 }: Props) {
-  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [savedViews, setSavedViews] = useState<DashboardSavedView[]>([]);
   const [showGlossary, setShowGlossary] = useState(false);
 
   useEffect(() => {
@@ -58,11 +65,13 @@ export function DashboardTools({
   }, []);
 
   function saveCurrentView() {
-    const view: SavedView = {
+    const view: DashboardSavedView = {
       id: crypto.randomUUID(),
       name: `${reportingWindow === 'custom' ? 'Custom range' : reportingWindow} · ${siteId === 'all' ? 'All sites' : 'Selected site'}`,
       operatorId,
       siteId,
+      externalCompanyId,
+      accessRequestStatus,
       reportingWindow,
       customFromLocal: reportingWindow === 'custom' ? customFromLocal : undefined,
       customToLocal: reportingWindow === 'custom' ? customToLocal : undefined,
@@ -78,40 +87,13 @@ export function DashboardTools({
 
   function exportCsv() {
     if (!summary) return;
-    const rows: Array<[string, string | number]> = [
-      ['Report', 'GatePass dashboard'],
-      ['Generated at UTC', summary.generatedAtUtc],
-      ['Window from UTC', summary.window.fromUtc],
-      ['Window to UTC', summary.window.toUtc],
-      ['Operator filter', operatorId],
-      ['Site filter', siteId],
-      ['Role view', summary.audience.role],
-      ['On site now', summary.totalOnSite],
-      ['Pending requests', summary.pendingRequests],
-      ['Active approvals', summary.approvedRequests],
-      ['Denied requests in window', summary.deniedRequests],
-      ...(showAttendanceAnalytics ? [
-        ['Movements', summary.movements.total],
-        ['Entries', summary.movements.entries],
-        ['Exits', summary.movements.exits],
-        ['Denied movements', summary.movements.denied],
-      ] as Array<[string, string | number]> : []),
-      ['Eligible workforce', summary.workforce.eligibleWorkers],
-      ['Cleared workforce', summary.workforce.clearedWorkers],
-      ['Readiness rate', summary.workforce.readinessRate],
-      ['Expired credentials', summary.expiry.expired],
-      ['Credentials expiring next 7 days', summary.expiry.next7Days],
-      ['Missing worker profiles', summary.dataQuality.missingWorkerProfiles],
-      ['Occupancy mismatch sites', summary.dataQuality.occupancyMismatchSites],
-      ['Registration cohort', summary.registrationFunnel?.cohortWorkers ?? 'Private'],
-      ['Registration profiles completed', summary.registrationFunnel?.profileCompletedWorkers ?? 'Private'],
-      ['Registration evidence started', summary.registrationFunnel?.evidenceStartedWorkers ?? 'Private'],
-      ['Registration submitted', summary.registrationFunnel?.submittedWorkers ?? 'Private'],
-      ['Registration cleared', summary.registrationFunnel?.clearedWorkers ?? 'Private'],
-      ['Registration submitted rate', summary.registrationFunnel?.submissionRate ?? 'Private'],
-      ['Registration clearance rate', summary.registrationFunnel?.clearanceRate ?? 'Private'],
-      ['Registration may need follow-up', summary.registrationFunnel?.stalledBeforeSubmissionWorkers ?? 'Private'],
-    ];
+    const rows = getDashboardExportRows(summary, showAttendanceAnalytics, {
+      operatorId,
+      siteId,
+      externalCompanyId,
+      externalCompanyName,
+      accessRequestStatus,
+    });
     const csv = ['Metric,Value', ...rows.map(([metric, value]) => `${csvCell(metric)},${csvCell(value)}`)].join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
@@ -174,30 +156,10 @@ function csvCell(value: string | number) {
   return /[",\r\n]/.test(stringValue) ? `"${stringValue.replaceAll('"', '""')}"` : stringValue;
 }
 
-function readSavedViews(): SavedView[] {
+function readSavedViews(): DashboardSavedView[] {
   try {
-    const rawValue = window.localStorage.getItem(STORAGE_KEY);
-    if (!rawValue) return [];
-    const parsedValue: unknown = JSON.parse(rawValue);
-    return Array.isArray(parsedValue)
-      ? parsedValue.filter(isSavedView).slice(0, 10)
-      : [];
+    return parseDashboardSavedViews(window.localStorage.getItem(STORAGE_KEY));
   } catch {
     return [];
   }
-}
-
-function isSavedView(value: unknown): value is SavedView {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<SavedView>;
-  return typeof candidate.id === 'string'
-    && typeof candidate.name === 'string'
-    && typeof candidate.operatorId === 'string'
-    && typeof candidate.siteId === 'string'
-    && (candidate.reportingWindow === '24h'
-      || candidate.reportingWindow === '7d'
-      || candidate.reportingWindow === '30d'
-      || (candidate.reportingWindow === 'custom'
-        && typeof candidate.customFromLocal === 'string'
-        && typeof candidate.customToLocal === 'string'));
 }

@@ -1,20 +1,8 @@
-type AttendanceCapabilitySite = {
-  id: string;
-  operatorId: string;
-  usesSecurityCheckpoints?: boolean;
-  usesSmartAccess?: boolean;
+type AttendanceOperatingModes = {
+  checkpointSites: number;
+  smartAccessSites: number;
 };
 
-export function shouldShowAttendanceAnalytics(
-  sites: AttendanceCapabilitySite[],
-  operatorId?: string,
-  siteId?: string,
-) {
-  const scopedSites = siteId
-    ? sites.filter((site) => site.id === siteId)
-    : operatorId
-      ? sites.filter((site) => site.operatorId === operatorId)
-      : sites;
-
-  return scopedSites.some((site) => site.usesSecurityCheckpoints || site.usesSmartAccess);
+export function shouldShowAttendanceAnalytics(modes?: AttendanceOperatingModes | null) {
+  return !!modes && (modes.checkpointSites > 0 || modes.smartAccessSites > 0);
 }

@@ -8,7 +8,7 @@ export type NavigationItem = {
 };
 
 const navigationItems: NavigationItem[] = [
-  { href: '/dashboard', label: 'Dashboard', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin'] },
+  { href: '/dashboard', label: 'Dashboard', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin', 'Security'] },
   { href: '/access-requests', label: 'Access Requests', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Worker', 'Supervisor', 'Contractor Admin'] },
   { href: '/alerts', label: 'Alerts', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },
   { href: '/muster', label: 'Muster', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },

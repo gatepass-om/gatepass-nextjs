@@ -46,31 +46,13 @@ test.describe('GatePass frontend against ASP.NET backend', () => {
     await login(page);
     await expect(page.getByRole('heading', { name: /good morning, gatepass/i })).toBeVisible();
     await expect(page.getByRole('combobox', { name: /reporting window/i })).toBeVisible();
-    await expect(page.getByRole('tab', { name: /^overview$/i })).toBeVisible();
-    await expect(page.getByRole('tab', { name: /^planning$/i })).toBeVisible();
-    await expect(page.getByRole('tab', { name: /^insights$/i })).toBeVisible();
+    await expect(page.getByRole('tab')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /current scope/i })).toBeVisible();
+    await expect(page.getByText(/people on site|pending decisions|workforce readiness/i).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: /operations queue/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /operational map/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^access requests$/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /movement activity|clearance pipeline/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /decision health|access decisions/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /workforce readiness/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /site pulse|workforce readiness/i })).toBeVisible();
-    await expect(page.getByText(/pending decisions|readiness/i).first()).toBeVisible();
-    await expect(page.getByText(/pending/i).first()).toBeVisible();
-    await expect(page.getByRole('heading', { name: /operations command center/i })).toHaveCount(0);
-
-    await page.getByRole('tab', { name: /^planning$/i }).click();
-    await expect(page.getByRole('heading', { name: /scheduled reports/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /add report schedule/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /^shift rosters$/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /add shift roster/i })).toBeVisible();
-
-    await page.getByRole('tab', { name: /^insights$/i }).click();
-    await expect(page.getByRole('heading', { name: /contractor readiness/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /inclusive adoption/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /data quality/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /^registration progress$/i })).toBeVisible();
-    await expect(page.getByText('Submitted rate', { exact: true })).toBeVisible();
-
-    await page.getByRole('tab', { name: /^overview$/i }).click();
     await page.getByRole('combobox', { name: /reporting window/i }).click();
     await page.getByRole('option', { name: /custom range/i }).click();
     await expect(page.getByLabel(/from date and time/i)).toBeVisible();

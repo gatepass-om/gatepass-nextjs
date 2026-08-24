@@ -69,11 +69,11 @@ export function OperationsActionQueue({ summary, isLoading = false }: Operations
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm text-foreground">{item.label}</span>
-                  {item.overdueCount > 0 ? (
-                    <span className="block text-[11px] text-warning">{item.overdueCount} overdue</span>
-                  ) : item.oldestAtUtc ? (
-                    <span className="block text-[11px] text-muted-foreground">
-                      Oldest {new Date(item.oldestAtUtc).toLocaleDateString()}
+                  {item.overdueCount > 0 || item.oldestAtUtc ? (
+                    <span className={`block text-[11px] ${item.overdueCount > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
+                      {item.overdueCount > 0 ? `${item.overdueCount} overdue` : ''}
+                      {item.overdueCount > 0 && item.oldestAtUtc ? ' · ' : ''}
+                      {item.oldestAtUtc ? `Oldest ${new Date(item.oldestAtUtc).toLocaleDateString()}` : ''}
                     </span>
                   ) : null}
                 </span>

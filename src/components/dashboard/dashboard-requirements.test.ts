@@ -10,13 +10,65 @@ const dashboardVisuals = readFileSync(
   new URL('./dashboard-visuals.tsx', import.meta.url),
   'utf8',
 );
-const dashboardSource = `${dashboardPage}\n${dashboardVisuals}`;
+const dashboardLayout = readFileSync(
+  new URL('./dashboard-layout.ts', import.meta.url),
+  'utf8',
+);
+const dashboardApi = readFileSync(
+  new URL('../../lib/api.ts', import.meta.url),
+  'utf8',
+);
+const dashboardSource = `${dashboardPage}\n${dashboardVisuals}\n${dashboardLayout}`;
 
-test('dashboard exposes the required portfolio totals and company filter', () => {
+test('dashboard keeps portfolio context available and the company filter scoped', () => {
   for (const label of ['Registered workers', 'Projects', 'Sites', 'Contractors & consultants']) {
     assert.match(dashboardSource, new RegExp(label));
   }
   assert.match(dashboardPage, /aria-label=["']External company["']/);
+});
+
+test('changing the operator clears dependent site and company filters', () => {
+  assert.match(
+    dashboardPage,
+    /onValueChange=\{\(operatorId\) => \{\s*setSelectedOperatorId\(operatorId\);\s*setSelectedSiteId\('all'\);\s*setSelectedExternalCompanyId\('all'\);\s*\}\}/,
+  );
+});
+
+test('external-company principals use and report their enforced company scope', () => {
+  assert.match(dashboardPage, /const effectiveExternalCompanyId = userContractorId \?\? selectedExternalCompanyId/);
+  assert.match(dashboardPage, /externalCompanyId: effectiveExternalCompanyId/);
+  assert.match(dashboardPage, /externalCompanyId=\{effectiveExternalCompanyId\}/);
+  assert.match(dashboardPage, /\{!userContractorId \? \(/);
+});
+
+test('optional company reference-data failures do not discard accessible sites', () => {
+  assert.match(dashboardPage, /listOperatorsRequest\(token\)\.catch/);
+  assert.match(dashboardPage, /listExternalCompaniesRequest\(token\)\.catch/);
+  assert.doesNotMatch(
+    dashboardPage,
+    /Promise\.all\(\[\s*userRole === 'Operator Admin'[\s\S]+?listExternalCompaniesRequest\(token\)/,
+  );
+});
+
+test('dashboard composition is role and tenant driven without client-name branches', () => {
+  assert.match(dashboardSource, /audience\.metricKeys/);
+  assert.match(dashboardSource, /audience\.panelKeys/);
+  assert.match(dashboardPage, /DASHBOARD_ROLES[^\n]+Security/);
+  assert.doesNotMatch(dashboardSource, /Nama|PDO|Worley/);
+});
+
+test('dashboard integrates latest-request coordination and a live freshness clock', () => {
+  assert.match(dashboardPage, /createLatestRequestCoordinator/);
+  assert.match(dashboardPage, /coordinator\.run/);
+  assert.match(dashboardPage, /result\.status === 'stale'/);
+  assert.match(dashboardPage, /summaryResult\?\.displayScopeKey === summaryDisplayScopeKey/);
+  assert.match(dashboardPage, /const summaryRequestScopeKey = \[summaryDisplayScopeKey, requestStatusFilter\]/);
+  assert.match(dashboardPage, /const loadingAccessRequests =/);
+  assert.match(dashboardPage, /setInterval\(\(\) => setFreshnessNowMs\(Date\.now\(\)\), 30_000\)/);
+  assert.match(dashboardPage, /getDashboardFreshness/);
+  assert.doesNotMatch(dashboardPage, /Search dashboard/);
+  assert.doesNotMatch(dashboardVisuals, />LIVE</);
+  assert.match(dashboardPage, /dashboard-reference-status[\s\S]+?summaryFreshness\.isStale/);
 });
 
 test('dashboard map includes site overview points alongside geofences', () => {
@@ -32,7 +84,10 @@ test('dashboard includes a filterable access request list for all decision state
   assert.match(dashboardSource, /Pending/);
   assert.match(dashboardSource, /Approved/);
   assert.match(dashboardSource, /Rejected/);
-  assert.match(dashboardSource, /summary\?\.accessRequests/);
+  assert.match(dashboardPage, /summaryResult\.data\.accessRequests/);
+  assert.match(dashboardPage, /accessRequestStatus: requestStatusFilter === 'all'/);
+  assert.match(dashboardApi, /params\.set\('accessRequestStatus', input\.accessRequestStatus\)/);
+  assert.doesNotMatch(dashboardPage, /summary\?\.accessRequests \?\? \[\]\)\.filter/);
 });
 
 test('dashboard presents one daily operations view without planning or insights tabs', () => {
@@ -40,7 +95,7 @@ test('dashboard presents one daily operations view without planning or insights 
   assert.doesNotMatch(dashboardPage, />\s*Planning\s*</);
   assert.doesNotMatch(dashboardPage, />\s*Insights\s*</);
   assert.doesNotMatch(dashboardPage, /ReportSchedulesPanel|ShiftRostersPanel|ManagementScorecards|RegistrationFunnelPanel|InclusiveAdoptionPanel|DataQualityPanel/);
-  assert.match(dashboardPage, /<OperationsActionQueue/);
+  assert.match(dashboardPage, /OperationsActionQueue/);
   assert.match(dashboardPage, /Operational map/);
   assert.match(dashboardPage, /Access requests/);
 });

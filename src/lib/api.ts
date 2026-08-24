@@ -191,7 +191,10 @@ export type DashboardSummary = {
   };
   audience: {
     role: string;
+    profileKey: string;
     visiblePanels: string[];
+    metricKeys: string[];
+    panelKeys: string[];
   };
   contractorScorecards: Array<{
     id: string;
@@ -411,14 +414,24 @@ export async function fetchCurrentUserRequest(token: string) {
   });
 }
 
+export type DashboardAccessRequestStatusFilter = 'Pending' | 'Approved' | 'Denied';
+
 export async function fetchDashboardSummaryRequest(
   token: string,
-  input?: { operatorId?: string; siteId?: string; externalCompanyId?: string; fromUtc?: string; toUtc?: string }
+  input?: {
+    operatorId?: string;
+    siteId?: string;
+    externalCompanyId?: string;
+    accessRequestStatus?: DashboardAccessRequestStatusFilter;
+    fromUtc?: string;
+    toUtc?: string;
+  }
 ) {
   const params = new URLSearchParams();
   if (input?.operatorId && input.operatorId !== 'all') params.set('operatorId', input.operatorId);
   if (input?.siteId && input.siteId !== 'all') params.set('siteId', input.siteId);
   if (input?.externalCompanyId && input.externalCompanyId !== 'all') params.set('externalCompanyId', input.externalCompanyId);
+  if (input?.accessRequestStatus) params.set('accessRequestStatus', input.accessRequestStatus);
   if (input?.fromUtc) params.set('fromUtc', input.fromUtc);
   if (input?.toUtc) params.set('toUtc', input.toUtc);
   const query = params.toString();
