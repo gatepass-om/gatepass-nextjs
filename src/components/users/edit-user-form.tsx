@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { User, UserRole, Certificate, CertificateType, Site, UserStatus, Contractor, Operator, JobPosition } from "@/lib/types";
@@ -26,12 +25,13 @@ import { WorkerClearance } from "@/components/workers/worker-clearance";
 import { WorkerTimeline } from "@/components/workers/worker-timeline";
 import { shouldShowWorkerDocuments } from "./user-actions";
 import { buildEmploymentPayload } from '@/components/compliance/compliance-model';
+import { resolveEditAffiliation } from './user-affiliation';
 
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email." }).optional().or(z.literal('')),
-  idNumber: z.string().optional(),
+  email: z.string().trim().email({ message: "Please enter a valid email." }),
+  idNumber: z.string().trim().min(1, { message: "National ID number is required." }),
   nationality: z.string().optional(),
   role: z.enum(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector']),
   status: z.enum(['Active', 'Inactive']),
@@ -44,23 +44,13 @@ const formSchema = z.object({
   contractorId: z.string().optional(),
   operatorId: z.string().optional(),
   jobPositionId: z.string().optional(),
-  interactiveAccountEnabled: z.boolean(),
-  preferredName: z.string().optional(),
-  preferredLanguage: z.string().optional(),
-  preferredInteractionMode: z.enum(['Web', 'MobileApp', 'PrintedCard', 'Kiosk', 'Sms', 'SupervisorAssisted']),
-  needsAssistedWorkflow: z.boolean(),
-  personalDeviceAvailable: z.boolean(),
-  canReceiveSms: z.boolean(),
-  offlineCardRequired: z.boolean(),
-  audioInstructionsPreferred: z.boolean(),
-  largeTextPreferred: z.boolean(),
-  interpreterRequired: z.boolean(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface EditUserFormProps {
     user: User;
+    currentUser: User;
     onUpdateUser: (userId: string, originalUser: User, updatedData: UpdateUserInput) => Promise<boolean>;
     sites: Site[];
     contractors: Contractor[];
@@ -70,12 +60,23 @@ interface EditUserFormProps {
     closeDialog: () => void;
 }
 
-export function EditUserForm({ user, onUpdateUser, sites, contractors, operators, jobPositions, isLoading, closeDialog }: EditUserFormProps) {
+export function EditUserForm({ user, currentUser, onUpdateUser, sites, contractors, operators, jobPositions, isLoading, closeDialog }: EditUserFormProps) {
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const { token } = useSession();
     const { toast } = useToast();
-    const roles: UserRole[] = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector'];
+    const roles = React.useMemo<UserRole[]>(() => {
+      const permitted: UserRole[] = currentUser.role === 'Admin'
+        ? ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector']
+        : currentUser.role === 'Operator Admin'
+          ? ['Manager', 'Security', 'Worker', 'Inspector']
+          : currentUser.role === 'Contractor Admin'
+            ? ['Supervisor', 'Worker', 'Visitor']
+            : currentUser.role === 'Security'
+              ? ['Visitor']
+              : [];
+      return permitted.includes(user.role) ? permitted : [user.role, ...permitted];
+    }, [currentUser.role, user.role]);
     const statuses: UserStatus[] = ['Active', 'Inactive'];
 
     const form = useForm<FormValues>({
@@ -96,17 +97,6 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
             contractorId: user.contractorId || "",
             operatorId: user.operatorId || "",
             jobPositionId: user.employment?.jobPositionId || "",
-            interactiveAccountEnabled: user.interactiveAccountEnabled ?? true,
-            preferredName: user.preferredName || "",
-            preferredLanguage: user.preferredLanguage || "en",
-            preferredInteractionMode: user.preferredInteractionMode || "Web",
-            needsAssistedWorkflow: user.needsAssistedWorkflow ?? false,
-            personalDeviceAvailable: user.personalDeviceAvailable ?? true,
-            canReceiveSms: user.canReceiveSms ?? true,
-            offlineCardRequired: user.offlineCardRequired ?? false,
-            audioInstructionsPreferred: user.audioInstructionsPreferred ?? false,
-            largeTextPreferred: user.largeTextPreferred ?? false,
-            interpreterRequired: user.interpreterRequired ?? false,
         },
     });
     
@@ -161,23 +151,21 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
         const selectedContractor = contractors.find(c => c.id === values.contractorId);
         const selectedOperator = operators.find(o => o.id === values.operatorId);
 
-        const isContractorRole = ['Worker', 'Supervisor', 'Contractor Admin'].includes(values.role);
-        const isOperatorRole = ['Manager', 'Operator Admin', 'Admin', 'Inspector'].includes(values.role);
-
-        const contractorIdValue = isContractorRole
-            ? values.contractorId || null
-            : null;
-        const operatorIdValue = isOperatorRole
-            ? values.operatorId || null
-            : null;
+        const { contractorId: contractorIdValue, operatorId: operatorIdValue } = resolveEditAffiliation({
+            role: values.role,
+            originalContractorId: user.contractorId,
+            originalOperatorId: user.operatorId,
+            selectedContractorId: values.contractorId,
+            selectedOperatorId: values.operatorId,
+        });
         const assignedSiteIdValue = values.role === 'Security'
             ? values.assignedSiteId || null
             : null;
 
         let companyValue: string | null = null;
-        if (isContractorRole) {
+        if (contractorIdValue) {
             companyValue = selectedContractor?.name ?? null;
-        } else if (isOperatorRole) {
+        } else if (operatorIdValue) {
             companyValue = selectedOperator?.name ?? null;
         } else if (values.role === 'Visitor') {
             companyValue = user.company ?? null;
@@ -196,18 +184,6 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
             operatorId: operatorIdValue,
             company: companyValue,
             certificates: certificates,
-            interactiveAccountEnabled: values.interactiveAccountEnabled,
-            preferredName: emptyToNull(values.preferredName),
-            preferredLanguage: emptyToNull(values.preferredLanguage),
-            preferredInteractionMode: values.preferredInteractionMode,
-            needsAssistedWorkflow: values.needsAssistedWorkflow,
-            personalDeviceAvailable: values.personalDeviceAvailable,
-            canReceiveSms: values.canReceiveSms,
-            offlineCardRequired: values.offlineCardRequired,
-            audioInstructionsPreferred: values.audioInstructionsPreferred,
-            largeTextPreferred: values.largeTextPreferred,
-            interpreterRequired: values.interpreterRequired,
-            registrationChannel: values.needsAssistedWorkflow ? 'Assisted' : user.registrationChannel || 'SelfService',
             employment: ['Worker', 'Supervisor'].includes(values.role) ? buildEmploymentPayload({
               jobPositionId: values.jobPositionId,
               contractorId: contractorIdValue ?? undefined,
@@ -246,11 +222,12 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email Address</FormLabel>
+                    <FormLabel>Email address *</FormLabel>
                     <FormControl>
                       <Input
                         type="email"
                         placeholder="john.doe@example.com"
+                        required
                         {...field}
                       />
                     </FormControl>
@@ -259,68 +236,6 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                 )}
               />
             </div>
-
-            {(selectedRole === 'Worker' || selectedRole === 'Visitor') && (
-              <section className="space-y-4 rounded-xl border p-4">
-                <div>
-                  <h3 className="font-semibold">Communication and assistance</h3>
-                  <p className="text-sm text-muted-foreground">
-                    These preferences help staff support this person. They do not grant or deny access.
-                  </p>
-                </div>
-                <FormField control={form.control} name="interactiveAccountEnabled" render={({ field }) => (
-                  <label className="flex items-start gap-3 rounded-lg border p-3">
-                    <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} className="mt-0.5" />
-                    <span>
-                      <span className="block text-sm font-medium">This person can sign in</span>
-                      <span className="block text-xs text-muted-foreground">Leave off for printed-card, kiosk, or supervisor-assisted use.</span>
-                    </span>
-                  </label>
-                )} />
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FormField control={form.control} name="preferredName" render={({ field }) => (
-                    <FormItem><FormLabel>Preferred name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="preferredLanguage" render={({ field }) => (
-                    <FormItem><FormLabel>Preferred language code</FormLabel><FormControl><Input placeholder="en, ar, hi…" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="preferredInteractionMode" render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Easiest way to use GatePass</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="Web">Web browser</SelectItem>
-                          <SelectItem value="MobileApp">Mobile app</SelectItem>
-                          <SelectItem value="PrintedCard">Printed QR card</SelectItem>
-                          <SelectItem value="Kiosk">Shared kiosk</SelectItem>
-                          <SelectItem value="Sms">Text message</SelectItem>
-                          <SelectItem value="SupervisorAssisted">Supervisor helps</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )} />
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {([
-                    ['needsAssistedWorkflow', 'A staff member will help'],
-                    ['personalDeviceAvailable', 'Has a personal phone or device'],
-                    ['canReceiveSms', 'Can receive text messages'],
-                    ['offlineCardRequired', 'Needs a printed offline card'],
-                    ['audioInstructionsPreferred', 'Audio instructions would help'],
-                    ['largeTextPreferred', 'Large text would help'],
-                    ['interpreterRequired', 'Interpreter support is needed'],
-                  ] as const).map(([name, label]) => (
-                    <FormField key={name} control={form.control} name={name} render={({ field }) => (
-                      <label className="flex items-center gap-3 rounded-lg border p-3 text-sm">
-                        <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} />
-                        {label}
-                      </label>
-                    )} />
-                  ))}
-                </div>
-              </section>
-            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <FormField
@@ -381,7 +296,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
               />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {(selectedRole === "Worker" || selectedRole === "Supervisor" || selectedRole === "Contractor Admin") && (
+              {selectedRole === "Contractor Admin" && currentUser.role === "Admin" && (
                 <FormField
                     control={form.control}
                     name="contractorId"
@@ -414,7 +329,7 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                     </FormItem>
                   )} />
                 )}
-                {(selectedRole === "Manager" || selectedRole === "Operator Admin") && (
+                {selectedRole === "Operator Admin" && currentUser.role === "Admin" && (
                 <FormField
                     control={form.control}
                     name="operatorId"
@@ -441,9 +356,9 @@ export function EditUserForm({ user, onUpdateUser, sites, contractors, operators
                     name="idNumber"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>ID Number (optional)</FormLabel>
+                        <FormLabel>National ID number *</FormLabel>
                         <FormControl>
-                            <Input placeholder="e.g. Driver's License #" {...field} />
+                            <Input required {...field} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>

@@ -68,6 +68,7 @@ import { WorkerDocuments } from "@/components/workers/worker-documents";
 import { WorkerTimeline } from "@/components/workers/worker-timeline";
 import { WorkerCards } from "@/components/workers/worker-cards";
 import { WorkerPositionCompliancePanel } from '@/components/compliance/worker-position-compliance';
+import { resolveUserCompanyName } from './user-company';
 
 interface UsersTableProps {
   users: User[];
@@ -115,16 +116,6 @@ export function UsersTable({
     return sites.find((s) => s.id === siteId)?.name || "Unknown Site";
   };
   
-  const getContractorName = (contractorId?: string) => {
-     if (!contractorId) return "";
-     return contractors.find((c) => c.id === contractorId)?.name;
-  }
-
-  const getOperatorName = (operatorId?: string) => {
-    if (!operatorId) return "";
-    return operators.find((o) => o.id === operatorId)?.name;
- };
-
   const statusColors: Record<UserStatus, string> = {
     Active: "bg-green-100 text-green-800",
     Inactive: "bg-yellow-100 text-yellow-800",
@@ -210,13 +201,10 @@ export function UsersTable({
                           <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
                             <div>{user.email}</div>
                              <div className="flex items-center gap-1.5 mt-1">
-                                {user.role === 'Worker' || user.role === 'Supervisor' || user.role === 'Contractor Admin' ? (
-                                    <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{getContractorName(user.contractorId ?? undefined) || user.company || 'N/A'}</Badge>
-                                ) : (user.role === 'Manager' || user.role === 'Operator Admin') ? (
-                                  <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{getOperatorName(user.operatorId ?? undefined) || 'N/A'}</Badge>
-                                ) : user.company ? (
-                                    <Badge variant="outline" className="flex items-center w-fit gap-1"><Briefcase className="h-3 w-3" />{user.company}</Badge>
-                                ) : null}
+                                <Badge variant="outline" className="flex items-center w-fit gap-1">
+                                  <Briefcase className="h-3 w-3" />
+                                  {resolveUserCompanyName(user, contractors, operators)}
+                                </Badge>
                                 {user.role === "Security" && user.assignedSiteId && (
                                     <Badge variant="outline" className="flex items-center w-fit gap-1"><Building className="h-3 w-3" />{getSiteName(user.assignedSiteId)}</Badge>
                                 )}
@@ -334,6 +322,7 @@ export function UsersTable({
           {selectedUser && (
             <EditUserForm
               user={selectedUser}
+              currentUser={currentUser}
               onUpdateUser={onUpdateUser}
               sites={sites}
               contractors={contractors}
