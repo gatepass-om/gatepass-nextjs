@@ -1,4 +1,8 @@
-import type { ExternalCompanyType, WorkerEmployment } from '@/lib/types';
+import type { ExternalCompanyType, UserRole, WorkerEmployment } from '@/lib/types';
+
+export function canManageWorkflowRoles(role: UserRole) {
+  return role === 'Admin';
+}
 
 export const EXTERNAL_COMPANY_TYPES: ReadonlyArray<{ value: ExternalCompanyType; label: string }> = [
   { value: 1, label: 'Contractor' },

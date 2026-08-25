@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 // @ts-expect-error Node's built-in TypeScript runner requires the source extension.
-import { buildEmploymentPayload, externalCompanyTypeLabel, normalizeDutyKeys, normalizeExternalCompanyType } from './compliance-model.ts';
+import { buildEmploymentPayload, canManageWorkflowRoles, externalCompanyTypeLabel, normalizeDutyKeys, normalizeExternalCompanyType } from './compliance-model.ts';
+
+test('workflow-role configuration remains a platform-admin control', () => {
+  assert.equal(canManageWorkflowRoles('Admin'), true);
+  assert.equal(canManageWorkflowRoles('Operator Admin'), false);
+  assert.equal(canManageWorkflowRoles('Contractor Admin'), false);
+});
 
 test('external company types accept API numbers and names', () => {
   assert.equal(normalizeExternalCompanyType(2), 2);

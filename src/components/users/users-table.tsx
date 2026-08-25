@@ -63,7 +63,6 @@ import Image from "next/image";
 import { Badge } from "../ui/badge";
 import { EditUserForm } from "./edit-user-form";
 import { canEditUserRecord, canImpersonateUser, canIssuePersonnelCard } from "./user-actions";
-import { WorkerClearance } from "@/components/workers/worker-clearance";
 import { WorkerDocuments } from "@/components/workers/worker-documents";
 import { WorkerTimeline } from "@/components/workers/worker-timeline";
 import { WorkerCards } from "@/components/workers/worker-cards";
@@ -140,80 +139,52 @@ export function UsersTable({
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>All Personnel</CardTitle>
-          <CardDescription>
-            A list of all personnel in the system.
-          </CardDescription>
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b py-4">
+          <CardTitle>Personnel register</CardTitle>
+          <CardDescription>Searchable personnel records with identity, affiliation, role, and status.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto -mx-2 sm:mx-0">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
             <div className="inline-block min-w-full align-middle">
-              <Table className="min-w-full border-separate border-spacing-y-1">
+              <Table className="min-w-[1180px] border-collapse text-sm">
                 <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="w-[160px]">Personnel</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Details
-                    </TableHead>
+                  <TableRow className="bg-muted/60 hover:bg-muted/60">
+                    <TableHead className="border-r">Name</TableHead>
+                    <TableHead className="border-r">National ID</TableHead>
+                    <TableHead className="border-r">Email</TableHead>
+                    <TableHead className="border-r">Company</TableHead>
+                    <TableHead className="border-r">Nationality</TableHead>
+                    <TableHead className="border-r">Job position</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-16 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading
                     ? [...Array(5)].map((_, i) => (
                         <TableRow key={i}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Skeleton className="h-9 w-9 rounded-full" />
-                              <Skeleton className="h-5 w-24" />
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden sm:table-cell">
-                            <Skeleton className="h-5 w-48" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-5 w-20" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-6 w-20 rounded-full" />
-                          </TableCell>
+                          {[0, 1, 2, 3, 4, 5, 6, 7].map((cell) => <TableCell key={cell} className="border-r py-2"><Skeleton className="h-5 w-24" /></TableCell>)}
                           <TableCell className="text-right">
                             <Skeleton className="h-9 w-9 ml-auto" />
                           </TableCell>
                         </TableRow>
                       ))
                     : users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="h-9 w-9 flex items-center justify-center rounded-full bg-muted text-muted-foreground font-semibold">
-                                {getInitials(user.name)}
-                              </div>
-                              <div className="font-medium whitespace-nowrap">
-                                {user.name}
-                              </div>
-                            </div>
+                        <TableRow key={user.id} className="hover:bg-muted/30">
+                          <TableCell className="border-r py-2 font-medium whitespace-nowrap">
+                            {canEditUser(user) ? <button type="button" className="text-left underline-offset-4 hover:underline" onClick={() => handleEditClick(user)}>{user.name}</button> : user.name}
                           </TableCell>
-                          <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                            <div>{user.email}</div>
-                             <div className="flex items-center gap-1.5 mt-1">
-                                <Badge variant="outline" className="flex items-center w-fit gap-1">
-                                  <Briefcase className="h-3 w-3" />
-                                  {resolveUserCompanyName(user, contractors, operators)}
-                                </Badge>
-                                {user.role === "Security" && user.assignedSiteId && (
-                                    <Badge variant="outline" className="flex items-center w-fit gap-1"><Building className="h-3 w-3" />{getSiteName(user.assignedSiteId)}</Badge>
-                                )}
-                             </div>
-                          </TableCell>
-                          <TableCell>
+                          <TableCell className="border-r py-2 font-mono text-xs">{user.idNumber || '—'}</TableCell>
+                          <TableCell className="border-r py-2">{user.email}</TableCell>
+                          <TableCell className="border-r py-2">{resolveUserCompanyName(user, contractors, operators)}</TableCell>
+                          <TableCell className="border-r py-2">{user.nationality || '—'}</TableCell>
+                          <TableCell className="border-r py-2">{user.employment?.jobPositionName || '—'}</TableCell>
+                          <TableCell className="py-2">
                             <Badge variant="secondary">{user.role}</Badge>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="py-2">
                             <Badge
                               className={
                                 statusColors[user.status || "Inactive"]
@@ -339,13 +310,12 @@ export function UsersTable({
           <DialogHeader>
             <DialogTitle>Worker Compliance Review</DialogTitle>
             <DialogDescription>
-              Review evidence and clearance for {complianceUser?.name} without editing their profile.
+              Review credentials and evidence for {complianceUser?.name} without editing their profile.
             </DialogDescription>
           </DialogHeader>
           {complianceUser && (
             <div className="space-y-4">
               <WorkerPositionCompliancePanel workerId={complianceUser.id} />
-              <WorkerClearance workerId={complianceUser.id} initialStatus={complianceUser.clearanceStatus} />
               <WorkerDocuments workerId={complianceUser.id} canManage={false} />
               <WorkerTimeline workerId={complianceUser.id} />
             </div>

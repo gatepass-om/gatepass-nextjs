@@ -13,12 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { Contractor, JobPosition, Operator, Site, UserRole } from '@/lib/types';
 import type { CreateUserInput, RegistrationProfile } from '@/lib/api';
 import { buildEmploymentPayload } from '@/components/compliance/compliance-model';
+import { NATIONALITY_OPTIONS } from './nationalities';
 
 const roleValues = ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector'] as const;
 const formSchema = z.object({
   name: z.string().trim().min(2, 'Enter the person’s full name.'),
   idNumber: z.string().trim().min(1, 'Enter the National ID number.').max(100, 'National ID number is too long.'),
   email: z.string().trim().email('Enter a valid email address.'),
+  nationality: z.string().min(1, 'Select a nationality.'),
   role: z.enum(roleValues),
   assignedSiteId: z.string().optional(),
   contractorId: z.string().optional(),
@@ -69,6 +71,7 @@ export function NewUserForm({
       name: '',
       idNumber: '',
       email: '',
+      nationality: '',
       role: availableRoles[0] || 'Worker',
       assignedSiteId: '',
       contractorId: '',
@@ -110,6 +113,7 @@ export function NewUserForm({
       name: values.name,
       idNumber: values.idNumber,
       email: values.email,
+      nationality: values.nationality,
       role: values.role,
       operatorId,
       contractorId,
@@ -147,6 +151,16 @@ export function NewUserForm({
               )} />
               <FormField control={form.control} name="email" render={({ field }) => (
                 <FormItem><FormLabel>Email address *</FormLabel><FormControl><Input type="email" inputMode="email" autoComplete="email" required {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="nationality" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nationality *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select nationality" /></SelectTrigger></FormControl>
+                    <SelectContent>{NATIONALITY_OPTIONS.map((nationality) => <SelectItem key={nationality} value={nationality}>{nationality}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
               <FormField control={form.control} name="role" render={({ field }) => (
                 <FormItem>

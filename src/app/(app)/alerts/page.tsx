@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, BellRing, RefreshCw, ShieldAlert, Siren } from 'lucide-react';
+import Link from 'next/link';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useSession } from '@/providers/session-provider';
 import { useToast } from '@/hooks/use-toast';
@@ -105,10 +106,13 @@ export default function AlertsPage() {
     <div className="space-y-4 md:space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Alerts</h1>
-          <p className="text-muted-foreground">Site security alerts — intrusion, tamper, device and lone-worker events — with acknowledgement.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Alerts & Muster</h1>
+          <p className="text-muted-foreground">Monitor site alerts and open the emergency roll-call workspace from one place.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Button asChild variant="outline">
+            <Link href="/muster"><Siren className="mr-2 h-4 w-4" />Muster / Roll-call</Link>
+          </Button>
           <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
             <SelectTrigger className="w-full sm:w-[240px]"><SelectValue /></SelectTrigger>
             <SelectContent>

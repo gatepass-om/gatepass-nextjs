@@ -12,6 +12,11 @@ test('the create-user form requires national ID and email', () => {
   assert.match(source, /idNumber:\s*values\.idNumber/);
 });
 
+test('the create-user form uses a nationality dropdown', () => {
+  assert.match(source, /name="nationality"/);
+  assert.match(source, /NATIONALITY_OPTIONS\.map/);
+});
+
 test('the create-user form does not ask how the person will use GatePass', () => {
   assert.doesNotMatch(source, /How will they use GatePass/);
   assert.doesNotMatch(source, /What help is useful/);

@@ -57,6 +57,11 @@ export default function UsersPage() {
   const [isNewUserFormOpen, setIsNewUserFormOpen] = useState(false);
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
   const { toast } = useToast();
+  const createFromRequest = searchParams.get('new') === 'worker';
+  const requestedReturnTo = searchParams.get('returnTo');
+  const returnTo = requestedReturnTo?.startsWith('/') && !requestedReturnTo.startsWith('//')
+    ? requestedReturnTo
+    : null;
 
   const canCreateUser = useMemo(() => {
     return ["Admin", "Operator Admin", "Contractor Admin"].includes(
@@ -144,6 +149,10 @@ export default function UsersPage() {
     void fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (createFromRequest && canCreateUser) setIsNewUserFormOpen(true);
+  }, [canCreateUser, createFromRequest]);
+
   const handleAddUser = async (
     newUser: CreateUserInput,
     registration?: { profileId: string; entityType: string; values: Record<string, unknown> },
@@ -200,7 +209,8 @@ export default function UsersPage() {
         description: `${createdUser.name} has been created.`,
       });
 
-      void fetchData();
+      await fetchData();
+      if (returnTo) router.push(returnTo);
     } catch (error: any) {
       console.error("Error adding user: ", error);
       toast({
@@ -338,12 +348,12 @@ export default function UsersPage() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                Create User
+                Create person
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-full sm:max-w-2xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New User Profile</DialogTitle>
+                <DialogTitle>Create personnel profile</DialogTitle>
               </DialogHeader>
               <NewUserForm
                 onNewUser={handleAddUser}

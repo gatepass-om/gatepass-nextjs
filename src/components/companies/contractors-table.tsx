@@ -136,7 +136,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Delete external company?</AlertDialogTitle>
+                                <AlertDialogTitle>Delete contractor?</AlertDialogTitle>
                                 <AlertDialogDescription>
                                   This will remove {contractor.name} if it has no linked users or requests.
                                 </AlertDialogDescription>
@@ -158,7 +158,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
 	                  </TableRow>
                   ))
               ) : (
-                <TableRow><TableCell colSpan={5} className="h-24 text-center">No external companies found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="h-24 text-center">No contractors or consultants found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -177,7 +177,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit External Company</DialogTitle>
+            <DialogTitle>Edit Contractor</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <Input

@@ -1,4 +1,5 @@
 import type { AccessDecisionEvaluation, AccessRequest, AccessRuleConfig, ContractorDetail, DecisionReasonOption, OperatorDetail, Tenant, User, WorkerProfile } from './types';
+import { normalizeUserProfile } from './user-profile';
 
 export const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4005').replace(/\/$/, '');
 
@@ -408,10 +409,11 @@ export async function impersonateUserRequest(token: string, userId: string) {
 }
 
 export async function fetchCurrentUserRequest(token: string) {
-  return apiRequest<User>('/users/me', {
+  const user = await apiRequest<User & { identityNumber?: string | null; employerName?: string | null }>('/users/me', {
     method: 'GET',
     token,
   });
+  return normalizeUserProfile(user);
 }
 
 export type DashboardAccessRequestStatusFilter = 'Pending' | 'Approved' | 'Denied';
@@ -799,6 +801,9 @@ export async function createExternalCompanyRequest(token: string, input: {
   name: string;
   companyType: number;
   operatorId?: string;
+  contractNumber?: string;
+  contractValidFromUtc?: string;
+  contractValidToUtc?: string;
   adminName: string;
   adminEmail: string;
 }) {
@@ -924,7 +929,8 @@ export async function listUsersRequest(token: string, input?: { role?: string; o
   if (input?.page) params.set('page', String(input.page));
   if (input?.pageSize) params.set('pageSize', String(input.pageSize));
   const query = params.toString();
-  return apiRequest<any[]>(`/users${query ? `?${query}` : ''}`, { token });
+  const users = await apiRequest<Array<User & { identityNumber?: string | null; employerName?: string | null }>>(`/users${query ? `?${query}` : ''}`, { token });
+  return users.map(normalizeUserProfile);
 }
 
 export async function listAccessRequestsPageRequest(
@@ -1166,7 +1172,7 @@ export async function createUserRequest(token: string, input: CreateUserInput) {
     token,
     body: toCreateUserRequestBody(input),
   });
-  return { user };
+  return { user: normalizeUserProfile(user) };
 }
 
 export type BulkRegistrationResult = {
@@ -1279,7 +1285,7 @@ export type UpdateUserInput = {
 
 export async function updateUserRequest(token: string, userId: string, input: UpdateUserInput) {
   const { company, idNumber, password, ...rest } = input;
-  return apiRequest<User>(`/users/${userId}`, {
+  const user = await apiRequest<User & { identityNumber?: string | null; employerName?: string | null }>(`/users/${userId}`, {
     method: 'PUT',
     token,
     body: {
@@ -1289,6 +1295,7 @@ export async function updateUserRequest(token: string, userId: string, input: Up
       newPassword: password,
     },
   });
+  return normalizeUserProfile(user);
 }
 
 export async function deleteUserRequest(token: string, userId: string) {

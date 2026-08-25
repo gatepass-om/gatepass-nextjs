@@ -23,7 +23,7 @@ import {
 } from '@/lib/api';
 import type { CertificateType, JobPosition, ProjectRole } from '@/lib/types';
 import { useSession } from '@/providers/session-provider';
-import { KNOWN_WORKFLOW_DUTIES, normalizeDutyKeys } from '@/components/compliance/compliance-model';
+import { canManageWorkflowRoles, KNOWN_WORKFLOW_DUTIES, normalizeDutyKeys } from '@/components/compliance/compliance-model';
 
 type RequirementDraft = { certificateTypeId: string; minimumValidityDays: number };
 
@@ -37,6 +37,7 @@ export default function CompliancePage() {
   const [loading, setLoading] = useState(true);
   const [positionEditor, setPositionEditor] = useState<JobPosition | 'new' | null>(null);
   const [roleEditor, setRoleEditor] = useState<ProjectRole | 'new' | null>(null);
+  const showWorkflowRoles = currentUser ? canManageWorkflowRoles(currentUser.role) : false;
 
   const loadData = useCallback(async () => {
     if (!token || !currentUser) return;
@@ -44,7 +45,7 @@ export default function CompliancePage() {
     try {
       const [positionData, roleData, certificateData] = await Promise.all([
         listJobPositionsRequest(token),
-        listProjectRolesRequest(token),
+        showWorkflowRoles ? listProjectRolesRequest(token) : Promise.resolve([]),
         listCertificateTypesRequest(token),
       ]);
       setPositions(positionData.sort((a, b) => a.name.localeCompare(b.name)));
@@ -55,7 +56,7 @@ export default function CompliancePage() {
     } finally {
       setLoading(false);
     }
-  }, [currentUser, toast, token]);
+  }, [currentUser, showWorkflowRoles, toast, token]);
 
   useEffect(() => { void loadData(); }, [loadData]);
 
@@ -67,12 +68,12 @@ export default function CompliancePage() {
       <header>
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Governance</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Compliance setup</h1>
-        <p className="mt-1 text-muted-foreground">Define what each job needs and what each project role is responsible for.</p>
+        <p className="mt-1 text-muted-foreground">Define the certificates and credentials required for each job position.</p>
       </header>
 
       {loading ? <div className="flex min-h-48 items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-muted-foreground" /></div> : (
-        <div className="grid gap-6 xl:grid-cols-2">
-          <Card>
+        <div className={`grid gap-6 ${showWorkflowRoles ? 'xl:grid-cols-2' : ''}`}>
+          {showWorkflowRoles ? <Card>
             <CardHeader className="flex-row items-start justify-between gap-4">
               <div><CardTitle className="flex items-center gap-2"><BriefcaseBusiness className="h-5 w-5" /> Job positions</CardTitle><CardDescription>Certificate and credential rules attached to a worker’s position.</CardDescription></div>
               <Button size="sm" onClick={() => setPositionEditor('new')}><Plus className="mr-2 h-4 w-4" /> Add</Button>
@@ -90,7 +91,7 @@ export default function CompliancePage() {
                 </div>
               )) : <EmptyState text="No job positions have been configured." />}
             </CardContent>
-          </Card>
+          </Card> : null}
 
           <Card>
             <CardHeader className="flex-row items-start justify-between gap-4">
@@ -110,7 +111,7 @@ export default function CompliancePage() {
       )}
 
       <JobPositionEditor openValue={positionEditor} certificateTypes={certificateTypes} onClose={() => setPositionEditor(null)} onSaved={() => { setPositionEditor(null); void loadData(); }} />
-      <ProjectRoleEditor openValue={roleEditor} onClose={() => setRoleEditor(null)} onSaved={() => { setRoleEditor(null); void loadData(); }} />
+      {showWorkflowRoles ? <ProjectRoleEditor openValue={roleEditor} onClose={() => setRoleEditor(null)} onSaved={() => { setRoleEditor(null); void loadData(); }} /> : null}
     </div>
   );
 }

@@ -82,7 +82,7 @@ export default function CompaniesPage() {
     void fetchData({ silent: true });
   }, 20000);
 
-  const handleAddCompany = async (input: { name: string; type: 'operator' | 'contractor'; externalType?: ExternalCompanyType; operatorId?: string; adminName?: string; adminEmail?: string }): Promise<boolean> => {
+  const handleAddCompany = async (input: { name: string; type: 'operator' | 'contractor'; externalType?: ExternalCompanyType; operatorId?: string; contractNumber?: string; contractValidFromUtc?: string; contractValidToUtc?: string; adminName?: string; adminEmail?: string }): Promise<boolean> => {
     const { type } = input;
     const trimmed = input.name.trim();
     if (!token || !trimmed) return false;
@@ -94,6 +94,9 @@ export default function CompaniesPage() {
           name: trimmed,
           companyType: input.externalType ?? 1,
           operatorId: input.operatorId,
+          contractNumber: input.contractNumber,
+          contractValidFromUtc: input.contractValidFromUtc,
+          contractValidToUtc: input.contractValidToUtc,
           adminName: input.adminName ?? '',
           adminEmail: input.adminEmail ?? '',
         });
@@ -126,7 +129,7 @@ export default function CompaniesPage() {
     if (!token || !trimmed) return;
     try {
       await updateExternalCompanyRequest(token, contractorId, { name: trimmed, companyType });
-      toast({ title: "External Company Updated", description: "Company details have been updated." });
+      toast({ title: "Contractor Updated", description: "Company details have been updated." });
       void fetchData();
     } catch (error: any) {
       console.error('Error renaming contractor:', error);
@@ -150,7 +153,7 @@ export default function CompaniesPage() {
     if (!token) return;
     try {
       await deleteExternalCompanyRequest(token, contractorId);
-      toast({ title: "External Company Deleted", description: `${name} has been removed.` });
+      toast({ title: "Contractor Deleted", description: `${name} has been removed.` });
       void fetchData();
     } catch (error: any) {
       console.error('Error deleting contractor:', error);
@@ -173,8 +176,8 @@ export default function CompaniesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Company Management</h1>
           <p className="text-muted-foreground">
             {canManageCompanies
-              ? 'Overview of operators and all connected external companies.'
-              : 'External companies registered for your operator.'}
+              ? 'Overview of operators and all connected contractor companies.'
+              : 'Contractors and consultants registered for your operator.'}
           </p>
         </div>
         {canRegisterExternalCompany && (
@@ -185,7 +188,7 @@ export default function CompaniesPage() {
             </Button>}
             <Button onClick={() => setIsContractorFormOpen(true)}>
               <HardHat className="mr-2 h-4 w-4" />
-              New external company
+              New contractor
             </Button>
           </div>
         )}

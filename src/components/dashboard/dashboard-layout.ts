@@ -86,14 +86,14 @@ const metricRegistry: Record<string, (summary: DashboardMetricSummary) => Dashbo
   }),
   'credential-risk': (summary) => ({
     key: 'credential-risk',
-    label: 'Credential risk signals',
+    label: 'Credential risks',
     value: summary.expiry.expired + summary.expiry.next7Days + summary.expiry.days8To30,
     detail: `${summary.expiry.expired} expired · ${summary.expiry.next7Days + summary.expiry.days8To30} due in 30 days`,
     tone: summary.expiry.expired > 0 ? 'red' : 'amber',
   }),
   'compliance-exceptions': (summary) => ({
     key: 'compliance-exceptions',
-    label: 'Compliance signals',
+    label: 'Compliance exceptions',
     value: summary.expiry.expired + summary.workforce.returnedWorkers,
     detail: `${summary.workforce.returnedWorkers} returned · ${summary.expiry.expired} expired`,
     tone: 'red',

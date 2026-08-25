@@ -21,11 +21,12 @@ import { useSession } from "@/providers/session-provider";
 import { listCertificateTypesRequest, type UpdateUserInput } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { WorkerDocuments } from "@/components/workers/worker-documents";
-import { WorkerClearance } from "@/components/workers/worker-clearance";
 import { WorkerTimeline } from "@/components/workers/worker-timeline";
 import { shouldShowWorkerDocuments } from "./user-actions";
 import { buildEmploymentPayload } from '@/components/compliance/compliance-model';
 import { resolveEditAffiliation } from './user-affiliation';
+import { NATIONALITY_OPTIONS } from './nationalities';
+import { isMaskedIdentityNumber } from '@/lib/user-profile';
 
 
 const formSchema = z.object({
@@ -177,7 +178,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
             status: values.status,
             email: values.email || undefined,
             notes: emptyToNull(values.notes),
-            idNumber: emptyToNull(values.idNumber),
+            idNumber: isMaskedIdentityNumber(values.idNumber) ? undefined : emptyToNull(values.idNumber),
             nationality: emptyToNull(values.nationality),
             assignedSiteId: assignedSiteIdValue,
             contractorId: contractorIdValue,
@@ -369,10 +370,11 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                     name="nationality"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Nationality (optional)</FormLabel>
-                        <FormControl>
-                            <Input placeholder="e.g. Omani" {...field} />
-                        </FormControl>
+                        <FormLabel>Nationality</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl><SelectTrigger><SelectValue placeholder="Select nationality" /></SelectTrigger></FormControl>
+                          <SelectContent>{NATIONALITY_OPTIONS.map((nationality) => <SelectItem key={nationality} value={nationality}>{nationality}</SelectItem>)}</SelectContent>
+                        </Select>
                         <FormMessage />
                         </FormItem>
                     )}
@@ -573,7 +575,6 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
             </div>
             {shouldShowWorkerDocuments(user.role) && (
               <>
-                <WorkerClearance workerId={user.id} initialStatus={user.clearanceStatus} />
                 <WorkerDocuments workerId={user.id} certificateTypes={certificateTypes} canManage />
                 <WorkerTimeline workerId={user.id} />
               </>

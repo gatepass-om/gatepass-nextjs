@@ -18,7 +18,6 @@ import {
   ClipboardList,
   Users,
   ScanLine,
-  QrCode as QrCodeIcon,
   ShieldCheck,
   Building2,
   FileBadge,
@@ -32,7 +31,6 @@ import {
   BellRing,
   Siren,
   SlidersHorizontal,
-  CreditCard,
   BadgeCheck,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -54,15 +52,13 @@ const GatePassLogo = () => (
 
 const dashboardLabels: Record<string, string> = {
   '/access-requests': 'Requests',
-  '/card-verification': 'Verify cards',
-  '/card-production': 'Cards',
   '/location-governance': 'Geofencing',
   '/decision-rules': 'Rules',
   '/surveillance': 'Video',
   '/permits': 'Permits',
   '/smart-access': 'Smart access',
   '/sites': 'Sites',
-  '/profile': 'My QR',
+  '/profile': 'My Account',
 };
 
 export function SidebarNav() {
@@ -108,8 +104,6 @@ export function SidebarNav() {
       '/alerts': BellRing,
       '/muster': Siren,
       '/scan': ScanLine,
-      '/card-verification': CreditCard,
-      '/card-production': CreditCard,
       '/location-governance': MapPinned,
       '/projects': Briefcase,
       '/decision-rules': SlidersHorizontal,
@@ -121,7 +115,7 @@ export function SidebarNav() {
       '/companies': Briefcase,
       '/users': Users,
       '/certificates': FileBadge,
-      '/profile': QrCodeIcon,
+      '/profile': UserIcon,
       '/notifications': BellRing,
     } as const;
     const visible = getNavigationForRole(role).map((item) => ({

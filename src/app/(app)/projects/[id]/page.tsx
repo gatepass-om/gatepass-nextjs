@@ -136,6 +136,7 @@ export default function ProjectCommandCenterPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => void load()}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</Button>
+          {canCreateRequest ? <Button asChild variant="outline"><Link href={`/users?new=worker&returnTo=${encodeURIComponent(`/projects/${project.id}`)}`}>Register worker</Link></Button> : null}
           {canCreateRequest ? <Button onClick={() => setRequestOpen(true)}><ClipboardCheck className="mr-2 h-4 w-4" /> Request worker access</Button> : null}
         </div>
       </header>

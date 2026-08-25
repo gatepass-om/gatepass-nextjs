@@ -43,7 +43,7 @@ const summary = {
 test('dashboard renders the ordered metric composition returned by the API', () => {
   assert.deepEqual(
     getDashboardMetricCards(summary).map((metric) => metric.label),
-    ['People on site', 'Pending decisions', 'Workforce readiness', 'Credential risk signals', 'Compliance signals'],
+    ['People on site', 'Pending decisions', 'Workforce readiness', 'Credential risks', 'Compliance exceptions'],
   );
 });
 

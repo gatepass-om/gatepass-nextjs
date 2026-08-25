@@ -10,11 +10,8 @@ export type NavigationItem = {
 const navigationItems: NavigationItem[] = [
   { href: '/dashboard', label: 'Dashboard', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin', 'Security'] },
   { href: '/access-requests', label: 'Access Requests', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Worker', 'Supervisor', 'Contractor Admin'] },
-  { href: '/alerts', label: 'Alerts', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },
-  { href: '/muster', label: 'Muster', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },
+  { href: '/alerts', label: 'Alerts & Muster', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },
   { href: '/scan', label: 'Scan Workstation', group: 'Operations', roles: ['Security', 'Inspector'] },
-  { href: '/card-verification', label: 'Card Verification', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Security', 'Contractor Admin'] },
-  { href: '/card-production', label: 'Card Production', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Contractor Admin'] },
   { href: '/location-governance', label: 'Geofencing', group: 'Governance', roles: ['Admin', 'Operator Admin', 'Manager', 'Contractor Admin', 'Supervisor'] },
   { href: '/projects', label: 'Projects', group: 'Governance', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin'] },
   { href: '/decision-rules', label: 'Decision Rules', group: 'Governance', roles: ['Admin'] },
@@ -26,7 +23,7 @@ const navigationItems: NavigationItem[] = [
   { href: '/companies', label: 'Companies', group: 'Directory', roles: ['Admin', 'Operator Admin', 'Supervisor'] },
   { href: '/users', label: 'Personnel', group: 'Directory', roles: ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Supervisor'] },
   { href: '/certificates', label: 'Certificates', group: 'Directory', roles: ['Admin', 'Operator Admin'] },
-  { href: '/profile', label: 'My QR Code', group: 'Account', roles: ['Worker', 'Visitor', 'Manager', 'Supervisor', 'Admin', 'Operator Admin', 'Security', 'Contractor Admin'] },
+  { href: '/profile', label: 'My Account', group: 'Account', roles: ['Worker', 'Visitor', 'Manager', 'Supervisor', 'Admin', 'Operator Admin', 'Security', 'Contractor Admin'] },
   { href: '/notifications', label: 'Notifications', group: 'Account', roles: ['Worker', 'Visitor', 'Manager', 'Supervisor', 'Admin', 'Operator Admin', 'Security', 'Contractor Admin', 'Inspector'] },
 ];
 

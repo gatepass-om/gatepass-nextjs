@@ -19,6 +19,15 @@ test('the edit-user form requires national ID and email', () => {
   assert.match(editSource, /<FormLabel>Email address \*<\/FormLabel>/);
 });
 
+test('the edit-user form uses a nationality dropdown and preserves a masked national ID', () => {
+  assert.match(editSource, /NATIONALITY_OPTIONS\.map/);
+  assert.match(editSource, /isMaskedIdentityNumber/);
+});
+
+test('worker clearance is not shown in the personnel editor', () => {
+  assert.doesNotMatch(editSource, /WorkerClearance/);
+});
+
 test('company assignment is viewer-scoped and only shown for company administrator roles', () => {
   assert.match(editSource, /currentUser:\s*User/);
   assert.match(tableSource, /currentUser=\{currentUser\}/);
