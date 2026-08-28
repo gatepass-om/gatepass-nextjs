@@ -19,6 +19,21 @@ test('client navigation exposes one emergency center and no card-production tool
   );
 });
 
+test('inspection analytics replaces the website scan workstation', () => {
+  for (const role of ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Security', 'Inspector'] as const) {
+    const routes = getNavigationForRole(role).map((item) => item.href);
+    assert.equal(routes.includes('/inspections'), true);
+    assert.equal(routes.includes('/scan'), false);
+  }
+
+  for (const role of ['Worker', 'Visitor'] as const) {
+    assert.equal(
+      getNavigationForRole(role).some((item) => item.href === '/inspections'),
+      false,
+    );
+  }
+});
+
 test('the account destination uses the simplified account label', () => {
   for (const role of ['Admin', 'Operator Admin', 'Contractor Admin', 'Worker'] as const) {
     assert.equal(

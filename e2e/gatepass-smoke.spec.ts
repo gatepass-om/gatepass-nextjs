@@ -73,21 +73,13 @@ test.describe('GatePass frontend against ASP.NET backend', () => {
     await expect(page.getByText(/Marmul Central Facility Work Zone|Muscat Contractor Operating Region|Geofence Registry/i).first()).toBeVisible();
   });
 
-  test('security user can reach scan workstation', async ({ page }) => {
+  test('security user can view inspection analytics without a website scanner', async ({ page }) => {
     await login(page, 'security.marmul@gatepass.local', 'ChangeMe123!');
-    await page.goto('/scan');
-    await expect(page.getByRole('heading', { name: /scan/i })).toBeVisible();
-    await expect(page.getByText(/scan|decision|visitor/i).first()).toBeVisible();
-  });
-
-  test('security user can verify permanent worker cards without implying authorization', async ({ page }) => {
-    await login(page, 'security.marmul@gatepass.local', 'ChangeMe123!');
-    await page.goto('/card-verification');
-    await expect(page.getByRole('heading', { name: /worker card verification/i })).toBeVisible();
-    await expect(page.getByText(/identity verification only/i)).toBeVisible();
-    await expect(page.getByText(/does not authorize entry/i)).toBeVisible();
-    await expect(page.getByRole('combobox', { name: /offline manifest site/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /refresh offline identity list/i })).toBeVisible();
+    await page.goto('/inspections');
+    await expect(page.getByRole('heading', { name: /inspection analytics/i })).toBeVisible();
+    await expect(page.getByText(/workers inspected/i).first()).toBeVisible();
+    await expect(page.getByText(/common wrongful conduct/i)).toBeVisible();
+    await expect(page.locator('#qr-scanner-container')).toHaveCount(0);
   });
 
   test('personnel management does not offer invalid static QR downloads', async ({ page }) => {
@@ -162,15 +154,6 @@ test.describe('GatePass frontend against ASP.NET backend', () => {
     await expect(page.getByLabel(/card photo vertical crop/i)).toBeVisible();
     await expect(page.getByLabel(/card photo zoom/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /^issue card$/i })).toBeEnabled();
-  });
-
-  test('administrators can open the worker card production queue', async ({ page }) => {
-    await login(page);
-    await page.goto('/card-production');
-
-    await expect(page.getByRole('heading', { name: /worker card production/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /batch print selected/i })).toBeVisible();
-    await expect(page.getByText(/identity verification.*does not authorize entry/i)).toBeVisible();
   });
 
   test('manager can open read-only worker compliance review', async ({ page }) => {

@@ -11,7 +11,7 @@ const navigationItems: NavigationItem[] = [
   { href: '/dashboard', label: 'Dashboard', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin', 'Security'] },
   { href: '/access-requests', label: 'Access Requests', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Worker', 'Supervisor', 'Contractor Admin'] },
   { href: '/alerts', label: 'Alerts & Muster', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },
-  { href: '/scan', label: 'Scan Workstation', group: 'Operations', roles: ['Security', 'Inspector'] },
+  { href: '/inspections', label: 'Inspections', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Security', 'Inspector'] },
   { href: '/location-governance', label: 'Geofencing', group: 'Governance', roles: ['Admin', 'Operator Admin', 'Manager', 'Contractor Admin', 'Supervisor'] },
   { href: '/projects', label: 'Projects', group: 'Governance', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin'] },
   { href: '/decision-rules', label: 'Decision Rules', group: 'Governance', roles: ['Admin'] },
