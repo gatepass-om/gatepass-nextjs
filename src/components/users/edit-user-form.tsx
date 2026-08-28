@@ -58,10 +58,9 @@ interface EditUserFormProps {
     operators: Operator[];
     jobPositions: JobPosition[];
     isLoading: boolean;
-    closeDialog: () => void;
 }
 
-export function EditUserForm({ user, currentUser, onUpdateUser, sites, contractors, operators, jobPositions, isLoading, closeDialog }: EditUserFormProps) {
+export function EditUserForm({ user, currentUser, onUpdateUser, sites, contractors, operators, jobPositions, isLoading }: EditUserFormProps) {
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const { token } = useSession();
@@ -193,17 +192,13 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
             }) : null,
         };
 
-        const success = await onUpdateUser(user.id, user, updatedData);
-
-        if (success) {
-            closeDialog();
-        }
+        await onUpdateUser(user.id, user, updatedData);
     }
 
     return (
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-4">
-          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-4">
+          <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}

@@ -28,11 +28,10 @@ import {
   listContractorsRequest,
   listOperatorsRequest,
   createUserRequest,
-  updateUserRequest,
   deleteUserRequest,
   listJobPositionsRequest,
 } from "@/lib/api";
-import type { CreateUserInput, UpdateUserInput } from "@/lib/api";
+import type { CreateUserInput } from "@/lib/api";
 
 export default function UsersPage() {
   const router = useRouter();
@@ -189,39 +188,6 @@ export default function UsersPage() {
     }
   };
 
-  const handleUpdateUser = async (
-    userId: string,
-    originalUser: User,
-    updatedData: UpdateUserInput
-  ) => {
-    if (!token) {
-      toast({
-        variant: "destructive",
-        title: "Session expired",
-        description: "Please log in again to continue.",
-      });
-      return false;
-    }
-
-    try {
-      const updated = await updateUserRequest(token, userId, updatedData);
-      setUsers((prev) => prev.map((user) => (user.id === userId ? updated : user)));
-      toast({
-        title: "User Updated",
-        description: `${updated.name}'s profile has been updated.`,
-      });
-      return true;
-    } catch (error: any) {
-      console.error("Error updating user:", error);
-      toast({
-        variant: "destructive",
-        title: "Update Failed",
-        description: error.message || "Could not update user.",
-      });
-      return false;
-    }
-  };
-
   const handleDeleteUser = async (userId: string, userName: string) => {
     if (!token) {
       toast({
@@ -323,7 +289,6 @@ export default function UsersPage() {
         jobPositions={jobPositions}
         isLoading={loading}
         onDeleteUser={handleDeleteUser}
-        onUpdateUser={handleUpdateUser}
         currentUser={currentUser}
         canMutateUsers={canMutateUsers}
         onImpersonateUser={handleImpersonateUser}

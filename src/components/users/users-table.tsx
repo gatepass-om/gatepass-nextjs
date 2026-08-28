@@ -18,7 +18,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import type { User, Site, Contractor, Operator, JobPosition } from "@/lib/types";
-import type { CreateUserInput, UpdateUserInput } from '@/lib/api';
+import type { CreateUserInput } from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -30,6 +30,7 @@ import {
   UserCheck,
   Plus,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -55,7 +56,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "../ui/badge";
-import { EditUserForm } from "./edit-user-form";
 import { canEditUserRecord, canImpersonateUser, canIssuePersonnelCard } from "./user-actions";
 import { WorkerDocuments } from "@/components/workers/worker-documents";
 import { WorkerTimeline } from "@/components/workers/worker-timeline";
@@ -72,11 +72,6 @@ interface UsersTableProps {
   jobPositions: JobPosition[];
   isLoading: boolean;
   onDeleteUser: (userId: string, userName: string) => void;
-  onUpdateUser: (
-    userId: string,
-    originalUser: User,
-    updatedData: UpdateUserInput
-  ) => Promise<boolean>;
   currentUser: User;
   canMutateUsers: boolean;
   onImpersonateUser: (user: User) => void;
@@ -92,22 +87,19 @@ export function UsersTable({
   jobPositions,
   isLoading,
   onDeleteUser,
-  onUpdateUser,
   currentUser,
   canMutateUsers,
   onImpersonateUser,
   onCreateUser,
   startWithInlineRow = false,
 }: UsersTableProps) {
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const router = useRouter();
   const [complianceUser, setComplianceUser] = useState<User | null>(null);
   const [cardUser, setCardUser] = useState<User | null>(null);
   const [isAddingRow, setIsAddingRow] = useState(startWithInlineRow);
 
-  const handleEditClick = (user: User) => {
-    setSelectedUser(user);
-    setIsEditDialogOpen(true);
+  const handleProfileClick = (user: User) => {
+    router.push(`/users/${user.id}`);
   };
 
   const canEditUser = (user: User) => {
@@ -176,9 +168,22 @@ export function UsersTable({
                         </TableRow>
                       ))
                     : users.map((user) => (
-                        <TableRow key={user.id} className="hover:bg-muted/30">
+                        <TableRow
+                          key={user.id}
+                          className="cursor-pointer hover:bg-muted/30"
+                          onClick={() => handleProfileClick(user)}
+                        >
                           <TableCell className="border-r py-2 font-medium whitespace-nowrap">
-                            {canEditUser(user) ? <button type="button" className="text-left underline-offset-4 hover:underline" onClick={() => handleEditClick(user)}>{user.name}</button> : user.name}
+                            <button
+                              type="button"
+                              className="text-left underline-offset-4 hover:underline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleProfileClick(user);
+                              }}
+                            >
+                              {user.name}
+                            </button>
                           </TableCell>
                           <TableCell className="border-r py-2 font-mono text-xs">{user.idNumber || '—'}</TableCell>
                           <TableCell className="border-r py-2">{user.email}</TableCell>
@@ -188,7 +193,7 @@ export function UsersTable({
                           <TableCell className="py-2">
                             <Badge variant="secondary">{user.role}</Badge>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -203,7 +208,7 @@ export function UsersTable({
                               <DropdownMenuContent align="end">
                                 {canEditUser(user) && (
                                   <DropdownMenuItem
-                                    onSelect={() => handleEditClick(user)}
+                                    onSelect={() => handleProfileClick(user)}
                                   >
                                     <Pencil className="mr-2 h-4 w-4" /> Edit
                                   </DropdownMenuItem>
@@ -277,29 +282,6 @@ export function UsersTable({
           </div>
         </CardContent>
       </Card>
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-full sm:max-w-3xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit User Profile</DialogTitle>
-            <DialogDescription>
-              Update the details for {selectedUser?.name}.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedUser && (
-            <EditUserForm
-              user={selectedUser}
-              currentUser={currentUser}
-              onUpdateUser={onUpdateUser}
-              sites={sites}
-              contractors={contractors}
-              operators={operators}
-              jobPositions={jobPositions}
-              isLoading={isLoading}
-              closeDialog={() => setIsEditDialogOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
       <Dialog open={complianceUser !== null} onOpenChange={(open) => !open && setComplianceUser(null)}>
         <DialogContent className="max-w-full sm:max-w-3xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>

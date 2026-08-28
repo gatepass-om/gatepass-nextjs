@@ -95,14 +95,6 @@ export type AccessRequest = {
   siteRequiredCertificates?: string[];
 };
 
-export type ScanAccessRequest = {
-  id: string;
-  status: AccessRequestStatus | string;
-  validFromUtc?: string;
-  expiresAtUtc?: string;
-  isPermanent?: boolean;
-};
-
 export type GateActivity = {
   id: string;
   userId: string;

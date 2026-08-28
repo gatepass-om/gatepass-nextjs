@@ -27,3 +27,12 @@ test('the add control is integrated into the table and the register adapts to na
   assert.match(source, /hidden[^\"]*sm:table-cell/);
   assert.match(source, /min-w-\[760px\]/);
 });
+
+test('personnel rows and edit actions navigate to a dedicated profile page', () => {
+  assert.match(source, /useRouter\(\)/);
+  assert.match(source, /router\.push\(`\/users\/\$\{user\.id\}`\)/);
+  assert.match(source, /onClick=\{\(\) => handleProfileClick\(user\)\}/);
+  assert.match(source, /onSelect=\{\(\) => handleProfileClick\(user\)\}/);
+  assert.doesNotMatch(source, /<EditUserForm/);
+  assert.doesNotMatch(source, /Edit User Profile/);
+});
