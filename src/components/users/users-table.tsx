@@ -17,23 +17,18 @@ import {
   CardContent,
   CardDescription,
 } from "@/components/ui/card";
-import type { User, Site, UserStatus, Contractor, Operator, JobPosition } from "@/lib/types";
-import type { UpdateUserInput } from '@/lib/api';
+import type { User, Site, Contractor, Operator, JobPosition } from "@/lib/types";
+import type { CreateUserInput, UpdateUserInput } from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Paperclip,
   ShieldCheck,
-  AlertTriangle,
-  Contact,
-  Building,
   Trash2,
   MoreHorizontal,
   Pencil,
-  Briefcase,
   CreditCard,
-  User as UserIcon,
   UserCheck,
+  Plus,
 } from "lucide-react";
 import {
   Dialog,
@@ -59,7 +54,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import Image from "next/image";
 import { Badge } from "../ui/badge";
 import { EditUserForm } from "./edit-user-form";
 import { canEditUserRecord, canImpersonateUser, canIssuePersonnelCard } from "./user-actions";
@@ -68,6 +62,7 @@ import { WorkerTimeline } from "@/components/workers/worker-timeline";
 import { WorkerCards } from "@/components/workers/worker-cards";
 import { WorkerPositionCompliancePanel } from '@/components/compliance/worker-position-compliance';
 import { resolveUserCompanyName } from './user-company';
+import { InlineUserRow } from './inline-user-row';
 
 interface UsersTableProps {
   users: User[];
@@ -85,6 +80,8 @@ interface UsersTableProps {
   currentUser: User;
   canMutateUsers: boolean;
   onImpersonateUser: (user: User) => void;
+  onCreateUser: (user: CreateUserInput) => Promise<boolean>;
+  startWithInlineRow?: boolean;
 }
 
 export function UsersTable({
@@ -99,11 +96,14 @@ export function UsersTable({
   currentUser,
   canMutateUsers,
   onImpersonateUser,
+  onCreateUser,
+  startWithInlineRow = false,
 }: UsersTableProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [complianceUser, setComplianceUser] = useState<User | null>(null);
   const [cardUser, setCardUser] = useState<User | null>(null);
+  const [isAddingRow, setIsAddingRow] = useState(startWithInlineRow);
 
   const handleEditClick = (user: User) => {
     setSelectedUser(user);
@@ -115,15 +115,6 @@ export function UsersTable({
     return sites.find((s) => s.id === siteId)?.name || "Unknown Site";
   };
   
-  const statusColors: Record<UserStatus, string> = {
-    Active: "bg-green-100 text-green-800",
-    Inactive: "bg-yellow-100 text-yellow-800",
-  };
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-  }
-
   const canEditUser = (user: User) => {
     return canEditUserRecord(canMutateUsers, user.role);
   };
@@ -140,14 +131,21 @@ export function UsersTable({
   return (
     <>
       <Card className="overflow-hidden">
-        <CardHeader className="border-b py-4">
-          <CardTitle>Personnel register</CardTitle>
-          <CardDescription>Searchable personnel records with identity, affiliation, role, and status.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b py-4">
+          <div>
+            <CardTitle>Personnel register</CardTitle>
+            <CardDescription>Searchable personnel records with identity, affiliation, role, and status.</CardDescription>
+          </div>
+          {canMutateUsers ? (
+            <Button type="button" size="sm" aria-label="Add personnel row" onClick={() => setIsAddingRow(true)} disabled={isAddingRow || isLoading}>
+              <Plus className="mr-2 h-4 w-4" /> Add row
+            </Button>
+          ) : null}
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <div className="inline-block min-w-full align-middle">
-              <Table className="min-w-[1180px] border-collapse text-sm">
+              <Table className="min-w-[1320px] border-collapse text-sm">
                 <TableHeader>
                   <TableRow className="bg-muted/60 hover:bg-muted/60">
                     <TableHead className="border-r">Name</TableHead>
@@ -157,11 +155,22 @@ export function UsersTable({
                     <TableHead className="border-r">Nationality</TableHead>
                     <TableHead className="border-r">Job position</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="border-r">Assigned site</TableHead>
                     <TableHead className="w-16 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {isAddingRow ? (
+                    <InlineUserRow
+                      currentUser={currentUser}
+                      contractors={contractors}
+                      operators={operators}
+                      sites={sites}
+                      jobPositions={jobPositions}
+                      onCreateUser={onCreateUser}
+                      onCancel={() => setIsAddingRow(false)}
+                    />
+                  ) : null}
                   {isLoading
                     ? [...Array(5)].map((_, i) => (
                         <TableRow key={i}>
@@ -184,15 +193,7 @@ export function UsersTable({
                           <TableCell className="py-2">
                             <Badge variant="secondary">{user.role}</Badge>
                           </TableCell>
-                          <TableCell className="py-2">
-                            <Badge
-                              className={
-                                statusColors[user.status || "Inactive"]
-                              }
-                            >
-                              {user.status || "Inactive"}
-                            </Badge>
-                          </TableCell>
+                          <TableCell className="border-r py-2">{getSiteName(user.assignedSiteId ?? undefined)}</TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
