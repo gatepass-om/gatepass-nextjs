@@ -280,19 +280,19 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <header className="flex items-center justify-between">
+    <div className="min-w-0 space-y-4 md:space-y-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Personnel Management</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Personnel Management</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Manage personnel from operators, contractors, and visitors.
           </p>
         </div>
         {canCreateUser && (
-          <div className="flex gap-2">
+          <div className="flex w-full gap-2 sm:w-auto">
           <Dialog open={isBulkFormOpen} onOpenChange={setIsBulkFormOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="w-full sm:w-auto">
                 <FileUp className="mr-2 h-4 w-4" />
                 Import roster
               </Button>

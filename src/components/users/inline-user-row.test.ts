@@ -25,3 +25,9 @@ test('inline personnel row has explicit save and cancel actions', () => {
   assert.match(source, /aria-label="Cancel personnel row"/);
   assert.match(source, /Saving…/);
 });
+
+test('site assignment is conditional inside the role cell rather than a separate table column', () => {
+  assert.match(source, /aria-label="Assigned site"/);
+  assert.match(source, /colSpan=\{8\}/);
+  assert.doesNotMatch(source, /<TableCell className="border-r p-1\.5">\s*\{\['Security', 'Inspector'\]/);
+});

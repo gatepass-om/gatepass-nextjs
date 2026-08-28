@@ -110,11 +110,6 @@ export function UsersTable({
     setIsEditDialogOpen(true);
   };
 
-  const getSiteName = (siteId?: string) => {
-    if (!siteId) return "N/A";
-    return sites.find((s) => s.id === siteId)?.name || "Unknown Site";
-  };
-  
   const canEditUser = (user: User) => {
     return canEditUserRecord(canMutateUsers, user.role);
   };
@@ -131,32 +126,32 @@ export function UsersTable({
   return (
     <>
       <Card className="overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b py-4">
+        <CardHeader className="border-b px-4 py-3 sm:px-6 sm:py-4">
           <div>
             <CardTitle>Personnel register</CardTitle>
-            <CardDescription>Searchable personnel records with identity, affiliation, role, and status.</CardDescription>
+            <CardDescription className="mt-1">Add and manage personnel directly in the register.</CardDescription>
           </div>
-          {canMutateUsers ? (
-            <Button type="button" size="sm" aria-label="Add personnel row" onClick={() => setIsAddingRow(true)} disabled={isAddingRow || isLoading}>
-              <Plus className="mr-2 h-4 w-4" /> Add row
-            </Button>
-          ) : null}
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <div className="inline-block min-w-full align-middle">
-              <Table className="min-w-[1320px] border-collapse text-sm">
+              <Table className="min-w-[760px] border-collapse text-sm">
                 <TableHeader>
                   <TableRow className="bg-muted/60 hover:bg-muted/60">
                     <TableHead className="border-r">Name</TableHead>
                     <TableHead className="border-r">National ID</TableHead>
                     <TableHead className="border-r">Email</TableHead>
-                    <TableHead className="border-r">Company</TableHead>
-                    <TableHead className="border-r">Nationality</TableHead>
-                    <TableHead className="border-r">Job position</TableHead>
+                    <TableHead className="hidden border-r sm:table-cell">Company</TableHead>
+                    <TableHead className="hidden border-r lg:table-cell">Nationality</TableHead>
+                    <TableHead className="hidden border-r md:table-cell">Job position</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead className="border-r">Assigned site</TableHead>
-                    <TableHead className="w-16 text-right">Actions</TableHead>
+                    <TableHead aria-label="Row actions" className="w-14 text-right">
+                      {canMutateUsers ? (
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="Add personnel row" title="Add person" onClick={() => setIsAddingRow(true)} disabled={isAddingRow || isLoading}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -174,7 +169,7 @@ export function UsersTable({
                   {isLoading
                     ? [...Array(5)].map((_, i) => (
                         <TableRow key={i}>
-                          {[0, 1, 2, 3, 4, 5, 6, 7].map((cell) => <TableCell key={cell} className="border-r py-2"><Skeleton className="h-5 w-24" /></TableCell>)}
+                          {[0, 1, 2, 3, 4, 5, 6].map((cell) => <TableCell key={cell} className="border-r py-2"><Skeleton className="h-5 w-24" /></TableCell>)}
                           <TableCell className="text-right">
                             <Skeleton className="h-9 w-9 ml-auto" />
                           </TableCell>
@@ -187,13 +182,12 @@ export function UsersTable({
                           </TableCell>
                           <TableCell className="border-r py-2 font-mono text-xs">{user.idNumber || '—'}</TableCell>
                           <TableCell className="border-r py-2">{user.email}</TableCell>
-                          <TableCell className="border-r py-2">{resolveUserCompanyName(user, contractors, operators)}</TableCell>
-                          <TableCell className="border-r py-2">{user.nationality || '—'}</TableCell>
-                          <TableCell className="border-r py-2">{user.employment?.jobPositionName || '—'}</TableCell>
+                          <TableCell className="hidden border-r py-2 sm:table-cell">{resolveUserCompanyName(user, contractors, operators)}</TableCell>
+                          <TableCell className="hidden border-r py-2 lg:table-cell">{user.nationality || '—'}</TableCell>
+                          <TableCell className="hidden border-r py-2 md:table-cell">{user.employment?.jobPositionName || '—'}</TableCell>
                           <TableCell className="py-2">
                             <Badge variant="secondary">{user.role}</Badge>
                           </TableCell>
-                          <TableCell className="border-r py-2">{getSiteName(user.assignedSiteId ?? undefined)}</TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
