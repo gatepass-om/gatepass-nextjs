@@ -137,41 +137,54 @@ export function InlineUserRow({
   return (
     <>
       <TableRow className="bg-muted/25 align-top hover:bg-muted/25">
-        <TableCell colSpan={8} className="p-2 sm:p-3">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-            <Input autoFocus aria-label="Full legal name" placeholder="Full legal name" value={draft.name} onChange={(event) => setField('name', event.target.value)} className="h-9" />
-            <Input aria-label="National ID number" placeholder="National ID" value={draft.idNumber} onChange={(event) => setField('idNumber', event.target.value)} className="h-9" />
-            <Input aria-label="Email address" type="email" placeholder="name@company.com" value={draft.email} onChange={(event) => setField('email', event.target.value)} className="h-9 sm:col-span-2 lg:col-span-1" />
-            {companyName ? (
-              <div className="flex h-9 items-center truncate rounded-md border bg-muted/40 px-3 text-xs text-muted-foreground" title={companyName}>{companyName}</div>
-            ) : (
-              <select aria-label="Company" value={draft.affiliationId} onChange={(event) => setField('affiliationId', event.target.value)} className="h-9 min-w-0 rounded-md border bg-background px-2 text-sm">
+        <TableCell className="border-r p-1.5">
+          <Input autoFocus aria-label="Full legal name" placeholder="Full legal name" value={draft.name} onChange={(event) => setField('name', event.target.value)} className="h-9 w-full" />
+        </TableCell>
+        <TableCell className="border-r p-1.5">
+          <Input aria-label="National ID number" placeholder="National ID" value={draft.idNumber} onChange={(event) => setField('idNumber', event.target.value)} className="h-9 w-full" />
+        </TableCell>
+        <TableCell className="border-r p-1.5">
+          <Input aria-label="Email address" type="email" placeholder="name@company.com" value={draft.email} onChange={(event) => setField('email', event.target.value)} className="h-9 w-full" />
+        </TableCell>
+        <TableCell className="border-r p-1.5">
+          {companyName ? (
+            <div className="flex h-9 items-center truncate rounded-md border bg-muted/40 px-3 text-xs text-muted-foreground" title={companyName}>{companyName}</div>
+          ) : (
+            <select aria-label="Company" value={draft.affiliationId} onChange={(event) => setField('affiliationId', event.target.value)} className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
                 <option value="">Select company</option>
                 {companyOptions.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-              </select>
-            )}
-            <select aria-label="Nationality" value={draft.nationality} onChange={(event) => setField('nationality', event.target.value)} className="h-9 min-w-0 rounded-md border bg-background px-2 text-sm">
-              <option value="">Select nationality</option>
-              {NATIONALITY_OPTIONS.map((nationality) => <option key={nationality} value={nationality}>{nationality}</option>)}
             </select>
-            {['Worker', 'Supervisor'].includes(draft.role) ? (
-              <select aria-label="Job position" value={draft.jobPositionId} onChange={(event) => setField('jobPositionId', event.target.value)} className="h-9 min-w-0 rounded-md border bg-background px-2 text-sm">
-                <option value="">Select position</option>
-                {jobPositions.map((position) => <option key={position.id} value={position.id}>{position.name}</option>)}
+          )}
+        </TableCell>
+        <TableCell className="border-r p-1.5">
+          <select aria-label="Nationality" value={draft.nationality} onChange={(event) => setField('nationality', event.target.value)} className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
+            <option value="">Select nationality</option>
+            {NATIONALITY_OPTIONS.map((nationality) => <option key={nationality} value={nationality}>{nationality}</option>)}
+          </select>
+        </TableCell>
+        <TableCell className="border-r p-1.5">
+          {['Worker', 'Supervisor'].includes(draft.role) ? (
+            <select aria-label="Job position" value={draft.jobPositionId} onChange={(event) => setField('jobPositionId', event.target.value)} className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
+              <option value="">Select position</option>
+              {jobPositions.map((position) => <option key={position.id} value={position.id}>{position.name}</option>)}
+            </select>
+          ) : <span aria-hidden="true" />}
+        </TableCell>
+        <TableCell className="p-1.5">
+          <div className="grid gap-2">
+            <select aria-label="Type of person" value={draft.role} onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value as UserRole, affiliationId: '', jobPositionId: '', assignedSiteId: '' }))} className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
+              {roles.map((role) => <option key={role} value={role}>{role}</option>)}
+            </select>
+            {['Security', 'Inspector'].includes(draft.role) ? (
+              <select aria-label="Assigned site" value={draft.assignedSiteId} onChange={(event) => setField('assignedSiteId', event.target.value)} className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
+                <option value="">Select site</option>
+                {sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
               </select>
-            ) : <div className="hidden xl:block" />}
-            <div className="grid gap-2">
-              <select aria-label="Type of person" value={draft.role} onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value as UserRole, affiliationId: '', jobPositionId: '', assignedSiteId: '' }))} className="h-9 min-w-0 rounded-md border bg-background px-2 text-sm">
-                {roles.map((role) => <option key={role} value={role}>{role}</option>)}
-              </select>
-              {['Security', 'Inspector'].includes(draft.role) ? (
-                <select aria-label="Assigned site" value={draft.assignedSiteId} onChange={(event) => setField('assignedSiteId', event.target.value)} className="h-9 min-w-0 rounded-md border bg-background px-2 text-sm">
-                  <option value="">Select site</option>
-                  {sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
-                </select>
-              ) : null}
-            </div>
-            <div className="flex justify-end gap-1">
+            ) : null}
+          </div>
+        </TableCell>
+        <TableCell className="p-1.5">
+          <div className="flex justify-end gap-1">
             <Button type="button" size="icon" className="h-9 w-9" aria-label="Save personnel row" onClick={() => void submit()} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               <span className="sr-only">{saving ? 'Saving…' : 'Save row'}</span>
@@ -180,10 +193,13 @@ export function InlineUserRow({
               <X className="h-4 w-4" />
             </Button>
           </div>
-          </div>
-          {error ? <p className="pt-2 text-sm text-destructive">{error}</p> : null}
         </TableCell>
       </TableRow>
+      {error ? (
+        <TableRow className="bg-muted/25 hover:bg-muted/25">
+          <TableCell colSpan={8} className="px-3 pb-2 pt-0 text-sm text-destructive">{error}</TableCell>
+        </TableRow>
+      ) : null}
     </>
   );
 }

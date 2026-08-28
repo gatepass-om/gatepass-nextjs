@@ -127,15 +127,25 @@ export function UsersTable({
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <div className="inline-block min-w-full align-middle">
-              <Table className="min-w-[760px] border-collapse text-sm">
+              <Table className="min-w-[1240px] table-fixed border-collapse text-sm">
+                <colgroup>
+                  <col className="w-[190px]" />
+                  <col className="w-[150px]" />
+                  <col className="w-[210px]" />
+                  <col className="w-[280px]" />
+                  <col className="w-[150px]" />
+                  <col className="w-[170px]" />
+                  <col className="w-[160px]" />
+                  <col className="w-[88px]" />
+                </colgroup>
                 <TableHeader>
                   <TableRow className="bg-muted/60 hover:bg-muted/60">
                     <TableHead className="border-r">Name</TableHead>
                     <TableHead className="border-r">National ID</TableHead>
                     <TableHead className="border-r">Email</TableHead>
-                    <TableHead className="hidden border-r sm:table-cell">Company</TableHead>
-                    <TableHead className="hidden border-r lg:table-cell">Nationality</TableHead>
-                    <TableHead className="hidden border-r md:table-cell">Job position</TableHead>
+                    <TableHead className="border-r">Company</TableHead>
+                    <TableHead className="border-r">Nationality</TableHead>
+                    <TableHead className="border-r">Job position</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead aria-label="Row actions" className="w-14 text-right">
                       {canMutateUsers ? (
@@ -187,9 +197,9 @@ export function UsersTable({
                           </TableCell>
                           <TableCell className="border-r py-2 font-mono text-xs">{user.idNumber || '—'}</TableCell>
                           <TableCell className="border-r py-2">{user.email}</TableCell>
-                          <TableCell className="hidden border-r py-2 sm:table-cell">{resolveUserCompanyName(user, contractors, operators)}</TableCell>
-                          <TableCell className="hidden border-r py-2 lg:table-cell">{user.nationality || '—'}</TableCell>
-                          <TableCell className="hidden border-r py-2 md:table-cell">{user.employment?.jobPositionName || '—'}</TableCell>
+                          <TableCell className="border-r py-2">{resolveUserCompanyName(user, contractors, operators)}</TableCell>
+                          <TableCell className="border-r py-2">{user.nationality || '—'}</TableCell>
+                          <TableCell className="border-r py-2">{user.employment?.jobPositionName || '—'}</TableCell>
                           <TableCell className="py-2">
                             <Badge variant="secondary">{user.role}</Badge>
                           </TableCell>

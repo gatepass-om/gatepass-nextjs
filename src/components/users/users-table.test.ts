@@ -24,8 +24,10 @@ test('personnel can be created from an inline table row without opening a dialog
 
 test('the add control is integrated into the table and the register adapts to narrow screens', () => {
   assert.match(source, /<TableHead[^>]*aria-label="Row actions"/);
-  assert.match(source, /hidden[^\"]*sm:table-cell/);
-  assert.match(source, /min-w-\[760px\]/);
+  assert.match(source, /overflow-x-auto/);
+  assert.match(source, /min-w-\[1240px\]/);
+  assert.match(source, /<colgroup>/);
+  assert.equal(source.match(/<col className=/g)?.length, 8);
 });
 
 test('personnel rows and edit actions navigate to a dedicated profile page', () => {

@@ -28,6 +28,22 @@ test('inline personnel row has explicit save and cancel actions', () => {
 
 test('site assignment is conditional inside the role cell rather than a separate table column', () => {
   assert.match(source, /aria-label="Assigned site"/);
-  assert.match(source, /colSpan=\{8\}/);
   assert.doesNotMatch(source, /<TableCell className="border-r p-1\.5">\s*\{\['Security', 'Inspector'\]/);
+});
+
+test('inline controls use the same eight table columns as the personnel header', () => {
+  assert.equal(source.match(/<TableCell/g)?.length, 9);
+  const controls = [
+    'aria-label="Full legal name"',
+    'aria-label="National ID number"',
+    'aria-label="Email address"',
+    'aria-label="Company"',
+    'aria-label="Nationality"',
+    'aria-label="Job position"',
+    'aria-label="Type of person"',
+    'aria-label="Save personnel row"',
+  ];
+  const positions = controls.map((control) => source.indexOf(control));
+  assert.ok(positions.every((position) => position >= 0));
+  assert.deepEqual(positions, [...positions].sort((left, right) => left - right));
 });
