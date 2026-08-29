@@ -198,12 +198,12 @@ export default function AccessRequestsPage() {
   const getVisibleTabs = () => {
     const tabs = [];
 
-    if (isSupervisor || isWorker || isManager) {
-      tabs.push({ value: "my-requests-log", label: "Requests Log" });
+    if (isManager) {
+      tabs.push({ value: "approve", label: "To review" });
     }
 
-    if (isManager) {
-      tabs.push({ value: "approve", label: "Approve Requests" });
+    if (isSupervisor || isWorker || isManager) {
+      tabs.push({ value: "my-requests-log", label: "All requests" });
     }
     return tabs;
   };
@@ -214,8 +214,8 @@ export default function AccessRequestsPage() {
     <div className="space-y-4 md:space-y-5">
       <header className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Access Request Workflow</h1>
-          <p className="text-sm text-muted-foreground">Create, review, approve, and track governed access windows.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Access Requests</h1>
+          <p className="text-sm text-muted-foreground">Review, approve, and track site access.</p>
         </div>
         {isSupervisor && (
           <Dialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen}>
@@ -255,8 +255,8 @@ export default function AccessRequestsPage() {
         {(isSupervisor || isWorker || isManager) && (
           <TabsContent value="my-requests-log">
             <RequestsTable
-              title="Requests Log"
-              description="A log of all access requests relevant to you."
+              title="All requests"
+              description="Every access request in your scope, regardless of status."
               requests={myRequests}
               isLoading={loading}
               onDelete={canDelete ? handleDeleteRequest : undefined}
@@ -275,8 +275,8 @@ export default function AccessRequestsPage() {
         {isManager && (
           <TabsContent value="approve">
             <RequestsTable
-              title="Pending Approval"
-              description="These requests are waiting for your approval."
+              title="To review"
+              description="These requests are waiting for your decision."
               requests={pendingRequests}
               showActions={true}
               onConfirmApprove={handleConfirmApproval}
