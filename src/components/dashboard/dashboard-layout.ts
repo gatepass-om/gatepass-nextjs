@@ -149,8 +149,24 @@ const metricRegistry: Record<string, (summary: DashboardMetricSummary) => Dashbo
   }),
 };
 
+// Bounds how many tiles ever render at once, regardless of how many keys the
+// backend authorizes for a given role/profile — the reference shape this
+// redesign follows uses ~4-5 tiles, not up to all 14 possible metricRegistry keys.
+const METRIC_PRIORITY: string[] = [
+  'people-on-site',
+  'pending-decisions',
+  'assigned-decisions',
+  'workforce-readiness',
+  'credential-risk',
+];
+const MAX_METRIC_TILES = 5;
+
 export function getDashboardMetricCards(summary: DashboardMetricSummary): DashboardMetricCard[] {
-  return (summary.audience.metricKeys ?? []).flatMap((key) => {
+  const requestedKeys = summary.audience.metricKeys ?? [];
+  const prioritized = METRIC_PRIORITY.filter((key) => requestedKeys.includes(key));
+  const remaining = requestedKeys.filter((key) => !METRIC_PRIORITY.includes(key));
+  const cappedKeys = [...prioritized, ...remaining].slice(0, MAX_METRIC_TILES);
+  return cappedKeys.flatMap((key) => {
     const buildMetric = metricRegistry[key];
     return buildMetric ? [buildMetric(summary)] : [];
   });
