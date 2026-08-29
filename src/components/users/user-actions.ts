@@ -1,4 +1,4 @@
-import type { UserRole } from '@/lib/types';
+import type { UserRole, UserStatus } from '@/lib/types';
 
 export const PERSONNEL_PAGE_ROLES: UserRole[] = [
   'Admin',
@@ -45,4 +45,12 @@ export function canImpersonateUser(
 
 export function shouldShowWorkerDocuments(role: UserRole) {
   return role === 'Worker';
+}
+
+export function canReviewWorkerCompliance(viewerRole: UserRole, subjectRole: UserRole) {
+  return subjectRole === 'Worker' && ['Admin', 'Operator Admin', 'Manager'].includes(viewerRole);
+}
+
+export function canManageWorkerCard(viewerRole: UserRole, subjectStatus?: UserStatus) {
+  return subjectStatus === 'Active' && canIssuePersonnelCard(viewerRole);
 }
