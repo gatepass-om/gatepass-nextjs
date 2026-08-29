@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import type { AccessRequest } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Check, X, Loader2, Users, CalendarDays, Infinity, Trash2, ShieldCheck, Clock3, ShieldX } from 'lucide-react';
+import { Loader2, Users, CalendarDays, Infinity, Trash2, ShieldCheck, Clock3, ShieldX } from 'lucide-react';
 import { useState } from 'react';
 import { RequestDetailsDialog } from './request-details-dialog';
 import {
@@ -35,8 +35,8 @@ interface RequestsTableProps {
   title: string;
   description: string;
   showActions?: boolean;
-  onApprove?: (request: AccessRequest) => void;
-  onDeny?: (requestId: string) => void;
+  onConfirmApprove?: (requestId: string, validFrom: Date, expiresAt: Date | 'Permanent') => void;
+  onConfirmDeny?: (requestId: string, reason: string) => void;
   onDelete?: (request: AccessRequest) => void | Promise<void>;
   isLoading?: boolean;
 }
@@ -67,8 +67,8 @@ export function RequestsTable({
   title,
   description,
   showActions = false,
-  onApprove,
-  onDeny,
+  onConfirmApprove,
+  onConfirmDeny,
   onDelete,
   isLoading = false,
 }: RequestsTableProps) {
@@ -92,7 +92,7 @@ export function RequestsTable({
     }
   }
 
-  const showActionColumn = showActions || Boolean(onDelete);
+  const showActionColumn = Boolean(onDelete);
   const colSpan = showActionColumn ? 7 : 6;
 
   const handleRowClick = (request: AccessRequest) => {
@@ -189,33 +189,9 @@ export function RequestsTable({
                         {request.status}
                       </Badge>
                     </TableCell>
-                    {showActionColumn && (
+                    {onDelete && (
                         <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
-                                {showActions && (
-                                  <>
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onApprove?.(request);
-                                      }}
-                                    >
-                                      <Check className="h-4 w-4 text-green-600" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDeny?.(request.id);
-                                      }}
-                                    >
-                                      <X className="h-4 w-4 text-red-600" />
-                                    </Button>
-                                  </>
-                                )}
                                 {onDelete && (
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
@@ -276,8 +252,8 @@ export function RequestsTable({
           }
         }}
         onDelete={onDelete}
-        onApprove={showActions ? onApprove : undefined}
-        onDeny={showActions ? onDeny : undefined}
+        onConfirmApprove={showActions ? onConfirmApprove : undefined}
+        onConfirmDeny={showActions ? onConfirmDeny : undefined}
       />
     )}
   </>

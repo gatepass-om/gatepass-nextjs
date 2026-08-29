@@ -8,7 +8,6 @@ import { SupervisorRequestForm } from "@/components/access-requests/supervisor-r
 import type { AccessRequest, Site, Operator, Contractor } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthProtection } from "@/hooks/use-auth-protection";
-import { ApprovalDialog } from "@/components/access-requests/approval-dialog";
 import {
   Dialog,
   DialogContent,
@@ -56,10 +55,6 @@ export default function AccessRequestsPage() {
   const [pendingHasPreviousPage, setPendingHasPreviousPage] = useState(false);
   const [pendingHasNextPage, setPendingHasNextPage] = useState(false);
 
-  const [approvalRequest, setApprovalRequest] = useState<AccessRequest | null>(null);
-  const [denyRequest, setDenyRequest] = useState<AccessRequest | null>(null);
-  const [denyReason, setDenyReason] = useState('');
-  const [denyBusy, setDenyBusy] = useState(false);
   const [isNewRequestOpen, setIsNewRequestOpen] = useState(false);
 
   const defaultTab = isManager ? "approve" : "my-requests-log";
@@ -146,39 +141,15 @@ export default function AccessRequestsPage() {
     void fetchRequests();
   }, 45000);
 
-  const handleOpenApprovalDialog = (request: AccessRequest) => {
-    setApprovalRequest(request);
-  };
-
-  // Open the deny dialog so a reason can be captured. The backend requires a decisionReason when denying (it's
-  // recorded on the request's audit trail), so we never deny without one.
-  const handleOpenDenyDialog = (requestId: string) => {
-    const request = pendingRequests.find((r) => r.id === requestId)
-      ?? myRequests.find((r) => r.id === requestId)
-      ?? null;
-    setDenyReason('');
-    setDenyRequest(request);
-  };
-
-  const handleConfirmDeny = async () => {
-    if (!token || !denyRequest) return;
-    if (!denyReason.trim()) {
-      toast({ variant: 'destructive', title: 'Reason required', description: 'Enter a reason for denying this request.' });
-      return;
-    }
-
-    setDenyBusy(true);
+  const handleConfirmDeny = async (requestId: string, reason: string) => {
+    if (!token) return;
     try {
-      await updateAccessRequest(token, denyRequest.id, { status: 'Denied', decisionReason: denyReason.trim() });
+      await updateAccessRequest(token, requestId, { status: 'Denied', decisionReason: reason });
       toast({ title: 'Request Denied', description: 'The request has been denied with a recorded reason.' });
-      setDenyRequest(null);
-      setDenyReason('');
       void fetchRequests();
     } catch (error) {
       console.error('Error denying request:', error);
       toast({ variant: 'destructive', title: 'Action Failed', description: 'Could not deny the request.' });
-    } finally {
-      setDenyBusy(false);
     }
   };
 
@@ -195,8 +166,6 @@ export default function AccessRequestsPage() {
     } catch (error) {
       console.error('Error approving request:', error);
       toast({ variant: 'destructive', title: 'Approval Failed', description: 'Could not approve the request.' });
-    } finally {
-      setApprovalRequest(null);
     }
   };
 
@@ -308,8 +277,8 @@ export default function AccessRequestsPage() {
               description="These requests are waiting for your approval."
               requests={pendingRequests}
               showActions={true}
-              onApprove={handleOpenApprovalDialog}
-              onDeny={handleOpenDenyDialog}
+              onConfirmApprove={handleConfirmApproval}
+              onConfirmDeny={handleConfirmDeny}
               onDelete={canDelete ? handleDeleteRequest : undefined}
               isLoading={loading}
             />
@@ -324,43 +293,6 @@ export default function AccessRequestsPage() {
           </TabsContent>
         )}
       </Tabs>
-
-      {approvalRequest && (
-        <ApprovalDialog
-          request={approvalRequest}
-          onOpenChange={() => setApprovalRequest(null)}
-          onConfirm={handleConfirmApproval}
-        />
-      )}
-
-      <Dialog open={!!denyRequest} onOpenChange={(open) => { if (!open) { setDenyRequest(null); setDenyReason(''); } }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Deny access request</DialogTitle>
-            <DialogDescription>
-              Record why this request is being denied. The reason is returned to the requester and kept on the audit trail.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="deny-reason">Reason</Label>
-            <Textarea
-              id="deny-reason"
-              value={denyReason}
-              onChange={(e) => setDenyReason(e.target.value)}
-              placeholder="e.g. Missing valid HSE induction certificate."
-              rows={4}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => { setDenyRequest(null); setDenyReason(''); }} disabled={denyBusy}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmDeny} disabled={denyBusy || !denyReason.trim()}>
-              {denyBusy ? 'Denying…' : 'Deny request'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -29,15 +29,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ApprovalFields } from './approval-fields';
 
 interface RequestDetailsDialogProps {
   request: AccessRequest;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDelete?: (request: AccessRequest) => void | Promise<void>;
-  onApprove?: (request: AccessRequest) => void;
-  onDeny?: (requestId: string) => void;
+  onConfirmApprove?: (requestId: string, validFrom: Date, expiresAt: Date | 'Permanent') => void;
+  onConfirmDeny?: (requestId: string, reason: string) => void;
 }
 
 const WorkerDetails = ({ worker }: { worker: AccessRequestWorker }) => {
@@ -74,9 +75,16 @@ const WorkerDetails = ({ worker }: { worker: AccessRequestWorker }) => {
 };
 
 
-export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, onApprove, onDeny }: RequestDetailsDialogProps) {
+export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, onConfirmApprove, onConfirmDeny }: RequestDetailsDialogProps) {
   const workersInRequest = request.workers;
   const [isDeleting, setIsDeleting] = useState(false);
+  const [decisionMode, setDecisionMode] = useState<'none' | 'approve' | 'deny'>('none');
+  const [denyReason, setDenyReason] = useState('');
+
+  useEffect(() => {
+    if (!open) { setDecisionMode('none'); setDenyReason(''); }
+  }, [open]);
+
   const workerCount = workersInRequest.length;
   const hasPendingDecision = request.status === 'Pending';
   const certificateIssues = workersInRequest.reduce((count, worker) => {
@@ -184,32 +192,59 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
                 </div>
             </div>
 
+            {decisionMode === 'approve' && onConfirmApprove ? (
+              <ApprovalFields
+                onCancel={() => setDecisionMode('none')}
+                onSubmit={(validFrom, expiresAt) => {
+                  onConfirmApprove(request.id, validFrom, expiresAt);
+                  setDecisionMode('none');
+                  onOpenChange(false);
+                }}
+              />
+            ) : null}
+            {decisionMode === 'deny' && onConfirmDeny ? (
+              <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+                <Label htmlFor="inline-deny-reason">Reason for denial</Label>
+                <Textarea
+                  id="inline-deny-reason"
+                  value={denyReason}
+                  onChange={(event) => setDenyReason(event.target.value)}
+                  placeholder="e.g. Missing valid HSE induction certificate."
+                  rows={4}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => { setDecisionMode('none'); setDenyReason(''); }}>Cancel</Button>
+                  <Button
+                    variant="destructive"
+                    disabled={!denyReason.trim()}
+                    onClick={() => {
+                      onConfirmDeny(request.id, denyReason.trim());
+                      setDecisionMode('none');
+                      setDenyReason('');
+                      onOpenChange(false);
+                    }}
+                  >
+                    Deny request
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
         </div>
         <SheetFooter className="gap-2 sm:gap-0">
-          {hasPendingDecision && onDeny && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                onDeny(request.id);
-                onOpenChange(false);
-              }}
-            >
+          {hasPendingDecision && decisionMode === 'none' && onConfirmDeny && (
+            <Button variant="outline" onClick={() => setDecisionMode('deny')}>
               <ShieldX className="mr-2 h-4 w-4" />
               Deny
             </Button>
           )}
-          {hasPendingDecision && onApprove && (
-            <Button
-              onClick={() => {
-                onApprove(request);
-                onOpenChange(false);
-              }}
-            >
+          {hasPendingDecision && decisionMode === 'none' && onConfirmApprove && (
+            <Button onClick={() => setDecisionMode('approve')}>
               <ShieldCheck className="mr-2 h-4 w-4" />
               Approve
             </Button>
           )}
-          {onDelete && (
+          {onDelete && decisionMode === 'none' && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" className="sm:mr-auto" disabled={isDeleting}>
