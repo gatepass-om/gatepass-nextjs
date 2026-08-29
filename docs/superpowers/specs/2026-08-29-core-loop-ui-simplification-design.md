@@ -206,21 +206,32 @@ Not applied elsewhere (Companies, Geofencing, etc. — out of scope).
 
 This repo has no unit-test runner (`package.json` has `lint`/`typecheck`/
 `build` only) and a separate Playwright e2e suite (`e2e/`, `playwright.config.ts`).
-Baseline on this branch: **72 pre-existing `typecheck` errors**, unrelated to
-this work (confirmed before any changes were made) — several sit inside
-files this plan deletes (`new-request-form.tsx`, the orphaned dashboard
-charts), so the count should drop as a side effect, never increase.
+
+**Branch correction note:** this plan's isolated branch was initially built off
+`origin/main` by mistake. `main` is a stale, abandoned snapshot from
+2025-12-29 that predates the Firebase→REST migration entirely — it has none
+of Projects/WorkPass, worker-documents, `/users/[id]`, or the dashboard panel
+system this spec describes, and showed 72 typecheck errors that were an
+artifact of that stale branch, not real. The branch was rebuilt on
+`feature/decision-rule-engine` (tip as of 2026-08-28, the actual current
+development lineage, containing `rest-migration` as an ancestor with zero
+divergence) — **the correct baseline on that branch is 0 typecheck errors.**
+`npm run lint` is not usable as a baseline check on this repo in its current
+state: `next lint` runs with an implicit `NODE_ENV=production`, which trips
+`next.config.ts`'s own guard rejecting the dev-tunnel `NEXT_PUBLIC_BACKEND_URL`
+in `.env.local` — a pre-existing tooling gap, not something introduced by
+this work. Lint is dropped from verification; typecheck + build + manual/e2e
+verification carry that weight instead.
 
 Verification per phase:
-1. `npm run typecheck` must not introduce *new* errors beyond the documented
-   72-minus-deleted-files baseline.
-2. `npm run lint` clean on touched files.
-3. `npm run build` succeeds.
-4. Manual browser verification of each redesigned flow (dev server), using
+1. `npm run typecheck` must stay at 0 errors throughout — any new error is a
+   regression to fix before moving to the next task.
+2. `npm run build` succeeds.
+3. Manual browser verification of each redesigned flow (dev server), using
    the Browser preview tool: worker onboarding end-to-end, access-request
    create + approve + deny, project create + submit + approve, dashboard
    render per role.
-5. Existing Playwright specs under `e2e/` that touch these four areas run
+4. Existing Playwright specs under `e2e/` that touch these four areas run
    and stay green; specs made obsolete by structural changes (e.g. asserting
    on the old 3-tab Access Requests page) get updated, not deleted silently.
 
