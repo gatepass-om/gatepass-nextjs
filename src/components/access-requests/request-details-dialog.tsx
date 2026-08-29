@@ -80,9 +80,10 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
   const [isDeleting, setIsDeleting] = useState(false);
   const [decisionMode, setDecisionMode] = useState<'none' | 'approve' | 'deny'>('none');
   const [denyReason, setDenyReason] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!open) { setDecisionMode('none'); setDenyReason(''); }
+    if (!open) { setDecisionMode('none'); setDenyReason(''); setBusy(false); }
   }, [open]);
 
   const workerCount = workersInRequest.length;
@@ -194,12 +195,20 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
 
             {decisionMode === 'approve' && onConfirmApprove ? (
               <ApprovalFields
+                busy={busy}
                 onCancel={() => setDecisionMode('none')}
                 onSubmit={async (validFrom, expiresAt) => {
-                  const succeeded = await onConfirmApprove(request.id, validFrom, expiresAt);
-                  if (succeeded) {
-                    setDecisionMode('none');
-                    onOpenChange(false);
+                  setBusy(true);
+                  try {
+                    const succeeded = await onConfirmApprove(request.id, validFrom, expiresAt);
+                    if (succeeded) {
+                      setDecisionMode('none');
+                      onOpenChange(false);
+                    }
+                  } catch (error) {
+                    console.error('Failed to approve access request', error);
+                  } finally {
+                    setBusy(false);
                   }
                 }}
               />
@@ -213,22 +222,30 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
                   onChange={(event) => setDenyReason(event.target.value)}
                   placeholder="e.g. Missing valid HSE induction certificate."
                   rows={4}
+                  disabled={busy}
                 />
                 <div className="flex justify-end gap-2">
-                  <Button variant="ghost" onClick={() => { setDecisionMode('none'); setDenyReason(''); }}>Cancel</Button>
+                  <Button variant="ghost" disabled={busy} onClick={() => { setDecisionMode('none'); setDenyReason(''); }}>Cancel</Button>
                   <Button
                     variant="destructive"
-                    disabled={!denyReason.trim()}
+                    disabled={!denyReason.trim() || busy}
                     onClick={async () => {
-                      const succeeded = await onConfirmDeny(request.id, denyReason.trim());
-                      if (succeeded) {
-                        setDecisionMode('none');
-                        setDenyReason('');
-                        onOpenChange(false);
+                      setBusy(true);
+                      try {
+                        const succeeded = await onConfirmDeny(request.id, denyReason.trim());
+                        if (succeeded) {
+                          setDecisionMode('none');
+                          setDenyReason('');
+                          onOpenChange(false);
+                        }
+                      } catch (error) {
+                        console.error('Failed to deny access request', error);
+                      } finally {
+                        setBusy(false);
                       }
                     }}
                   >
-                    Deny request
+                    {busy ? 'Denying…' : 'Deny request'}
                   </Button>
                 </div>
               </div>
@@ -251,7 +268,7 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
           {onDelete && decisionMode === 'none' && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="sm:mr-auto" disabled={isDeleting}>
+                <Button variant="destructive" className="sm:mr-auto" disabled={isDeleting || busy}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete Request
                 </Button>
@@ -272,7 +289,7 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
               </AlertDialogContent>
             </AlertDialog>
           )}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+          <Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Close</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

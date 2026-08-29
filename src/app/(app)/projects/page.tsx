@@ -178,6 +178,8 @@ export default function ProjectsPage() {
   async function handleConfirmWorkPassReject() {
     if (!token || !rejectWorkPass || !workPassRejectReason.trim()) return;
     setBusyWorkPassId(rejectWorkPass.id);
+    setError('');
+    setNotice('');
     try {
       await apiRequest(`/work-passes/${rejectWorkPass.id}/reject`, {
         method: 'POST',

@@ -162,14 +162,11 @@ const METRIC_PRIORITY: string[] = [
 const MAX_METRIC_TILES = 5;
 
 export function getDashboardMetricCards(summary: DashboardMetricSummary): DashboardMetricCard[] {
-  const requestedKeys = summary.audience.metricKeys ?? [];
+  const requestedKeys = (summary.audience.metricKeys ?? []).filter((key) => key in metricRegistry);
   const prioritized = METRIC_PRIORITY.filter((key) => requestedKeys.includes(key));
   const remaining = requestedKeys.filter((key) => !METRIC_PRIORITY.includes(key));
   const cappedKeys = [...prioritized, ...remaining].slice(0, MAX_METRIC_TILES);
-  return cappedKeys.flatMap((key) => {
-    const buildMetric = metricRegistry[key];
-    return buildMetric ? [buildMetric(summary)] : [];
-  });
+  return cappedKeys.map((key) => metricRegistry[key](summary));
 }
 
 export function getDashboardMetricGridClass(metricCount: number) {

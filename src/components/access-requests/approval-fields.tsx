@@ -33,9 +33,10 @@ const formSchema = z.object({
   path: ['expiresAt'],
 });
 
-export function ApprovalFields({ onSubmit, onCancel }: {
-  onSubmit: (validFrom: Date, expiresAt: Date | 'Permanent') => void;
+export function ApprovalFields({ onSubmit, onCancel, busy }: {
+  onSubmit: (validFrom: Date, expiresAt: Date | 'Permanent') => void | Promise<void>;
   onCancel: () => void;
+  busy?: boolean;
 }) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -48,9 +49,9 @@ export function ApprovalFields({ onSubmit, onCancel }: {
 
   const expiryType = form.watch('expiryType');
 
-  function handleSubmit(values: z.infer<typeof formSchema>) {
+  async function handleSubmit(values: z.infer<typeof formSchema>) {
     const expiresAt = values.expiryType === 'permanent' ? 'Permanent' : values.expiresAt!;
-    onSubmit(values.validFrom, expiresAt);
+    await onSubmit(values.validFrom, expiresAt);
   }
 
   return (
@@ -138,8 +139,8 @@ export function ApprovalFields({ onSubmit, onCancel }: {
           />
         )}
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
-          <Button type="submit"><Check className="mr-2 h-4 w-4" /> Confirm approval</Button>
+          <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>Cancel</Button>
+          <Button type="submit" disabled={busy}><Check className="mr-2 h-4 w-4" /> {busy ? 'Approving…' : 'Confirm approval'}</Button>
         </div>
       </form>
     </Form>

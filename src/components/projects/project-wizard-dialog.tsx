@@ -130,7 +130,6 @@ export function ProjectWizardDialog({
     setMemberRoleIds(Object.fromEntries((project?.members ?? []).map((member) => [member.userId, member.projectRoleId ?? ''])));
   }, [currentUserOperatorId, open, project]);
 
-  const selectedOperator = operators.find((item) => item.id === draft.operatorId);
   const consultantCompanies = useMemo(
     () => contractors.filter((item) => item.companyType === 2 || item.companyType === 'Consultant'),
     [contractors],
@@ -143,10 +142,6 @@ export function ProjectWizardDialog({
     () => users.filter((item) => item.contractorId === draft.consultantCompanyId
       && (item.role === 'Contractor Admin' || item.role === 'Supervisor')),
     [draft.consultantCompanyId, users],
-  );
-  const selectedContractors = useMemo(
-    () => contractors.filter((item) => draft.contractorIds.includes(item.id)),
-    [contractors, draft.contractorIds],
   );
   const selectedMembers = useMemo(
     () => users.filter((item) => draft.memberIds.includes(item.id)),
