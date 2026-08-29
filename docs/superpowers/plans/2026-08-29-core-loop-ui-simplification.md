@@ -18,6 +18,7 @@
 - Do not fix, in this plan: the Worker self-service document-upload gap (`canManage={user.role !== 'Worker'}` on `/profile`), or delete the four empty dead-stub route directories (`card-verification/`, `consultant/`, `scan/`, `card-production/`). These are flagged as separate follow-up tasks at the end of this plan.
 - Do not remove the direct/ad-hoc Access Request creation path (`SupervisorRequestForm`). Verified against live production data that most of the one live tenant's access requests were created this way, not via Projects/WorkPass.
 - Commit after each task with a descriptive message. Do not amend previous commits.
+- Never `git add -A` or `git add .` — always stage the exact files a step names. The working tree carries untracked build/tool caches (`.gitignore` was patched in Task 1 to cover the ones found so far, but don't assume that list is exhaustive); run `git status --short` before committing and confirm nothing unexpected is staged.
 
 ---
 
@@ -57,11 +58,12 @@ Expected: 0 errors (deleting a file with no importers cannot introduce a type er
 - [ ] **Step 4: Commit**
 
 ```bash
-git add -A
+git add src/components/users/new-user-form.tsx
 git commit -m "Remove dead NewUserForm component
 
 Superseded by InlineUserRow; zero references outside its own file."
 ```
+(Note: actual execution found untracked build-tool caches — `.next-build-test/`, `.next-release-check/`, `.playwright-cli/`, `graphify-out/` — sitting in the working tree with no `.gitignore` coverage. A literal `git add -A` here swept ~150MB of them into the commit; caught and fixed by resetting, adding `.gitignore` entries for those four directories, and recommitting with only the intended file. Every remaining commit step in this plan stages explicit paths, never `-A`, to prevent a repeat.)
 
 ---
 
@@ -1970,7 +1972,7 @@ Expected: 0 errors.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add -A
+git add src/components/access-requests/new-request-form.tsx
 git commit -m "Remove dead NewRequestForm component
 
 Zero references anywhere; an earlier, unwired iteration of what
@@ -2045,7 +2047,16 @@ Expected: build succeeds (confirms nothing was dynamically importing these by a 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add -A
+git add src/components/dashboard/management-scorecards.tsx \
+        src/components/dashboard/registration-funnel-panel.tsx \
+        src/components/dashboard/shift-rosters-panel.tsx \
+        src/components/dashboard/report-schedules-panel.tsx \
+        src/components/dashboard/trends-capacity-panel.tsx \
+        src/components/dashboard/data-quality-panel.tsx \
+        src/components/dashboard/inclusive-adoption-panel.tsx \
+        src/components/dashboard/on-site-by-company-chart.tsx \
+        src/components/dashboard/on-site-by-nationality-chart.tsx \
+        src/components/dashboard/site-occupancy-list.tsx
 git commit -m "Delete ten dead dashboard widget components
 
 Zero external references confirmed via grep immediately before deletion.
