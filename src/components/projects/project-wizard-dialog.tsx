@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, Check, ChevronLeft, ChevronRight, FileText, MapPinned, Search, Users } from 'lucide-react';
+import { Check, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,11 +15,9 @@ import { apiRequest } from '@/lib/api';
 import {
   buildCreateProjectPayload,
   filterSelectionOptions,
-  getProjectStatusPresentation,
   resolveProjectOperatorId,
   shouldShowOperatorSelector,
   type ProjectDraft,
-  type ProjectWizardStep,
   validateProjectStep,
 } from './project-workflow';
 import type { Contractor, ProjectRole, Site, UserRole } from '@/lib/types';
@@ -74,18 +72,6 @@ type ProjectWizardDialogProps = {
   onSaved: (project: ProjectRecord) => void;
 };
 
-const steps: Array<{
-  id: ProjectWizardStep;
-  label: string;
-  hint: string;
-  icon: typeof FileText;
-}> = [
-  { id: 'details', label: 'Project details', hint: 'Identity, ownership and dates', icon: FileText },
-  { id: 'sites', label: 'Sites & scope', hint: 'Where this project operates', icon: MapPinned },
-  { id: 'participants', label: 'Participants', hint: 'Contractors and project team', icon: Users },
-  { id: 'review', label: 'Review', hint: 'Confirm before saving', icon: Check },
-];
-
 function dateValue(value?: string | null) {
   return value ? value.slice(0, 10) : '';
 }
@@ -125,7 +111,6 @@ export function ProjectWizardDialog({
   onOpenChange,
   onSaved,
 }: ProjectWizardDialogProps) {
-  const [stepIndex, setStepIndex] = useState(0);
   const [draft, setDraft] = useState<ProjectDraft>(() => initialDraft(project));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -140,13 +125,11 @@ export function ProjectWizardDialog({
       nextDraft.operatorId,
     );
     setDraft(nextDraft);
-    setStepIndex(0);
     setErrors({});
     setSaveError('');
     setMemberRoleIds(Object.fromEntries((project?.members ?? []).map((member) => [member.userId, member.projectRoleId ?? ''])));
   }, [currentUserOperatorId, open, project]);
 
-  const currentStep = steps[stepIndex];
   const selectedOperator = operators.find((item) => item.id === draft.operatorId);
   const consultantCompanies = useMemo(
     () => contractors.filter((item) => item.companyType === 2 || item.companyType === 'Consultant'),
@@ -207,18 +190,16 @@ export function ProjectWizardDialog({
     }));
   }
 
-  function continueToNextStep() {
-    const validationErrors = validateProjectStep(currentStep.id, draft, {
-      requireOperator: currentUserRole !== 'Supervisor',
-    });
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+  async function saveProject() {
+    const allErrors = {
+      ...validateProjectStep('details', draft, { requireOperator: currentUserRole !== 'Supervisor' }),
+      ...validateProjectStep('sites', draft),
+      ...validateProjectStep('participants', draft),
+    };
+    if (Object.keys(allErrors).length > 0) {
+      setErrors(allErrors);
       return;
     }
-    setStepIndex((current) => Math.min(current + 1, steps.length - 1));
-  }
-
-  async function saveProject() {
     setSaving(true);
     setSaveError('');
     try {
@@ -292,209 +273,131 @@ export function ProjectWizardDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 md:grid-cols-[15rem_minmax(0,1fr)]">
-          <nav aria-label="Project setup progress" className="border-b bg-slate-50 p-4 md:border-b-0 md:border-r">
-            <ol className="grid grid-cols-3 gap-2 md:grid-cols-1">
-              {steps.map((step, index) => {
-                const Icon = step.icon;
-                const isCurrent = index === stepIndex;
-                const isComplete = index < stepIndex;
-                return (
-                  <li key={step.id}>
-                    <button
-                      type="button"
-                      disabled={index > stepIndex}
-                      onClick={() => index < stepIndex && setStepIndex(index)}
-                      className={`flex w-full items-start gap-3 rounded-lg p-3 text-left transition ${
-                        isCurrent ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200' : 'text-slate-500'
-                      } ${index <= stepIndex ? 'hover:bg-white' : 'cursor-not-allowed opacity-55'}`}
-                    >
-                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                        isCurrent ? 'bg-blue-600 text-white' : isComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200'
-                      }`}>
-                        {isComplete ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
-                      </span>
-                      <span className="hidden md:block">
-                        <span className="block text-sm font-semibold">{step.label}</span>
-                        <span className="mt-0.5 block text-xs font-normal text-slate-500">{step.hint}</span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          </nav>
-
-          <div className="min-h-0 overflow-y-auto px-6 py-5">
-            {currentStep.id === 'details' ? (
-              <div className="space-y-5">
-                <StepHeading title="Project details" description="Define the commercial identity, owner and operating period." />
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Project name" error={errors.name} className="sm:col-span-2">
-                    <input autoFocus value={draft.name} onChange={(event) => updateField('name', event.target.value)}
-                      className={inputClass(errors.name)} placeholder="e.g. Harbour expansion phase 2" />
-                  </Field>
-                  <Field label="Client reference" hint="Optional contract, PO or tender number">
-                    <input value={draft.clientReference} onChange={(event) => updateField('clientReference', event.target.value)}
-                      className={inputClass()} placeholder="e.g. PO-2044" />
-                  </Field>
-                  {shouldShowOperatorSelector(currentUserRole, currentUserOperatorId, Boolean(project)) ? (
-                    <Field label="Responsible operator" error={errors.operatorId}>
-                      <select value={draft.operatorId} onChange={(event) => updateField('operatorId', event.target.value)}
-                        className={inputClass(errors.operatorId)}>
-                        <option value="">Select operator</option>
-                        {operators.map((operator) => <option key={operator.id} value={operator.id}>{operator.name}</option>)}
-                      </select>
-                    </Field>
-                  ) : null}
-                  <Field label="Start date" error={errors.validFromUtc}>
-                    <input type="date" value={draft.validFromUtc} onChange={(event) => updateField('validFromUtc', event.target.value)}
-                      className={inputClass(errors.validFromUtc)} />
-                  </Field>
-                  <Field label="End date" error={errors.validToUtc}>
-                    <input type="date" value={draft.validToUtc} min={draft.validFromUtc}
-                      onChange={(event) => updateField('validToUtc', event.target.value)}
-                      className={inputClass(errors.validToUtc)} />
-                  </Field>
-                  <Field label="Description" hint="A short operational summary for project stakeholders" className="sm:col-span-2">
-                    <textarea value={draft.description} onChange={(event) => updateField('description', event.target.value)}
-                      className={`${inputClass()} min-h-24 resize-y`} placeholder="What is this project responsible for?" />
-                  </Field>
-                </div>
-              </div>
-            ) : null}
-
-            {currentStep.id === 'sites' ? (
-              <div className="space-y-6">
-                <StepHeading title="Sites & operating scope" description="Select the operator sites where this project may request work passes and access." />
-                <SelectionGroup
-                  title="Project sites"
-                  description="Permits will be restricted to these sites."
-                  emptyText="No sites are registered for this operator."
-                  options={sites
-                    .filter((site) => !draft.operatorId || site.operatorId === draft.operatorId)
-                    .map((site) => ({ ...site, subtitle: site.location, category: site.location }))}
-                  selectedIds={draft.siteIds}
-                  onToggle={(id) => toggleSelection('siteIds', id)}
-                  searchPlaceholder="Search sites by name or location"
-                  filterLabel="Location"
-                />
-                {errors.siteIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.siteIds}</p> : null}
-              </div>
-            ) : null}
-
-            {currentStep.id === 'participants' ? (
-              <div className="space-y-6">
-                <StepHeading title="Participants" description="Choose the organisations and people responsible for delivery." />
-                <Field label="Consultant company" error={errors.consultantCompanyId} hint="The consultant is an external company, not an operator user role.">
-                  <select value={draft.consultantCompanyId} onChange={(event) => {
-                    updateField('consultantCompanyId', event.target.value);
-                    updateField('consultantReviewerUserIds', []);
-                  }} className={inputClass(errors.consultantCompanyId)}>
-                    <option value="">Select consultant company</option>
-                    {consultantCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 space-y-8">
+          <div className="space-y-5">
+            <StepHeading title="Project details" description="Define the commercial identity, owner and operating period." />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Project name" error={errors.name} className="sm:col-span-2">
+                <input autoFocus value={draft.name} onChange={(event) => updateField('name', event.target.value)}
+                  className={inputClass(errors.name)} placeholder="e.g. Harbour expansion phase 2" />
+              </Field>
+              <Field label="Client reference" hint="Optional contract, PO or tender number">
+                <input value={draft.clientReference} onChange={(event) => updateField('clientReference', event.target.value)}
+                  className={inputClass()} placeholder="e.g. PO-2044" />
+              </Field>
+              {shouldShowOperatorSelector(currentUserRole, currentUserOperatorId, Boolean(project)) ? (
+                <Field label="Responsible operator" error={errors.operatorId}>
+                  <select value={draft.operatorId} onChange={(event) => updateField('operatorId', event.target.value)}
+                    className={inputClass(errors.operatorId)}>
+                    <option value="">Select operator</option>
+                    {operators.map((operator) => <option key={operator.id} value={operator.id}>{operator.name}</option>)}
                   </select>
                 </Field>
-                <SelectionGroup
-                  title="Consultant reviewers"
-                  description="Personnel employed by the consultant company. Their project role carries the approval duties."
-                  emptyText={draft.consultantCompanyId ? 'No active contractor administrators or supervisors are registered for this consultant company.' : 'Select a consultant company first.'}
-                  options={consultantReviewers.map((reviewer) => ({ ...reviewer, subtitle: [reviewer.role, reviewer.email].filter(Boolean).join(' · ') }))}
-                  selectedIds={draft.consultantReviewerUserIds}
-                  onToggle={(id) => toggleSelection('consultantReviewerUserIds', id)}
-                  searchPlaceholder="Search consultant personnel"
-                />
-                {errors.consultantReviewerUserIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.consultantReviewerUserIds}</p> : null}
-                <SelectionGroup
-                  title="Contractors"
-                  description="Companies permitted to supply workers or request work passes."
-                  emptyText="No contractors are registered."
-                  options={deliveryContractors}
-                  selectedIds={draft.contractorIds}
-                  onToggle={(id) => toggleSelection('contractorIds', id)}
-                  searchPlaceholder="Search contractors"
-                />
-                {errors.contractorIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.contractorIds}</p> : null}
-                <SelectionGroup
-                  title="Project team"
-                  description="Internal users who can view or coordinate this project."
-                  emptyText="No eligible users are registered."
-                  options={users.map((user) => ({
-                    ...user,
-                    subtitle: [user.role, user.email].filter(Boolean).join(' · '),
-                    category: user.role,
-                  }))}
-                  selectedIds={draft.memberIds}
-                  onToggle={(id) => toggleSelection('memberIds', id)}
-                  searchPlaceholder="Search people by name, role or email"
-                  filterLabel="Role"
-                />
-                {selectedMembers.length > 0 ? (
-                  <div className="space-y-3 rounded-xl border border-slate-200 p-4">
-                    <div><h3 className="font-semibold text-slate-950">Project responsibilities</h3><p className="text-sm text-slate-500">Assign a workflow role to each selected team member.</p></div>
-                    {selectedMembers.map((member) => (
-                      <label key={member.id} className="grid gap-2 sm:grid-cols-[1fr_15rem] sm:items-center">
-                        <span><span className="block text-sm font-medium text-slate-900">{member.name}</span><span className="block text-xs text-slate-500">{member.role}</span></span>
-                        <select className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm" value={memberRoleIds[member.id] || projectRoles.find((role) => role.isDefault)?.id || ''} onChange={(event) => setMemberRoleIds((current) => ({ ...current, [member.id]: event.target.value }))}>
-                          {!projectRoles.some((role) => role.isDefault) ? <option value="">Use tenant default</option> : null}
-                          {projectRoles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
-                        </select>
-                      </label>
-                    ))}
-                    {!projectRoles.length ? <p className="text-sm text-amber-700">No project roles are configured. Add one in Compliance Setup before saving team assignments.</p> : null}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+              ) : null}
+              <Field label="Start date" error={errors.validFromUtc}>
+                <input type="date" value={draft.validFromUtc} onChange={(event) => updateField('validFromUtc', event.target.value)}
+                  className={inputClass(errors.validFromUtc)} />
+              </Field>
+              <Field label="End date" error={errors.validToUtc}>
+                <input type="date" value={draft.validToUtc} min={draft.validFromUtc}
+                  onChange={(event) => updateField('validToUtc', event.target.value)}
+                  className={inputClass(errors.validToUtc)} />
+              </Field>
+              <Field label="Description" hint="A short operational summary for project stakeholders" className="sm:col-span-2">
+                <textarea value={draft.description} onChange={(event) => updateField('description', event.target.value)}
+                  className={`${inputClass()} min-h-24 resize-y`} placeholder="What is this project responsible for?" />
+              </Field>
+            </div>
+          </div>
 
-            {currentStep.id === 'review' ? (
-              <div className="space-y-5">
-                <StepHeading title="Review project" description="Confirm the setup before saving. You can edit it later." />
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex items-start gap-3">
-                    <span className="rounded-lg bg-blue-100 p-2 text-blue-700"><Building2 className="h-5 w-5" /></span>
-                    <div>
-                      <h3 className="font-semibold text-slate-950">{draft.name}</h3>
-                      <p className="text-sm text-slate-500">{draft.clientReference || 'No client reference'}</p>
-                    </div>
-                  </div>
-                  <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
-                    <ReviewItem label="Operator" value={selectedOperator?.name || 'Not selected'} />
-                    <ReviewItem label="Consultant company" value={consultantCompanies.find((company) => company.id === draft.consultantCompanyId)?.name || 'Not selected'} />
-                    <ReviewItem label="Consultant reviewers" value={consultantReviewers.filter((user) => draft.consultantReviewerUserIds.includes(user.id)).map((user) => user.name).join(', ') || 'None selected'} />
-                    <ReviewItem label="Period" value={`${formatDate(draft.validFromUtc)} – ${formatDate(draft.validToUtc)}`} />
-                    <ReviewItem label="Contractors" value={selectedContractors.length ? selectedContractors.map((item) => item.name).join(', ') : 'None assigned'} />
-                    <ReviewItem label="Sites" value={sites.filter((site) => draft.siteIds.includes(site.id)).map((site) => site.name).join(', ') || 'No sites selected'} />
-                    <ReviewItem label="Project team" value={selectedMembers.length ? selectedMembers.map((item) => item.name).join(', ') : 'No members assigned'} />
-                    {project ? <ReviewItem label="Status" value={getProjectStatusPresentation(draft).label} /> : null}
-                  </dl>
-                  {draft.description ? <p className="mt-5 border-t border-slate-200 pt-4 text-sm leading-6 text-slate-600">{draft.description}</p> : null}
-                </div>
-                {saveError ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</p> : null}
+          <div className="space-y-6">
+            <StepHeading title="Sites & operating scope" description="Select the operator sites where this project may request work passes and access." />
+            <SelectionGroup
+              title="Project sites"
+              description="Permits will be restricted to these sites."
+              emptyText="No sites are registered for this operator."
+              options={sites
+                .filter((site) => !draft.operatorId || site.operatorId === draft.operatorId)
+                .map((site) => ({ ...site, subtitle: site.location, category: site.location }))}
+              selectedIds={draft.siteIds}
+              onToggle={(id) => toggleSelection('siteIds', id)}
+              searchPlaceholder="Search sites by name or location"
+              filterLabel="Location"
+            />
+            {errors.siteIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.siteIds}</p> : null}
+          </div>
+
+          <div className="space-y-6">
+            <StepHeading title="Participants" description="Choose the organisations and people responsible for delivery." />
+            <Field label="Consultant company" error={errors.consultantCompanyId} hint="The consultant is an external company, not an operator user role.">
+              <select value={draft.consultantCompanyId} onChange={(event) => {
+                updateField('consultantCompanyId', event.target.value);
+                updateField('consultantReviewerUserIds', []);
+              }} className={inputClass(errors.consultantCompanyId)}>
+                <option value="">Select consultant company</option>
+                {consultantCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+              </select>
+            </Field>
+            <SelectionGroup
+              title="Consultant reviewers"
+              description="Personnel employed by the consultant company. Their project role carries the approval duties."
+              emptyText={draft.consultantCompanyId ? 'No active contractor administrators or supervisors are registered for this consultant company.' : 'Select a consultant company first.'}
+              options={consultantReviewers.map((reviewer) => ({ ...reviewer, subtitle: [reviewer.role, reviewer.email].filter(Boolean).join(' · ') }))}
+              selectedIds={draft.consultantReviewerUserIds}
+              onToggle={(id) => toggleSelection('consultantReviewerUserIds', id)}
+              searchPlaceholder="Search consultant personnel"
+            />
+            {errors.consultantReviewerUserIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.consultantReviewerUserIds}</p> : null}
+            <SelectionGroup
+              title="Contractors"
+              description="Companies permitted to supply workers or request work passes."
+              emptyText="No contractors are registered."
+              options={deliveryContractors}
+              selectedIds={draft.contractorIds}
+              onToggle={(id) => toggleSelection('contractorIds', id)}
+              searchPlaceholder="Search contractors"
+            />
+            {errors.contractorIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.contractorIds}</p> : null}
+            <SelectionGroup
+              title="Project team"
+              description="Internal users who can view or coordinate this project."
+              emptyText="No eligible users are registered."
+              options={users.map((user) => ({
+                ...user,
+                subtitle: [user.role, user.email].filter(Boolean).join(' · '),
+                category: user.role,
+              }))}
+              selectedIds={draft.memberIds}
+              onToggle={(id) => toggleSelection('memberIds', id)}
+              searchPlaceholder="Search people by name, role or email"
+              filterLabel="Role"
+            />
+            {selectedMembers.length > 0 ? (
+              <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+                <div><h3 className="font-semibold text-slate-950">Project responsibilities</h3><p className="text-sm text-slate-500">Assign a workflow role to each selected team member.</p></div>
+                {selectedMembers.map((member) => (
+                  <label key={member.id} className="grid gap-2 sm:grid-cols-[1fr_15rem] sm:items-center">
+                    <span><span className="block text-sm font-medium text-slate-900">{member.name}</span><span className="block text-xs text-slate-500">{member.role}</span></span>
+                    <select className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm" value={memberRoleIds[member.id] || projectRoles.find((role) => role.isDefault)?.id || ''} onChange={(event) => setMemberRoleIds((current) => ({ ...current, [member.id]: event.target.value }))}>
+                      {!projectRoles.some((role) => role.isDefault) ? <option value="">Use tenant default</option> : null}
+                      {projectRoles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+                    </select>
+                  </label>
+                ))}
+                {!projectRoles.length ? <p className="text-sm text-amber-700">No project roles are configured. Add one in Compliance Setup before saving team assignments.</p> : null}
               </div>
             ) : null}
           </div>
+
+          {saveError ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</p> : null}
         </div>
 
         <DialogFooter className="border-t border-slate-200 bg-white px-6 py-4">
           <div className="flex w-full items-center justify-between">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <div className="flex gap-2">
-              {stepIndex > 0 ? (
-                <Button type="button" variant="outline" onClick={() => setStepIndex((current) => current - 1)} disabled={saving}>
-                  <ChevronLeft className="mr-1 h-4 w-4" /> Back
-                </Button>
-              ) : null}
-              {stepIndex < steps.length - 1 ? (
-                <Button type="button" onClick={continueToNextStep}>
-                  Continue <ChevronRight className="ml-1 h-4 w-4" />
-                </Button>
-              ) : (
-                <Button type="button" onClick={() => void saveProject()} disabled={saving}>
-                  {saving ? 'Saving…' : project ? 'Save changes' : 'Create project'}
-                </Button>
-              )}
-            </div>
+            <Button type="button" onClick={() => void saveProject()} disabled={saving}>
+              {saving ? 'Saving…' : project ? 'Save changes' : 'Create project'}
+            </Button>
           </div>
         </DialogFooter>
       </DialogContent>
@@ -602,16 +505,8 @@ function SelectionGroup({
   );
 }
 
-function ReviewItem({ label, value }: { label: string; value: string }) {
-  return <div><dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</dt><dd className="mt-1 font-medium text-slate-800">{value}</dd></div>;
-}
-
 function inputClass(error?: string) {
   return `w-full rounded-lg border bg-white px-3 py-2.5 text-sm outline-none transition focus:ring-2 ${
     error ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
   }`;
-}
-
-function formatDate(value: string) {
-  return value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(`${value}T00:00:00`)) : 'Not set';
 }
