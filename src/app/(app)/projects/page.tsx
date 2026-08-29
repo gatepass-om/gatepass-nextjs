@@ -32,6 +32,14 @@ import {
   type ProjectRecord,
 } from '@/components/projects/project-wizard-dialog';
 import { calculateProjectPortfolio, getProjectStatusPresentation } from '@/components/projects/project-workflow';
+import {
+  ProjectWorkPassQueue,
+  type ProjectWorkPassRecord,
+} from '@/components/access-requests/project-work-pass-queue';
+import { getWorkPassQueueItems, type WorkPassAction } from '@/components/projects/project-command-center';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 type NamedOption = { id: string; name: string };
 type UserOption = NamedOption & { email?: string; role?: string; operatorId?: string; contractorId?: string };
@@ -58,19 +66,28 @@ export default function ProjectsPage() {
     ['Admin', 'Operator Admin', 'Manager'].includes(user.role)
     || (user.role === 'Supervisor' && user.operatorId)
   ));
+  // Same gate access-requests/page.tsx used for canViewProjectWorkPasses — everyone
+  // except Worker can have a pending decision (e.g. a Contractor Admin/Supervisor
+  // acting as a project's consultant reviewer, who is NOT covered by canConfigureProjects).
+  const canViewWorkPassQueue = Boolean(user && user.role !== 'Worker');
+  const [projectWorkPasses, setProjectWorkPasses] = useState<ProjectWorkPassRecord[]>([]);
+  const [busyWorkPassId, setBusyWorkPassId] = useState<string | null>(null);
+  const [rejectWorkPass, setRejectWorkPass] = useState<ProjectWorkPassRecord | null>(null);
+  const [workPassRejectReason, setWorkPassRejectReason] = useState('');
 
   const loadWorkspace = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError('');
     try {
-      const [projectData, operatorData, contractorData, userData, siteData, roleData] = await Promise.all([
+      const [projectData, operatorData, contractorData, userData, siteData, roleData, workPassData] = await Promise.all([
         apiRequest<ProjectRecord[]>('/projects', { token }),
         canConfigureProjects ? listOperatorsRequest(token) : Promise.resolve([]),
         canConfigureProjects ? listContractorsRequest(token) : Promise.resolve([]),
         canConfigureProjects ? listUsersRequest(token, { pageSize: 250 }) : Promise.resolve([]),
         canConfigureProjects ? listSitesRequest(token) : Promise.resolve([]),
         canConfigureProjects ? listProjectRolesRequest(token) : Promise.resolve([]),
+        canViewWorkPassQueue ? apiRequest<ProjectWorkPassRecord[]>('/work-passes', { token }) : Promise.resolve([]),
       ]);
       setProjects(projectData);
       setOperators(operatorData as NamedOption[]);
@@ -78,12 +95,13 @@ export default function ProjectsPage() {
       setUsers(userData as UserOption[]);
       setSites(siteData);
       setProjectRoles(roleData);
+      setProjectWorkPasses(workPassData);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load the project workspace.');
     } finally {
       setLoading(false);
     }
-  }, [canConfigureProjects, token]);
+  }, [canConfigureProjects, canViewWorkPassQueue, token]);
 
   useEffect(() => {
     void loadWorkspace();
@@ -132,6 +150,46 @@ export default function ProjectsPage() {
     });
   }
 
+  async function handleWorkPassAction(
+    workPass: ProjectWorkPassRecord,
+    action: Exclude<WorkPassAction, 'reject'>,
+  ) {
+    if (!token) return;
+    setBusyWorkPassId(workPass.id);
+    try {
+      const result = await apiRequest<ProjectWorkPassRecord | { workPass: ProjectWorkPassRecord; warnings: string[] }>(
+        `/work-passes/${workPass.id}/${action}`,
+        { method: 'POST', token },
+      );
+      const warnings = 'warnings' in result ? result.warnings : [];
+      void warnings; // surfaced via reload; no separate toast plumbing needed here
+      await loadWorkspace();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'The work pass could not be updated.');
+    } finally {
+      setBusyWorkPassId(null);
+    }
+  }
+
+  async function handleConfirmWorkPassReject() {
+    if (!token || !rejectWorkPass || !workPassRejectReason.trim()) return;
+    setBusyWorkPassId(rejectWorkPass.id);
+    try {
+      await apiRequest(`/work-passes/${rejectWorkPass.id}/reject`, {
+        method: 'POST',
+        token,
+        body: { reason: workPassRejectReason.trim() },
+      });
+      setRejectWorkPass(null);
+      setWorkPassRejectReason('');
+      await loadWorkspace();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'The work pass could not be rejected.');
+    } finally {
+      setBusyWorkPassId(null);
+    }
+  }
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -154,6 +212,18 @@ export default function ProjectsPage() {
       </header>
 
       {error ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+
+      {canViewWorkPassQueue && projectWorkPasses.length > 0 ? (
+        <ProjectWorkPassQueue
+          workPasses={projectWorkPasses}
+          projects={projects}
+          actor={{ id: user?.id, role: user?.role }}
+          isLoading={loading}
+          busyWorkPassId={busyWorkPassId}
+          onAction={(workPass, action) => void handleWorkPassAction(workPass, action)}
+          onReject={(workPass) => { setRejectWorkPass(workPass); setWorkPassRejectReason(''); }}
+        />
+      ) : null}
 
       <section aria-label="Project portfolio summary" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Active projects" value={portfolio.active} detail={`${portfolio.total} total projects`} icon={CircleDot} tone="blue" loading={loading} />
@@ -256,6 +326,35 @@ export default function ProjectsPage() {
           onSaved={handleSaved}
         />
       ) : null}
+
+      <Dialog open={Boolean(rejectWorkPass)} onOpenChange={(open) => { if (!open) { setRejectWorkPass(null); setWorkPassRejectReason(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject project work pass</DialogTitle>
+            <DialogDescription>
+              Record what the contractor must correct. The reason remains on the work-pass audit trail.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="work-pass-reject-reason">Reason</Label>
+            <Textarea
+              id="work-pass-reject-reason"
+              value={workPassRejectReason}
+              onChange={(event) => setWorkPassRejectReason(event.target.value)}
+              placeholder="e.g. Worker credentials are incomplete."
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setRejectWorkPass(null); setWorkPassRejectReason(''); }} disabled={Boolean(busyWorkPassId)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void handleConfirmWorkPassReject()} disabled={!workPassRejectReason.trim() || Boolean(busyWorkPassId)}>
+              {busyWorkPassId ? 'Rejecting…' : 'Reject work pass'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
