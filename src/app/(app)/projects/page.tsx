@@ -36,7 +36,7 @@ import {
   ProjectWorkPassQueue,
   type ProjectWorkPassRecord,
 } from '@/components/access-requests/project-work-pass-queue';
-import { getWorkPassQueueItems, type WorkPassAction } from '@/components/projects/project-command-center';
+import type { WorkPassAction } from '@/components/projects/project-command-center';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -57,6 +57,7 @@ export default function ProjectsPage() {
   const [projectRoles, setProjectRoles] = useState<ProjectRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
@@ -156,13 +157,16 @@ export default function ProjectsPage() {
   ) {
     if (!token) return;
     setBusyWorkPassId(workPass.id);
+    setError('');
+    setNotice('');
     try {
       const result = await apiRequest<ProjectWorkPassRecord | { workPass: ProjectWorkPassRecord; warnings: string[] }>(
         `/work-passes/${workPass.id}/${action}`,
         { method: 'POST', token },
       );
-      const warnings = 'warnings' in result ? result.warnings : [];
-      void warnings; // surfaced via reload; no separate toast plumbing needed here
+      if ('warnings' in result && result.warnings.length) {
+        setNotice(`Approved with compliance follow-up: ${result.warnings.join(' ')}`);
+      }
       await loadWorkspace();
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'The work pass could not be updated.');
@@ -212,6 +216,8 @@ export default function ProjectsPage() {
       </header>
 
       {error ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+
+      {notice ? <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
 
       {canViewWorkPassQueue && projectWorkPasses.length > 0 ? (
         <ProjectWorkPassQueue
