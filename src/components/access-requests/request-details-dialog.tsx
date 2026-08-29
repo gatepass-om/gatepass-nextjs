@@ -37,8 +37,8 @@ interface RequestDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDelete?: (request: AccessRequest) => void | Promise<void>;
-  onConfirmApprove?: (requestId: string, validFrom: Date, expiresAt: Date | 'Permanent') => void;
-  onConfirmDeny?: (requestId: string, reason: string) => void;
+  onConfirmApprove?: (requestId: string, validFrom: Date, expiresAt: Date | 'Permanent') => Promise<boolean>;
+  onConfirmDeny?: (requestId: string, reason: string) => Promise<boolean>;
 }
 
 const WorkerDetails = ({ worker }: { worker: AccessRequestWorker }) => {
@@ -195,10 +195,12 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
             {decisionMode === 'approve' && onConfirmApprove ? (
               <ApprovalFields
                 onCancel={() => setDecisionMode('none')}
-                onSubmit={(validFrom, expiresAt) => {
-                  onConfirmApprove(request.id, validFrom, expiresAt);
-                  setDecisionMode('none');
-                  onOpenChange(false);
+                onSubmit={async (validFrom, expiresAt) => {
+                  const succeeded = await onConfirmApprove(request.id, validFrom, expiresAt);
+                  if (succeeded) {
+                    setDecisionMode('none');
+                    onOpenChange(false);
+                  }
                 }}
               />
             ) : null}
@@ -217,11 +219,13 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
                   <Button
                     variant="destructive"
                     disabled={!denyReason.trim()}
-                    onClick={() => {
-                      onConfirmDeny(request.id, denyReason.trim());
-                      setDecisionMode('none');
-                      setDenyReason('');
-                      onOpenChange(false);
+                    onClick={async () => {
+                      const succeeded = await onConfirmDeny(request.id, denyReason.trim());
+                      if (succeeded) {
+                        setDecisionMode('none');
+                        setDenyReason('');
+                        onOpenChange(false);
+                      }
                     }}
                   >
                     Deny request

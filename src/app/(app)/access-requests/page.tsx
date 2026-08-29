@@ -17,8 +17,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { FilePlus2 } from "lucide-react";
 import { useSession } from "@/providers/session-provider";
 import { listAccessRequestsPageRequest, listSitesRequest, listOperatorsRequest, listContractorsRequest, updateAccessRequest, deleteAccessRequest } from "@/lib/api";
@@ -141,31 +139,35 @@ export default function AccessRequestsPage() {
     void fetchRequests();
   }, 45000);
 
-  const handleConfirmDeny = async (requestId: string, reason: string) => {
-    if (!token) return;
+  const handleConfirmDeny = async (requestId: string, reason: string): Promise<boolean> => {
+    if (!token) return false;
     try {
       await updateAccessRequest(token, requestId, { status: 'Denied', decisionReason: reason });
       toast({ title: 'Request Denied', description: 'The request has been denied with a recorded reason.' });
       void fetchRequests();
+      return true;
     } catch (error) {
       console.error('Error denying request:', error);
       toast({ variant: 'destructive', title: 'Action Failed', description: 'Could not deny the request.' });
+      return false;
     }
   };
 
-  const handleConfirmApproval = async (requestId: string, validFrom: Date, expiresAt: Date | 'Permanent') => {
+  const handleConfirmApproval = async (requestId: string, validFrom: Date, expiresAt: Date | 'Permanent'): Promise<boolean> => {
     if (!token) {
       toast({ variant: "destructive", title: "Session expired", description: "Please log in again to continue." });
-      return;
+      return false;
     }
 
     try {
       await updateAccessRequest(token, requestId, buildAccessApprovalUpdate(validFrom, expiresAt));
       toast({ title: 'Request Approved', description: 'The access request has been approved.' });
       void fetchRequests();
+      return true;
     } catch (error) {
       console.error('Error approving request:', error);
       toast({ variant: 'destructive', title: 'Approval Failed', description: 'Could not approve the request.' });
+      return false;
     }
   };
 

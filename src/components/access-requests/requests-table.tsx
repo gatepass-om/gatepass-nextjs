@@ -35,8 +35,8 @@ interface RequestsTableProps {
   title: string;
   description: string;
   showActions?: boolean;
-  onConfirmApprove?: (requestId: string, validFrom: Date, expiresAt: Date | 'Permanent') => void;
-  onConfirmDeny?: (requestId: string, reason: string) => void;
+  onConfirmApprove?: (requestId: string, validFrom: Date, expiresAt: Date | 'Permanent') => Promise<boolean>;
+  onConfirmDeny?: (requestId: string, reason: string) => Promise<boolean>;
   onDelete?: (request: AccessRequest) => void | Promise<void>;
   isLoading?: boolean;
 }
@@ -243,7 +243,8 @@ export function RequestsTable({
     </Card>
 
     {selectedRequest && (
-      <RequestDetailsDialog 
+      <RequestDetailsDialog
+        key={selectedRequest.id}
         request={selectedRequest}
         open={!!selectedRequest}
         onOpenChange={(open) => {
