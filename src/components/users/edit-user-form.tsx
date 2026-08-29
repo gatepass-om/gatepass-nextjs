@@ -20,9 +20,6 @@ import { useMediaQuery } from "react-responsive";
 import { useSession } from "@/providers/session-provider";
 import { listCertificateTypesRequest, type UpdateUserInput } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { WorkerDocuments } from "@/components/workers/worker-documents";
-import { WorkerTimeline } from "@/components/workers/worker-timeline";
-import { shouldShowWorkerDocuments } from "./user-actions";
 import { buildEmploymentPayload } from '@/components/compliance/compliance-model';
 import { resolveEditAffiliation } from './user-affiliation';
 import { NATIONALITY_OPTIONS } from './nationalities';
@@ -568,12 +565,6 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                 Add Certificate Record
               </Button>
             </div>
-            {shouldShowWorkerDocuments(user.role) && (
-              <>
-                <WorkerDocuments workerId={user.id} certificateTypes={certificateTypes} canManage />
-                <WorkerTimeline workerId={user.id} />
-              </>
-            )}
           </div>
           <div className="flex justify-end pt-8">
             <Button type="submit" disabled={form.formState.isSubmitting}>
