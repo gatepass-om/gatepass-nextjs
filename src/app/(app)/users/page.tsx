@@ -249,7 +249,7 @@ export default function UsersPage() {
     <div className="min-w-0 space-y-4 md:space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Personnel Management</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Personnel</h1>
           <p className="text-sm text-muted-foreground sm:text-base">
             Manage personnel from operators, contractors, and visitors.
           </p>
