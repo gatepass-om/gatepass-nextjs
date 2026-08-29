@@ -34,7 +34,7 @@ type ProjectWorkPassQueueProps = {
 const STATUS_PRESENTATION: Record<string, { label: string; className: string }> = {
   Draft: { label: 'Draft', className: 'bg-slate-100 text-slate-700' },
   Submitted: { label: 'Pending consultant approval', className: 'bg-amber-100 text-amber-800' },
-  PendingSecondApproval: { label: 'Pending operator approval', className: 'bg-violet-100 text-violet-800' },
+  PendingSecondApproval: { label: 'Pending supervisor approval', className: 'bg-violet-100 text-violet-800' },
   Approved: { label: 'Approved', className: 'bg-emerald-100 text-emerald-800' },
   Rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800' },
   Cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-500' },
@@ -114,7 +114,7 @@ export function ProjectWorkPassQueue({
                   <div className="flex flex-wrap gap-2">
                     {actions.includes('submit') ? <Button size="sm" disabled={isBusy} onClick={() => onAction(workPass, 'submit')}>Submit</Button> : null}
                     {actions.includes('approve') ? <Button size="sm" disabled={isBusy} onClick={() => onAction(workPass, 'approve')}><CheckCircle2 className="mr-1.5 h-4 w-4" /> Consultant approve</Button> : null}
-                    {actions.includes('second-approve') ? <Button size="sm" disabled={isBusy} onClick={() => onAction(workPass, 'second-approve')}><ShieldCheck className="mr-1.5 h-4 w-4" /> Operator approve</Button> : null}
+                    {actions.includes('second-approve') ? <Button size="sm" disabled={isBusy} onClick={() => onAction(workPass, 'second-approve')}><ShieldCheck className="mr-1.5 h-4 w-4" /> Final approval</Button> : null}
                     {actions.includes('reject') ? <Button size="sm" variant="outline" disabled={isBusy} onClick={() => onReject(workPass)}><XCircle className="mr-1.5 h-4 w-4" /> Reject</Button> : null}
                   </div>
                 </div>
