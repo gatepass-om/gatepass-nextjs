@@ -18,7 +18,13 @@
 # next.js
 /.next/
 /.next-playwright-*/
+/.next-build-test/
+/.next-release-check/
 /out/
+
+# playwright / graphify scratch
+/.playwright-cli/
+/graphify-out/
 
 # production
 /build
