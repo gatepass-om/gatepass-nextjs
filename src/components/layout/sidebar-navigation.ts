@@ -12,7 +12,7 @@ const navigationItems: NavigationItem[] = [
   { href: '/access-requests', label: 'Site Access', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Worker', 'Supervisor', 'Contractor Admin'] },
   { href: '/alerts', label: 'Alerts & Muster', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },
   { href: '/inspections', label: 'Inspections', group: 'Operations', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Security', 'Inspector'] },
-  { href: '/location-governance', label: 'Geofencing', group: 'Governance', roles: ['Admin', 'Operator Admin', 'Manager', 'Contractor Admin', 'Supervisor'] },
+  { href: '/location-governance', label: 'Geofencing', group: 'Governance', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor'] },
   { href: '/projects', label: 'Projects', group: 'Governance', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin'] },
   { href: '/decision-rules', label: 'Decision Rules', group: 'Governance', roles: ['Admin'] },
   { href: '/compliance', label: 'Compliance Setup', group: 'Governance', roles: ['Admin', 'Operator Admin'] },
@@ -27,6 +27,8 @@ const navigationItems: NavigationItem[] = [
   { href: '/notifications', label: 'Notifications', group: 'Account', roles: ['Worker', 'Visitor', 'Manager', 'Supervisor', 'Admin', 'Operator Admin', 'Security', 'Contractor Admin', 'Inspector'] },
 ];
 
-export function getNavigationForRole(role: UserRole) {
-  return navigationItems.filter((item) => item.roles.includes(role));
+export function getNavigationForRole(role: UserRole, context: { externalCompany?: boolean } = {}) {
+  return navigationItems.filter((item) =>
+    item.roles.includes(role)
+    && !(context.externalCompany && item.href === '/location-governance'));
 }

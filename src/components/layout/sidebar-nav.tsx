@@ -117,7 +117,7 @@ export function SidebarNav() {
       '/profile': UserIcon,
       '/notifications': BellRing,
     } as const;
-    const visible = getNavigationForRole(role).map((item) => ({
+    const visible = getNavigationForRole(role, { externalCompany: Boolean(user?.contractorId) }).map((item) => ({
       ...item,
       icon: icons[item.href as keyof typeof icons],
     }));

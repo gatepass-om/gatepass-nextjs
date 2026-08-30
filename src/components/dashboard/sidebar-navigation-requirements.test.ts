@@ -42,3 +42,21 @@ test('the account destination uses the simplified account label', () => {
     );
   }
 });
+
+test('external-company users do not see geofencing navigation', () => {
+  assert.equal(
+    getNavigationForRole('Contractor Admin', { externalCompany: true })
+      .some((item) => item.href === '/location-governance'),
+    false,
+  );
+  assert.equal(
+    getNavigationForRole('Supervisor', { externalCompany: true })
+      .some((item) => item.href === '/location-governance'),
+    false,
+  );
+  assert.equal(
+    getNavigationForRole('Supervisor', { externalCompany: false })
+      .some((item) => item.href === '/location-governance'),
+    true,
+  );
+});

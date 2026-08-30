@@ -60,6 +60,7 @@ test('external-company principals use and report their enforced company scope', 
   assert.match(dashboardPage, /externalCompanyId: effectiveExternalCompanyId/);
   assert.match(dashboardPage, /externalCompanyId=\{effectiveExternalCompanyId\}/);
   assert.match(dashboardPage, /\{!userContractorId \? \(/);
+  assert.match(dashboardPage, /if \(!token \|\| !userRole \|\| !isAuthorized \|\| userContractorId\)/);
 });
 
 test('optional company reference-data failures do not discard accessible sites', () => {

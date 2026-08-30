@@ -269,7 +269,8 @@ export default function DashboardPage() {
   ]);
 
   const fetchZones = useCallback(async () => {
-    if (!token || !userRole || !isAuthorized) {
+    if (!token || !userRole || !isAuthorized || userContractorId) {
+      setZones([]);
       setLoadingZones(false);
       return;
     }
@@ -281,7 +282,7 @@ export default function DashboardPage() {
     } finally {
       setLoadingZones(false);
     }
-  }, [isAuthorized, token, userRole]);
+  }, [isAuthorized, token, userContractorId, userRole]);
 
   useEffect(() => {
     void fetchReferenceData();

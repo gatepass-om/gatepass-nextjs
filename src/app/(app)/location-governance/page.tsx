@@ -68,11 +68,12 @@ export default function LocationGovernancePage() {
   const [deleting, setDeleting] = useState(false);
   const [validateOpen, setValidateOpen] = useState(false);
 
+  const isExternalCompany = Boolean(currentUser?.contractorId);
   const canManage = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin';
   const siteFilter = selectedSiteId === 'all' ? undefined : selectedSiteId;
 
   const fetchData = useCallback(async () => {
-    if (!token || !currentUser) return;
+    if (!token || !currentUser || isExternalCompany) return;
     try {
       const sitesInput = currentUser.role === 'Operator Admin' && currentUser.operatorId ? { operatorId: currentUser.operatorId } : undefined;
       const [sitesData, geofences, assignments, violations] = await Promise.all([
@@ -89,7 +90,7 @@ export default function LocationGovernancePage() {
     } finally {
       setLoadingData(false);
     }
-  }, [currentUser, siteFilter, toast, token]);
+  }, [currentUser, isExternalCompany, siteFilter, toast, token]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
   // Live: geofence violations, work-session safety changes, and geofence edits refresh on arrival. (Region-less
@@ -159,6 +160,7 @@ export default function LocationGovernancePage() {
 
   if (authLoading || !currentUser) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
   if (!isAuthorized) return <UnauthorizedComponent />;
+  if (isExternalCompany) return <UnauthorizedComponent />;
 
   const resultTone = validationResult?.result === 'Inside' ? 'text-success' : validationResult?.result === 'Outside' ? 'text-destructive' : 'text-warning';
 
