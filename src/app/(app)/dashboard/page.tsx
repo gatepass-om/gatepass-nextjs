@@ -430,10 +430,12 @@ export default function DashboardPage() {
           className="h-10 w-10 rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 md:hidden"
         />
         <div className="flex items-center gap-3">
-          <span className="dashboard-reference-status">
-            <span className={`status-dot ${summaryFreshness.isStale ? 'bg-amber-500' : 'status-dot--live'}`} />
-            {summaryFreshness.isStale ? 'Stale' : 'Live'}
-          </span>
+          {summaryFreshness.isStale ? (
+            <span className="dashboard-reference-status text-amber-700">
+              <span className="status-dot bg-amber-500" />
+              Data may be stale
+            </span>
+          ) : null}
           <Link href="/notifications" aria-label="Open notifications" className="rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
             <Bell className="h-4 w-4" />
           </Link>
@@ -441,8 +443,7 @@ export default function DashboardPage() {
         </div>
       </div>
       <header className="dashboard-header px-1 pb-4">
-        <p className="dashboard-eyebrow text-primary">Command center · operations</p>
-        <h1 className="mt-1 text-[26px] font-semibold tracking-[-.04em] text-slate-900">Good morning, {firstName}</h1>
+        <h1 className="text-[26px] font-semibold tracking-[-.04em] text-slate-900">Good morning, {firstName}</h1>
       </header>
 
       <section aria-label="Dashboard filters" className="dashboard-controlbar flex flex-col gap-3 border-y border-slate-200/80 py-3 xl:flex-row xl:items-center xl:justify-between">

@@ -24,29 +24,6 @@ import { useLiveEvents } from '@/hooks/use-live-events';
 
 const ALERT_VIEWER_ROLES = ['Admin', 'Operator Admin', 'Manager', 'Security'];
 
-function UtcClock() {
-  const [now, setNow] = useState<Date | null>(null);
-
-  useEffect(() => {
-    setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const time = now
-    ? now.toISOString().slice(11, 19) // HH:MM:SS from the UTC ISO string
-    : '--:--:--';
-
-  return (
-    <div className="hidden flex-col items-end leading-none lg:flex">
-      <span className="eyebrow text-[10px] tracking-[0.18em]">UTC</span>
-      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-        {time}
-      </span>
-    </div>
-  );
-}
-
 export function Header() {
   const router = useRouter();
   const { toast } = useToast();
@@ -106,11 +83,6 @@ export function Header() {
     <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center gap-3 border-b border-border bg-background/80 px-4 py-2 backdrop-blur md:gap-4 md:px-6">
       {/* Left: sidebar toggle + page context */}
       <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-      <div className="hidden items-center gap-2 md:flex">
-        <span className="eyebrow">Operations</span>
-        <span className="h-3 w-px bg-border" aria-hidden="true" />
-        <span className="text-sm font-semibold text-foreground">Command Center</span>
-      </div>
 
       {/* Center: global search */}
       <div className="relative flex-1">
@@ -122,26 +94,8 @@ export function Header() {
         />
       </div>
 
-      {/* Right cluster: clock, system status, env, alerts, user */}
+      {/* Right cluster: alerts, notifications, user */}
       <div className="flex items-center gap-3 md:gap-4">
-        <UtcClock />
-
-        <span className="hidden h-8 w-px bg-border lg:block" aria-hidden="true" />
-
-        {/* SYSTEM status pill */}
-        <div className="hidden items-center gap-2 rounded-full border border-success/30 bg-success/15 px-3 py-1.5 md:flex">
-          <span className="status-dot status-dot--live" aria-hidden="true" />
-          <div className="flex flex-col leading-none">
-            <span className="eyebrow text-[9px] leading-none tracking-[0.18em]">System</span>
-            <span className="text-xs font-semibold tracking-wide text-success">OPERATIONAL</span>
-          </div>
-        </div>
-
-        {/* Environment badge */}
-        <span className="hidden rounded-md border border-warning/30 bg-warning/15 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-warning sm:inline-block">
-          DEV
-        </span>
-
         {isImpersonating && (
           <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-2 py-1">
             <Badge variant="outline" className="border-warning/50 text-warning">

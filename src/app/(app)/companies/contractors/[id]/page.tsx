@@ -199,7 +199,7 @@ export default function ContractorDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Access Requests</CardTitle>
+          <CardTitle>Recent Site Access</CardTitle>
           <CardDescription>Latest requests visible for this contractor.</CardDescription>
         </CardHeader>
         <CardContent>

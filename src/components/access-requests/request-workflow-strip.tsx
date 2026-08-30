@@ -32,7 +32,7 @@ export function RequestWorkflowStrip({ requests, pendingRequests, isLoading = fa
               <span className="text-xs text-muted-foreground">Access governance workflow</span>
             </div>
             <div>
-              <h2 className="text-2xl font-semibold leading-tight">Access Request Control</h2>
+              <h2 className="text-2xl font-semibold leading-tight">Site Access Control</h2>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
                 Review contractor requests, validate worker readiness, and issue controlled access windows.
               </p>

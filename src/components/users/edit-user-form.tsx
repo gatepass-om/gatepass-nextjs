@@ -440,7 +440,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
               {fields.map((field, index) => (
                 <div
                   key={field.id}
-                  className="flex items-end gap-4 p-4 border rounded-md relative"
+                  className="flex flex-wrap items-end gap-4 p-4 border rounded-md relative"
                 >
                   <FormField
                     control={form.control}
@@ -480,7 +480,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                     control={form.control}
                     name={`certificates.${index}.expiresAtUtc`}
                     render={({ field }) => (
-                      <FormItem className="flex flex-col">
+                      <FormItem className="flex min-w-[200px] flex-1 flex-col sm:flex-none">
                         <FormLabel>Expiry Date</FormLabel>
                         {(() => {
                           const isMobile = useMediaQuery({ maxWidth: 768 });
@@ -501,7 +501,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                                       : undefined
                                   )
                                 }
-                                className="w-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:w-[200px]"
                               />
                             </FormControl>
                           ) : (
@@ -511,7 +511,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                                   <Button
                                     variant={"outline"}
                                     className={cn(
-                                      "w-[200px] pl-3 text-left font-normal",
+                                      "w-full pl-3 text-left font-normal sm:w-[200px]",
                                       !field.value && "text-muted-foreground"
                                     )}
                                   >

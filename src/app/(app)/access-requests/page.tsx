@@ -213,7 +213,7 @@ export default function AccessRequestsPage() {
     <div className="space-y-4 md:space-y-5">
       <header className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Access Requests</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Site Access</h1>
           <p className="text-sm text-muted-foreground">Review, approve, and track site access.</p>
         </div>
         {isSupervisor && (
@@ -224,7 +224,7 @@ export default function AccessRequestsPage() {
             </Button>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Submit Group Access Request</DialogTitle>
+                <DialogTitle>Submit Group Site Access Request</DialogTitle>
                 <DialogDescription>
                   Fill out the contract details and provide the list of workers requiring access.
                 </DialogDescription>
@@ -255,13 +255,13 @@ export default function AccessRequestsPage() {
           <TabsContent value="my-requests-log">
             <RequestsTable
               title="All requests"
-              description="Every access request in your scope, regardless of status."
+              description="Every site access request in your scope, regardless of status."
               requests={myRequests}
               isLoading={loading}
               onDelete={canDelete ? handleDeleteRequest : undefined}
             />
             <PaginationControls
-              noun="access requests"
+              noun="site access requests"
               page={requestPage}
               totalPages={requestTotalPages}
               hasPreviousPage={requestHasPreviousPage}
@@ -284,7 +284,7 @@ export default function AccessRequestsPage() {
               isLoading={loading}
             />
             <PaginationControls
-              noun="pending access requests"
+              noun="pending site access requests"
               page={pendingPage}
               totalPages={pendingTotalPages}
               hasPreviousPage={pendingHasPreviousPage}

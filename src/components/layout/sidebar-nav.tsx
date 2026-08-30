@@ -50,7 +50,7 @@ const GatePassLogo = () => (
 );
 
 const dashboardLabels: Record<string, string> = {
-  '/access-requests': 'Requests',
+  '/access-requests': 'Site Access',
   '/location-governance': 'Geofencing',
   '/decision-rules': 'Rules',
   '/surveillance': 'Video',

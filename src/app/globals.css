@@ -6,61 +6,61 @@
   :root {
     color-scheme: light;
 
-    /* GatePass — monochrome operations center */
-    --background: 0 0% 97%;
-    --foreground: 0 0% 9%;
+    /* GatePass — Apple HIG–style light theme */
+    --background: 240 20% 97%;
+    --foreground: 240 6% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 9%;
+    --card-foreground: 240 6% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 9%;
+    --popover-foreground: 240 6% 12%;
 
-    --primary: 0 0% 9%;
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 93%;
-    --secondary-foreground: 0 0% 12%;
+    --secondary: 240 20% 94%;
+    --secondary-foreground: 240 6% 14%;
 
-    --muted: 0 0% 93%;
-    --muted-foreground: 0 0% 42%;
+    --muted: 240 15% 95%;
+    --muted-foreground: 240 4% 46%;
 
-    --accent: 0 0% 92%;
-    --accent-foreground: 0 0% 9%;
+    --accent: 211 100% 95%;
+    --accent-foreground: 211 100% 36%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 4 90% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 86%;
-    --input: 0 0% 82%;
-    --ring: 0 0% 20%;
+    --border: 240 10% 88%;
+    --input: 240 10% 85%;
+    --ring: 211 100% 50%;
 
-    --radius: 0.6rem;
+    --radius: 0.875rem;
 
     /* status palette for operations widgets */
-    --success: 142 71% 40%;
+    --success: 142 69% 42%;
     --success-foreground: 0 0% 100%;
-    --warning: 32 95% 44%;
+    --warning: 36 100% 50%;
     --warning-foreground: 0 0% 100%;
-    --danger: 0 72% 51%;
+    --danger: 4 90% 58%;
     --danger-foreground: 0 0% 100%;
-    --info: 199 89% 48%;
+    --info: 211 100% 50%;
 
-    --chart-1: 0 0% 12%;
-    --chart-2: 0 0% 36%;
-    --chart-3: 32 95% 50%;
+    --chart-1: 211 100% 50%;
+    --chart-2: 142 69% 42%;
+    --chart-3: 36 100% 50%;
     --chart-4: 280 60% 58%;
-    --chart-5: 142 65% 45%;
+    --chart-5: 340 82% 58%;
 
-    /* sidebar — white with subtle separation */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 28%;
-    --sidebar-primary: 0 0% 9%;
+    /* sidebar — macOS-style light rail with a blue selected state */
+    --sidebar-background: 240 20% 96%;
+    --sidebar-foreground: 240 6% 27%;
+    --sidebar-primary: 211 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 93%;
-    --sidebar-accent-foreground: 0 0% 9%;
-    --sidebar-border: 0 0% 89%;
-    --sidebar-ring: 0 0% 20%;
+    --sidebar-accent: 211 92% 93%;
+    --sidebar-accent-foreground: 211 100% 38%;
+    --sidebar-border: 240 10% 89%;
+    --sidebar-ring: 211 100% 50%;
   }
 
   .dark {
@@ -74,24 +74,16 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* very subtle control-room grid + neutral depth */
-    background-image:
-      radial-gradient(1100px 520px at 88% -12%, hsl(0 0% 0% / 0.035), transparent 60%),
-      radial-gradient(900px 480px at -8% 108%, hsl(0 0% 45% / 0.025), transparent 60%),
-      linear-gradient(hsl(0 0% 30% / 0.035) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(0 0% 30% / 0.035) 1px, transparent 1px);
-    background-size: 100% 100%, 100% 100%, 46px 46px, 46px 46px;
-    background-attachment: fixed;
   }
 }
 
 @layer components {
   /* Elevated operations panel */
   .ops-panel {
-    @apply rounded-xl border border-border bg-card;
+    @apply rounded-2xl border border-border bg-card;
     box-shadow:
-      0 1px 2px hsl(222 47% 20% / 0.04),
-      0 10px 26px -16px hsl(222 47% 25% / 0.18);
+      0 1px 1px hsl(240 6% 12% / 0.03),
+      0 8px 20px -14px hsl(240 6% 12% / 0.14);
   }
 
   .metric-value {
@@ -113,43 +105,29 @@
 
   .dashboard-panel {
     @apply overflow-hidden rounded-2xl border border-slate-200/80 bg-white;
-    box-shadow: 0 8px 24px -20px rgb(0 0 0 / .24);
+    box-shadow: 0 6px 18px -16px rgb(0 0 0 / .18);
   }
 
   .dashboard-metric {
     @apply rounded-2xl border border-slate-200/80 bg-white p-4;
-    box-shadow: 0 8px 24px -20px rgb(0 0 0 / .22);
+    box-shadow: 0 6px 18px -16px rgb(0 0 0 / .16);
     transition: transform 160ms ease, box-shadow 160ms ease;
   }
 
   .dashboard-metric:hover {
     transform: translateY(-1px);
-    box-shadow: 0 12px 28px -18px rgb(0 0 0 / .3);
+    box-shadow: 0 10px 22px -16px rgb(0 0 0 / .22);
   }
 
   .dashboard-eyebrow {
     @apply text-[10px] font-semibold uppercase tracking-[.14em] text-slate-400;
   }
 
-  /* Keep legacy page-level blue utility classes aligned with the product palette. */
-  [class*="bg-blue-50"], [class*="bg-blue-100"] { background-color: hsl(0 0% 94%) !important; }
-  [class*="bg-blue-500"], [class*="bg-blue-600"], [class*="bg-blue-700"] { background-color: hsl(0 0% 12%) !important; }
-  [class*="text-blue-"] { color: hsl(0 0% 16%) !important; }
-  [class*="border-blue-"] { border-color: hsl(0 0% 70%) !important; }
-  [class*="ring-blue-"] { --tw-ring-color: hsl(0 0% 76%) !important; }
-
-  /* The home dashboard uses a compact command-centre rail, while the rest of
-     the application keeps the standard directory navigation treatment. */
+  /* The home dashboard uses a compact command-centre rail, styled as a
+     floating macOS-style sidebar with the same light Apple palette as the
+     rest of the application. */
   .dashboard-sidebar {
     --sidebar-width: 14rem;
-    --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 0 0% 8%;
-    --sidebar-accent: 0 0% 17%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 0 0% 22%;
-    --sidebar-ring: 0 0% 100%;
   }
 
   .dashboard-sidebar [data-sidebar="sidebar"] {
@@ -157,20 +135,12 @@
     margin: 1rem;
     width: calc(100% - 2rem);
     height: calc(100% - 2rem);
-    border-radius: 1.45rem;
-    box-shadow: 8px 0 28px -24px rgb(0 0 0 / .72);
+    border-radius: 1.25rem;
+    box-shadow: 0 8px 24px -18px rgb(0 0 0 / .18);
   }
 
   .dashboard-sidebar [data-sidebar="header"] {
     padding: 1.35rem 1.15rem 1rem;
-  }
-
-  .dashboard-sidebar [data-sidebar="header"] .bg-primary {
-    background: #ffffff !important;
-  }
-
-  .dashboard-sidebar [data-sidebar="header"] .bg-primary .text-primary-foreground {
-    color: #141414 !important;
   }
 
   .dashboard-sidebar [data-sidebar="content"] {
@@ -185,28 +155,16 @@
   .dashboard-sidebar [data-sidebar="group-label"] {
     height: 1.65rem;
     padding-inline: .65rem;
-    color: rgb(255 255 255 / .52);
   }
 
   .dashboard-sidebar [data-sidebar="menu-button"] {
     height: 2.1rem;
     border-radius: .6rem;
-    color: rgb(255 255 255 / .78);
     font-size: .78rem;
-  }
-
-  .dashboard-sidebar [data-sidebar="menu-button"]:hover,
-  .dashboard-sidebar [data-sidebar="menu-button"][data-active="true"] {
-    background: rgb(255 255 255 / .16);
-    color: white;
   }
 
   .dashboard-sidebar [data-sidebar="footer"] {
     padding: .75rem;
-  }
-
-  .dashboard-sidebar .text-foreground {
-    color: white;
   }
 
   .dashboard-reference-canvas {
@@ -227,8 +185,8 @@
     max-height: 100svh;
     overflow: hidden;
     border-radius: 0 1.65rem 1.65rem 0;
-    background: #141414;
-    box-shadow: 0 22px 48px -24px rgb(0 0 0 / .55);
+    background: hsl(var(--sidebar-background));
+    box-shadow: 0 22px 48px -24px rgb(0 0 0 / .25);
   }
 
   .dashboard-reference-sidebar {

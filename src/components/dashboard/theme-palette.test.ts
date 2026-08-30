@@ -14,23 +14,18 @@ const dashboardTools = readFileSync(new URL('./dashboard-tools.tsx', import.meta
 const dashboardVisuals = readFileSync(new URL('./dashboard-visuals.tsx', import.meta.url), 'utf8');
 const operationsMap = readFileSync(new URL('../maps/ops-map.inner.tsx', import.meta.url), 'utf8');
 
-test('uses the black, white and grey product palette', () => {
-  assert.match(globalStyles, /--primary: 0 0% 9%;/);
-  assert.match(globalStyles, /--accent: 0 0% 92%;/);
-  assert.match(globalStyles, /--accent-foreground: 0 0% 9%;/);
-  assert.match(globalStyles, /--sidebar-background: 0 0% 8%;/);
-  assert.match(globalStyles, /--background: 0 0% 97%;/);
-  assert.match(globalStyles, /--foreground: 0 0% 9%;/);
-  assert.match(globalStyles, /--border: 0 0% 86%;/);
+test('uses the Apple-style light and blue-accent product palette', () => {
+  assert.match(globalStyles, /--primary: 211 100% 50%;/);
+  assert.match(globalStyles, /--accent: 211 100% 95%;/);
+  assert.match(globalStyles, /--accent-foreground: 211 100% 36%;/);
+  assert.match(globalStyles, /--sidebar-background: 240 20% 96%;/);
+  assert.match(globalStyles, /--background: 240 20% 97%;/);
+  assert.match(globalStyles, /--foreground: 240 6% 12%;/);
+  assert.match(globalStyles, /--border: 240 10% 88%;/);
 });
 
 test('keeps the dashboard frame aligned with the shared palette', () => {
-  assert.match(globalStyles, /background: #141414;/i);
-  assert.match(globalStyles, /background: #ffffff !important;/i);
-  assert.match(
-    globalStyles,
-    /\[data-sidebar="header"\] \.bg-primary \.text-primary-foreground\s*\{[^}]*color: #141414 !important;/i,
-  );
+  assert.match(globalStyles, /\.dashboard-reference-frame\s*\{[^}]*background: hsl\(var\(--sidebar-background\)\);/);
   assert.doesNotMatch(globalStyles, /#087a9c|#07566d|#16a39a|194 90%|176 76%/i);
 });
 

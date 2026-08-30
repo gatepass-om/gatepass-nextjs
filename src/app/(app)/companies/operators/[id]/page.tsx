@@ -204,7 +204,7 @@ export default function OperatorDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Access Requests</CardTitle>
+          <CardTitle>Recent Site Access</CardTitle>
           <CardDescription>Latest requests involving this operator.</CardDescription>
         </CardHeader>
         <CardContent>

@@ -78,7 +78,7 @@ test('dashboard composition is role and tenant driven without client-name branch
   assert.doesNotMatch(dashboardSource, /Nama|PDO|Worley/);
 });
 
-test('dashboard integrates latest-request coordination and a live freshness clock', () => {
+test('dashboard integrates latest-request coordination and warns only when data is stale', () => {
   assert.match(dashboardPage, /createLatestRequestCoordinator/);
   assert.match(dashboardPage, /coordinator\.run/);
   assert.match(dashboardPage, /result\.status === 'stale'/);
@@ -89,7 +89,8 @@ test('dashboard integrates latest-request coordination and a live freshness cloc
   assert.match(dashboardPage, /getDashboardFreshness/);
   assert.doesNotMatch(dashboardPage, /Search dashboard/);
   assert.doesNotMatch(dashboardVisuals, />LIVE</);
-  assert.match(dashboardPage, /dashboard-reference-status[\s\S]+?summaryFreshness\.isStale/);
+  assert.match(dashboardPage, /summaryFreshness\.isStale[\s\S]+?Data may be stale/);
+  assert.doesNotMatch(dashboardPage, /summaryFreshness\.isStale \? 'Stale' : 'Live'/);
 });
 
 test('dashboard map includes site overview points alongside geofences', () => {

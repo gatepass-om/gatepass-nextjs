@@ -276,7 +276,7 @@ export default function MusterPage() {
                         key={state}
                         size="sm"
                         variant={record.state === state ? 'default' : 'outline'}
-                        className={`text-xs ${activeStateClass(record.state, state)}`}
+                        className={`px-1.5 text-xs ${activeStateClass(record.state, state)}`}
                         disabled={busy || !isActive}
                         onClick={() => void handleCheckOff(record, state)}
                       >
