@@ -9,7 +9,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarGroup,
-  SidebarGroupLabel,
 } from '@/components/ui/sidebar';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -23,13 +22,10 @@ import {
   LogOut,
   Briefcase,
   User as UserIcon,
-  LockKeyhole,
   ClipboardCheck,
   MapPinned,
-  Video,
   BellRing,
   Siren,
-  SlidersHorizontal,
   BadgeCheck,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -52,10 +48,6 @@ const GatePassLogo = () => (
 const dashboardLabels: Record<string, string> = {
   '/access-requests': 'Site Access',
   '/location-governance': 'Geofencing',
-  '/decision-rules': 'Rules',
-  '/surveillance': 'Video',
-  '/permits': 'Permits',
-  '/smart-access': 'Smart access',
   '/sites': 'Sites',
   '/profile': 'My Account',
 };
@@ -105,11 +97,7 @@ export function SidebarNav() {
       '/inspections': ClipboardCheck,
       '/location-governance': MapPinned,
       '/projects': Briefcase,
-      '/decision-rules': SlidersHorizontal,
       '/compliance': BadgeCheck,
-      '/surveillance': Video,
-      '/permits': ClipboardCheck,
-      '/smart-access': LockKeyhole,
       '/sites': Building2,
       '/companies': Briefcase,
       '/users': Users,
@@ -117,15 +105,11 @@ export function SidebarNav() {
       '/profile': UserIcon,
       '/notifications': BellRing,
     } as const;
-    const visible = getNavigationForRole(role, { externalCompany: Boolean(user?.contractorId) }).map((item) => ({
+    return getNavigationForRole(role, { externalCompany: Boolean(user?.contractorId) }).map((item) => ({
       ...item,
       icon: icons[item.href as keyof typeof icons],
     }));
-    const order = ['Operations', 'Governance', 'Infrastructure', 'Directory', 'Account'];
-    return order
-      .map(group => ({ group, items: visible.filter(i => i.group === group) }))
-      .filter(section => section.items.length > 0);
-  }, [pathname, user]);
+  }, [user]);
 
 
   const handleLogout = () => {
@@ -151,28 +135,23 @@ export function SidebarNav() {
         </div>
       </SidebarHeader>
       <SidebarContent className="px-2 py-2">
-        {navItems.map((section) => (
-          <SidebarGroup key={section.group} className="py-1">
-            <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/40 group-data-[collapsible=icon]:hidden">
-              {section.group}
-            </SidebarGroupLabel>
-            <SidebarMenu>
-              {section.items.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <Link href={item.href}>
-                    <SidebarMenuButton
-                      isActive={pathname.startsWith(item.href)}
-                      tooltip={{ children: item.label, side: 'right' }}
-                    >
-                      <item.icon />
-                      <span>{pathname === '/dashboard' ? dashboardLabels[item.href] ?? item.label : item.label}</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroup>
-        ))}
+        <SidebarGroup className="py-1">
+          <SidebarMenu>
+            {navItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <Link href={item.href}>
+                  <SidebarMenuButton
+                    isActive={pathname.startsWith(item.href)}
+                    tooltip={{ children: item.label, side: 'right' }}
+                  >
+                    <item.icon />
+                    <span>{pathname === '/dashboard' ? dashboardLabels[item.href] ?? item.label : item.label}</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-2 flex-col gap-2">
         <div className="flex items-center gap-2 rounded-lg bg-sidebar-accent/40 px-3 py-2 group-data-[collapsible=icon]:hidden">

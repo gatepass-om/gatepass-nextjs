@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 // @ts-expect-error Node's built-in TypeScript runner requires the source extension.
 import { getNavigationForRole } from '../layout/sidebar-navigation.ts';
+
+const sidebarSource = readFileSync(
+  new URL('../layout/sidebar-nav.tsx', import.meta.url),
+  'utf8',
+);
 
 test('client navigation exposes one emergency center and no card-production tools', () => {
   for (const role of ['Operator Admin', 'Manager', 'Security', 'Contractor Admin'] as const) {
@@ -59,4 +65,26 @@ test('external-company users do not see geofencing navigation', () => {
       .some((item) => item.href === '/location-governance'),
     true,
   );
+});
+
+test('deferred modules are hidden and the remaining links are not grouped', () => {
+  const hiddenRoutes = ['/surveillance', '/permits', '/smart-access', '/decision-rules'];
+
+  for (const role of [
+    'Admin',
+    'Operator Admin',
+    'Manager',
+    'Supervisor',
+    'Security',
+    'Inspector',
+    'Contractor Admin',
+    'Worker',
+    'Visitor',
+  ] as const) {
+    const routes = getNavigationForRole(role).map((item) => item.href);
+    for (const route of hiddenRoutes) assert.equal(routes.includes(route), false);
+  }
+
+  assert.doesNotMatch(sidebarSource, /SidebarGroupLabel/);
+  assert.doesNotMatch(sidebarSource, /section\.group/);
 });
