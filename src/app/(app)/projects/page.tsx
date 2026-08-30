@@ -33,10 +33,9 @@ import {
 } from '@/components/projects/project-wizard-dialog';
 import { calculateProjectPortfolio, getProjectStatusPresentation } from '@/components/projects/project-workflow';
 import {
-  ProjectWorkPassQueue,
   type ProjectWorkPassRecord,
 } from '@/components/access-requests/project-work-pass-queue';
-import type { WorkPassAction } from '@/components/projects/project-command-center';
+import { getWorkPassActions, type WorkPassAction } from '@/components/projects/project-command-center';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -221,18 +220,6 @@ export default function ProjectsPage() {
 
       {notice ? <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
 
-      {canViewWorkPassQueue && projectWorkPasses.length > 0 ? (
-        <ProjectWorkPassQueue
-          workPasses={projectWorkPasses}
-          projects={projects}
-          actor={{ id: user?.id, role: user?.role }}
-          isLoading={loading}
-          busyWorkPassId={busyWorkPassId}
-          onAction={(workPass, action) => void handleWorkPassAction(workPass, action)}
-          onReject={(workPass) => { setRejectWorkPass(workPass); setWorkPassRejectReason(''); }}
-        />
-      ) : null}
-
       <section aria-label="Project portfolio summary" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Active projects" value={portfolio.active} detail={`${portfolio.total} total projects`} icon={CircleDot} tone="blue" loading={loading} />
         <MetricCard label="Ending in 30 days" value={portfolio.endingSoon} detail="Active projects needing review" icon={CalendarClock} tone={portfolio.endingSoon ? 'amber' : 'slate'} loading={loading} />
@@ -241,14 +228,7 @@ export default function ProjectsPage() {
           detail={`${portfolio.upcoming} upcoming · ${portfolio.completed} completed`} icon={CheckCircle2} tone="violet" loading={loading} />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.55fr)]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div><h2 className="font-semibold text-slate-950">Portfolio health</h2><p className="text-sm text-slate-500">How projects are distributed today</p></div>
-            <span className="text-sm font-medium text-slate-500">{portfolio.total} projects</span>
-          </div>
-          <PortfolioBar active={portfolio.active} upcoming={portfolio.upcoming} completed={portfolio.completed} total={portfolio.total} />
-        </div>
+      <section>
         <div className={`rounded-2xl border p-5 shadow-sm ${
           portfolio.endingSoon ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'
         }`}>
@@ -297,14 +277,24 @@ export default function ProjectsPage() {
           <div className="space-y-3 p-4">{[0, 1, 2].map((item) => <Skeleton key={item} className="h-24 w-full rounded-xl" />)}</div>
         ) : filteredProjects.length ? (
           <div className="divide-y divide-slate-100">
-            {filteredProjects.map((project) => (
-              <ProjectRow
-                key={project.id}
-                project={project}
-                onEdit={() => startEditing(project)}
-                canEdit={canConfigureProjects && (user?.role !== 'Supervisor' || project.supervisorUserId === user.id)}
-              />
-            ))}
+            {filteredProjects.map((project) => {
+              const actionable = projectWorkPasses
+                .filter((pass) => pass.projectId === project.id)
+                .map((pass) => ({ pass, actions: getWorkPassActions(pass, project, { id: user?.id, role: user?.role }) }))
+                .filter((item) => item.actions.includes('approve') || item.actions.includes('second-approve'));
+              return (
+                <ProjectRow
+                  key={project.id}
+                  project={project}
+                  onEdit={() => startEditing(project)}
+                  canEdit={canConfigureProjects && (user?.role !== 'Supervisor' || project.supervisorUserId === user.id)}
+                  actionablePasses={actionable}
+                  busyWorkPassId={busyWorkPassId}
+                  onApprove={(pass, action) => void handleWorkPassAction(pass, action)}
+                  onReject={(pass) => { setRejectWorkPass(pass); setWorkPassRejectReason(''); }}
+                />
+              );
+            })}
           </div>
         ) : (
           <div className="px-6 py-16 text-center">
@@ -367,14 +357,19 @@ export default function ProjectsPage() {
   );
 }
 
-function ProjectRow({ project, onEdit, canEdit }: {
+function ProjectRow({ project, onEdit, canEdit, actionablePasses, busyWorkPassId, onApprove, onReject }: {
   project: ProjectRecord;
   onEdit: () => void;
   canEdit: boolean;
+  actionablePasses: Array<{ pass: ProjectWorkPassRecord; actions: WorkPassAction[] }>;
+  busyWorkPassId: string | null;
+  onApprove: (pass: ProjectWorkPassRecord, action: Exclude<WorkPassAction, 'reject'>) => void;
+  onReject: (pass: ProjectWorkPassRecord) => void;
 }) {
   const endsAt = new Date(project.validToUtc);
   const daysRemaining = Math.ceil((endsAt.getTime() - Date.now()) / 86_400_000);
   const needsAttention = project.status.toLowerCase() === 'active' && daysRemaining >= 0 && daysRemaining <= 30;
+  const singleActionable = actionablePasses.length === 1 ? actionablePasses[0] : null;
   return (
     <article className="group grid gap-4 p-5 transition hover:bg-slate-50/70 lg:grid-cols-[minmax(0,1.2fr)_minmax(12rem,0.6fr)_auto] lg:items-center">
       <div className="min-w-0">
@@ -391,6 +386,9 @@ function ProjectRow({ project, onEdit, canEdit }: {
           <span>{project.contractors.length} contractor{project.contractors.length === 1 ? '' : 's'}</span>
           <span>{project.members.length} team member{project.members.length === 1 ? '' : 's'}</span>
         </div>
+        {actionablePasses.length > 1 ? (
+          <p className="mt-2 text-xs font-semibold text-amber-700">{actionablePasses.length} work passes need your decision</p>
+        ) : null}
       </div>
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Work-pass activity</p>
@@ -399,9 +397,28 @@ function ProjectRow({ project, onEdit, canEdit }: {
           <span className="text-sm text-slate-500">passes</span>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {singleActionable ? (
+          <>
+            <Button
+              size="sm"
+              disabled={busyWorkPassId === singleActionable.pass.id}
+              onClick={() => onApprove(singleActionable.pass, singleActionable.actions.includes('second-approve') ? 'second-approve' : 'approve')}
+            >
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busyWorkPassId === singleActionable.pass.id}
+              onClick={() => onReject(singleActionable.pass)}
+            >
+              Reject
+            </Button>
+          </>
+        ) : null}
         {canEdit ? <Button variant="outline" size="sm" onClick={onEdit}><Edit3 className="mr-1.5 h-4 w-4" /> Edit</Button> : null}
-        <Button asChild size="sm"><Link href={`/projects/${project.id}`}>Manage <ArrowUpRight className="ml-1.5 h-4 w-4" /></Link></Button>
+        <Button asChild size="sm" variant={singleActionable ? 'ghost' : 'default'}><Link href={`/projects/${project.id}`}>Manage <ArrowUpRight className="ml-1.5 h-4 w-4" /></Link></Button>
       </div>
     </article>
   );
@@ -423,27 +440,6 @@ function MetricCard({ label, value, detail, icon: Icon, tone, loading }: {
         <span className={`rounded-xl p-2.5 ${toneClasses[tone]}`}><Icon className="h-5 w-5" /></span>
       </div>
       <p className="mt-3 text-xs text-slate-500">{detail}</p>
-    </div>
-  );
-}
-
-function PortfolioBar({ active, upcoming, completed, total }: { active: number; upcoming: number; completed: number; total: number }) {
-  const denominator = Math.max(total, 1);
-  const segments = [
-    { label: 'Active', value: active, color: 'bg-blue-600' },
-    { label: 'Upcoming', value: upcoming, color: 'bg-violet-500' },
-    { label: 'Completed', value: completed, color: 'bg-emerald-500' },
-  ];
-  return (
-    <div className="mt-6">
-      <div className="flex h-3 overflow-hidden rounded-full bg-slate-100">
-        {segments.map((segment) => <div key={segment.label} className={segment.color} style={{ width: `${(segment.value / denominator) * 100}%` }} />)}
-      </div>
-      <div className="mt-4 flex flex-wrap gap-5">
-        {segments.map((segment) => <div key={segment.label} className="flex items-center gap-2 text-sm">
-          <span className={`h-2.5 w-2.5 rounded-full ${segment.color}`} /><span className="text-slate-500">{segment.label}</span>
-          <span className="font-semibold text-slate-900">{segment.value}</span></div>)}
-      </div>
     </div>
   );
 }

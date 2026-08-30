@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft, ArrowRight, BriefcaseBusiness, CheckCircle2,
-  ClipboardCheck, FileWarning, MapPin, RefreshCw, ShieldCheck, UsersRound, XCircle,
+  ArrowLeft, ArrowRight, ArrowUpRight, BriefcaseBusiness, CalendarClock, CheckCircle2,
+  ClipboardCheck, FileText, FileWarning, MapPin, RefreshCw, ShieldCheck, UsersRound, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -53,6 +54,7 @@ export default function ProjectCommandCenterPage() {
   const [requestOpen, setRequestOpen] = useState(false);
   const [rejecting, setRejecting] = useState<WorkPass | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [viewingPass, setViewingPass] = useState<WorkPass | null>(null);
 
   const load = useCallback(async () => {
     if (!token || !params.id) return;
@@ -154,7 +156,7 @@ export default function ProjectCommandCenterPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4"><div><h2 className="font-semibold text-slate-950">Worker access requests</h2><p className="text-sm text-slate-500">Work passes follow the project’s two-stage decision flow</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{workPasses.length}</span></div>
-          {workPasses.length ? <div className="divide-y divide-slate-100">{workPasses.map((pass) => <WorkPassRow key={pass.id} pass={pass} project={project} actor={{ id: user?.id, role: user?.role }} onAction={runAction} onReject={setRejecting} />)}</div>
+          {workPasses.length ? <div className="h-[340px] divide-y divide-slate-100 overflow-y-auto">{workPasses.map((pass) => <WorkPassRow key={pass.id} pass={pass} project={project} actor={{ id: user?.id, role: user?.role }} onAction={runAction} onReject={setRejecting} onView={setViewingPass} />)}</div>
             : <div className="px-6 py-14 text-center"><ClipboardCheck className="mx-auto h-8 w-8 text-slate-300" /><h3 className="mt-3 font-semibold text-slate-900">No worker requests yet</h3><p className="mt-1 text-sm text-slate-500">Assigned contractors can select project personnel and submit access.</p>{canCreateRequest ? <Button className="mt-4" onClick={() => setRequestOpen(true)}>Request worker access</Button> : null}</div>}
         </section>
 
@@ -168,14 +170,144 @@ export default function ProjectCommandCenterPage() {
 
       <WorkerAccessDialog open={requestOpen} onOpenChange={setRequestOpen} token={token ?? ''} project={project} sites={sites} users={users} currentUser={user} onCreated={load} />
       <Dialog open={Boolean(rejecting)} onOpenChange={(open) => { if (!open) { setRejecting(null); setRejectionReason(''); } }}><DialogContent><DialogHeader><DialogTitle>Reject worker access</DialogTitle><DialogDescription>The contractor and affected workers will receive this reason in-system and by email when available.</DialogDescription></DialogHeader><div className="py-3"><Label htmlFor="rejection">Reason</Label><Textarea id="rejection" className="mt-2" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} placeholder="Explain what must be corrected" /></div><DialogFooter><Button variant="outline" onClick={() => setRejecting(null)}>Cancel</Button><Button variant="destructive" disabled={!rejectionReason.trim()} onClick={() => void rejectPass()}>Reject request</Button></DialogFooter></DialogContent></Dialog>
+      {viewingPass ? (
+        <WorkPassDetailsSheet
+          pass={viewingPass}
+          project={project}
+          actor={{ id: user?.id, role: user?.role }}
+          onOpenChange={(open) => { if (!open) setViewingPass(null); }}
+          onAction={(pass, action) => { void runAction(pass, action); setViewingPass(null); }}
+          onReject={(pass) => { setRejecting(pass); setViewingPass(null); }}
+        />
+      ) : null}
     </div>
   );
 }
 
-function WorkPassRow({ pass, project, actor, onAction, onReject }: { pass: WorkPass; project: ProjectRecord; actor: { id?: string; role?: string }; onAction: (pass: WorkPass, action: 'submit' | 'approve' | 'second-approve') => void; onReject: (pass: WorkPass) => void }) {
+function WorkPassRow({ pass, project, actor, onAction, onReject, onView }: { pass: WorkPass; project: ProjectRecord; actor: { id?: string; role?: string }; onAction: (pass: WorkPass, action: 'submit' | 'approve' | 'second-approve') => void; onReject: (pass: WorkPass) => void; onView: (pass: WorkPass) => void }) {
   const actions = getWorkPassActions(pass, project, actor);
   const statusPresentation = getWorkPassStatusPresentation(pass.status);
-  return <article className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-950">{pass.passNumber}</h3><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusPresentation.className}`}>{statusPresentation.label}</span></div><p className="mt-1 text-sm text-slate-500">{pass.siteName} · {pass.workers.map((worker) => worker.name).join(', ')}</p><p className="mt-2 text-xs text-slate-400">{formatDate(pass.validFromUtc)} – {formatDate(pass.validToUtc)}{pass.generatedAccessRequestIds.length ? ` · ${pass.generatedAccessRequestIds.length} access grant${pass.generatedAccessRequestIds.length === 1 ? '' : 's'}` : ''}</p>{pass.rejectionReason ? <p className="mt-2 text-sm font-medium text-red-700">Reason: {pass.rejectionReason}</p> : null}</div><div className="flex flex-wrap gap-2">{actions.includes('submit') ? <Button size="sm" onClick={() => onAction(pass, 'submit')}>Submit request</Button> : null}{actions.includes('approve') ? <Button size="sm" onClick={() => onAction(pass, 'approve')}><CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve</Button> : null}{actions.includes('second-approve') ? <Button size="sm" onClick={() => onAction(pass, 'second-approve')}><ShieldCheck className="mr-1.5 h-4 w-4" /> Final approval</Button> : null}{actions.includes('reject') ? <Button size="sm" variant="outline" onClick={() => onReject(pass)}><XCircle className="mr-1.5 h-4 w-4" /> Reject</Button> : null}</div></div></article>;
+  return <article className="cursor-pointer p-5 transition hover:bg-slate-50" onClick={() => onView(pass)}><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-950">{pass.passNumber}</h3><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusPresentation.className}`}>{statusPresentation.label}</span></div><p className="mt-1 text-sm text-slate-500">{pass.siteName} · {pass.workers.map((worker) => worker.name).join(', ')}</p><p className="mt-2 text-xs text-slate-400">{formatDate(pass.validFromUtc)} – {formatDate(pass.validToUtc)}{pass.generatedAccessRequestIds.length ? ` · ${pass.generatedAccessRequestIds.length} access grant${pass.generatedAccessRequestIds.length === 1 ? '' : 's'}` : ''}</p>{pass.rejectionReason ? <p className="mt-2 text-sm font-medium text-red-700">Reason: {pass.rejectionReason}</p> : null}</div><div className="flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>{actions.includes('submit') ? <Button size="sm" onClick={() => onAction(pass, 'submit')}>Submit request</Button> : null}{actions.includes('approve') ? <Button size="sm" onClick={() => onAction(pass, 'approve')}><CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve</Button> : null}{actions.includes('second-approve') ? <Button size="sm" onClick={() => onAction(pass, 'second-approve')}><ShieldCheck className="mr-1.5 h-4 w-4" /> Final approval</Button> : null}{actions.includes('reject') ? <Button size="sm" variant="outline" onClick={() => onReject(pass)}><XCircle className="mr-1.5 h-4 w-4" /> Reject</Button> : null}</div></div></article>;
+}
+
+const PASS_STAGES: Array<{ status: string; label: string; description: string }> = [
+  { status: 'Draft', label: 'Prepared', description: 'Contractor selects the crew and scope' },
+  { status: 'Submitted', label: 'Consultant review', description: 'Reviewing consultant checks the request' },
+  { status: 'PendingSecondApproval', label: 'Supervisor approval', description: 'Project supervisor gives the final decision' },
+  { status: 'Approved', label: 'Access granted', description: 'Workers receive their access authorization' },
+];
+
+function WorkPassDetailsSheet({ pass, project, actor, onOpenChange, onAction, onReject }: {
+  pass: WorkPass;
+  project: ProjectRecord;
+  actor: { id?: string; role?: string };
+  onOpenChange: (open: boolean) => void;
+  onAction: (pass: WorkPass, action: 'submit' | 'approve' | 'second-approve') => void;
+  onReject: (pass: WorkPass) => void;
+}) {
+  const actions = getWorkPassActions(pass, project, actor);
+  const statusPresentation = getWorkPassStatusPresentation(pass.status);
+  const isTerminal = ['Rejected', 'Cancelled', 'Completed'].includes(pass.status);
+  const stageIndex = PASS_STAGES.findIndex((stage) => stage.status === pass.status);
+
+  return (
+    <Sheet open onOpenChange={onOpenChange}>
+      <SheetContent className="w-[92vw] overflow-y-auto sm:max-w-2xl">
+        <SheetHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <SheetTitle>{pass.passNumber}</SheetTitle>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusPresentation.className}`}>{statusPresentation.label}</span>
+          </div>
+          <SheetDescription>{pass.siteName} · {project.name}</SheetDescription>
+        </SheetHeader>
+
+        <div className="space-y-5 py-6">
+          {isTerminal ? (
+            pass.rejectionReason ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                Returned to contractor: {pass.rejectionReason}
+              </div>
+            ) : null
+          ) : (
+            <div className="rounded-lg border border-border bg-background p-4">
+              <div className="flex gap-1.5">
+                {PASS_STAGES.map((stage, index) => (
+                  <div
+                    key={stage.status}
+                    className={`h-1.5 flex-1 rounded-full ${index <= stageIndex ? 'bg-blue-600' : 'bg-slate-200'}`}
+                  />
+                ))}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {PASS_STAGES.map((stage, index) => (
+                  <div key={stage.status}>
+                    <p className={`text-xs font-semibold ${index === stageIndex ? 'text-blue-700' : index < stageIndex ? 'text-emerald-700' : 'text-slate-400'}`}>{stage.label}</p>
+                    {index === stageIndex ? <p className="mt-0.5 text-xs text-slate-500">{stage.description}</p> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-border p-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"><MapPin className="h-3.5 w-3.5" /> Site</div>
+              <p className="mt-1.5 text-sm font-medium text-slate-900">{pass.siteName}</p>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"><CalendarClock className="h-3.5 w-3.5" /> Validity</div>
+              <p className="mt-1.5 text-sm font-medium text-slate-900">{formatDate(pass.validFromUtc)} – {formatDate(pass.validToUtc)}</p>
+            </div>
+            {pass.taskDescription ? (
+              <div className="rounded-lg border border-border p-3 sm:col-span-2">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400"><FileText className="h-3.5 w-3.5" /> Task</div>
+                <p className="mt-1.5 text-sm text-slate-800">{pass.taskDescription}</p>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-lg border border-border p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-950"><UsersRound className="h-4 w-4" /> Workers ({pass.workers.length})</h3>
+            </div>
+            <div className="mt-3 divide-y divide-slate-100">
+              {pass.workers.map((worker) => (
+                <Link
+                  key={worker.userId}
+                  href={`/users/${worker.userId}`}
+                  className="flex items-center justify-between gap-3 py-2.5 text-sm hover:bg-slate-50"
+                >
+                  <span className="font-medium text-slate-900">{worker.name}</span>
+                  <span className="flex items-center gap-2 text-xs text-slate-500">
+                    {worker.workerCode ? <span className="font-mono">{worker.workerCode}</span> : null}
+                    <span className="flex items-center gap-0.5 text-blue-600">View profile <ArrowUpRight className="h-3 w-3" /></span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {pass.generatedAccessRequestIds.length ? (
+            <Link
+              href="/access-requests"
+              className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+            >
+              {pass.generatedAccessRequestIds.length} access authorization{pass.generatedAccessRequestIds.length === 1 ? '' : 's'} created
+              <span className="flex items-center gap-0.5">View in Site Access <ArrowUpRight className="h-3.5 w-3.5" /></span>
+            </Link>
+          ) : null}
+        </div>
+
+        <SheetFooter className="gap-2 sm:gap-0">
+          {actions.includes('reject') ? <Button variant="outline" onClick={() => onReject(pass)}><XCircle className="mr-1.5 h-4 w-4" /> Reject</Button> : null}
+          {actions.includes('submit') ? <Button onClick={() => onAction(pass, 'submit')}>Submit request</Button> : null}
+          {actions.includes('approve') ? <Button onClick={() => onAction(pass, 'approve')}><CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve</Button> : null}
+          {actions.includes('second-approve') ? <Button onClick={() => onAction(pass, 'second-approve')}><ShieldCheck className="mr-1.5 h-4 w-4" /> Final approval</Button> : null}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
 }
 
 function WorkerAccessDialog({ open, onOpenChange, token, project, sites, users, currentUser, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; token: string; project: ProjectRecord; sites: Site[]; users: User[]; currentUser?: User | null; onCreated: () => Promise<void> }) {
@@ -197,7 +329,7 @@ function WorkerAccessDialog({ open, onOpenChange, token, project, sites, users, 
 
 function PersonRow({ label, user, fallbackId }: { label: string; user?: User; fallbackId: string }) { return <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">{user?.name?.slice(0, 2).toUpperCase() || '—'}</span><div className="min-w-0"><p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="truncate text-sm font-semibold text-slate-900">{user?.name || fallbackId}</p></div></div>; }
 function Metric({ label, value, icon: Icon, accent = 'blue' }: { label: string; value: number; icon: typeof BriefcaseBusiness; accent?: string }) { const colors: Record<string, string> = { blue: 'bg-blue-50 text-blue-700', amber: 'bg-amber-50 text-amber-700', emerald: 'bg-emerald-50 text-emerald-700', slate: 'bg-slate-100 text-slate-600' }; return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between"><div><p className="text-sm font-medium text-slate-500">{label}</p><p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p></div><span className={`rounded-xl p-2.5 ${colors[accent]}`}><Icon className="h-5 w-5" /></span></div></div>; }
-function ProjectLoading() { return <div className="space-y-6 p-6"><Skeleton className="h-20 w-2/3" /><div className="grid grid-cols-4 gap-3">{[1,2,3,4].map((item) => <Skeleton key={item} className="h-28" />)}</div><Skeleton className="h-48" /><Skeleton className="h-80" /></div>; }
+function ProjectLoading() { return <div className="space-y-6 p-6"><Skeleton className="h-20 w-2/3" /><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{[1,2,3,4].map((item) => <Skeleton key={item} className="h-28" />)}</div><Skeleton className="h-48" /><Skeleton className="h-80" /></div>; }
 function statusClass(tone: string) { return { amber: 'bg-amber-100 text-amber-800', emerald: 'bg-emerald-50 text-emerald-700', blue: 'bg-blue-50 text-blue-700', red: 'bg-red-50 text-red-700', slate: 'bg-slate-100 text-slate-600' }[tone] || 'bg-slate-100 text-slate-600'; }
 function formatDate(value: string) { return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)); }
 function formatDateTime(value: string) { return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value)); }
