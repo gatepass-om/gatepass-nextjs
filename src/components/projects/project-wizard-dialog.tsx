@@ -150,7 +150,11 @@ export function ProjectWizardDialog({
   );
   const supervisorOptions = useMemo(
     () => users.filter((item) => item.operatorId === draft.operatorId
-      && ['Operator Admin', 'Manager', 'Supervisor'].includes(item.role ?? '')),
+      && ['Manager', 'Supervisor'].includes(item.role ?? '')),
+    [draft.operatorId, users],
+  );
+  const internalTeamOptions = useMemo(
+    () => users.filter((item) => item.operatorId === draft.operatorId && !item.contractorId),
     [draft.operatorId, users],
   );
   const selectedMembers = useMemo(
@@ -278,8 +282,8 @@ export function ProjectWizardDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange(nextOpen)}>
-      <DialogContent className="max-h-[92vh] overflow-hidden p-0 sm:max-w-4xl">
-        <DialogHeader className="border-b border-slate-200 px-6 py-5">
+      <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden p-0 sm:max-w-4xl">
+        <DialogHeader className="shrink-0 border-b border-slate-200 px-6 py-5">
           <DialogTitle>{project ? `Edit ${project.name}` : 'Create a new project'}</DialogTitle>
           <DialogDescription>
             {project
@@ -288,7 +292,7 @@ export function ProjectWizardDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-4 border-b border-slate-200 bg-slate-50 px-6 py-3 text-xs font-medium text-slate-500">
+        <div className="grid shrink-0 grid-cols-4 border-b border-slate-200 bg-slate-50 px-6 py-3 text-xs font-medium text-slate-500">
           {steps.map((item, index) => (
             <div key={item} className={item === step ? 'text-slate-950' : ''}>{index + 1}. {item === 'details' ? 'Details' : item === 'sites' ? 'Sites' : item === 'participants' ? 'Participants' : 'Review'}</div>
           ))}
@@ -389,7 +393,7 @@ export function ProjectWizardDialog({
               title="Project team"
               description="Internal users who can view or coordinate this project."
               emptyText="No eligible users are registered."
-              options={users.map((user) => ({
+              options={internalTeamOptions.map((user) => ({
                 ...user,
                 subtitle: [user.role, user.email].filter(Boolean).join(' · '),
                 category: user.role,
@@ -432,7 +436,7 @@ export function ProjectWizardDialog({
           {saveError ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</p> : null}
         </div>
 
-        <DialogFooter className="border-t border-slate-200 bg-white px-6 py-4">
+        <DialogFooter className="shrink-0 border-t border-slate-200 bg-white px-6 py-4">
           <div className="flex w-full items-center justify-between">
             {step === 'details' ? <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
               : <Button type="button" variant="ghost" onClick={() => setStep(steps[steps.indexOf(step) - 1])} disabled={saving}>Back</Button>}
