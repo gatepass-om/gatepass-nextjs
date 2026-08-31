@@ -159,7 +159,7 @@ export function UsersTable({
                           className="cursor-pointer hover:bg-muted/30"
                           onClick={() => handleProfileClick(user)}
                         >
-                          <TableCell className="border-r py-2 font-medium whitespace-nowrap">
+                          <TableCell className="border-r py-2 font-medium truncate" title={user.name}>
                             <button
                               type="button"
                               className="text-left underline-offset-4 hover:underline"
@@ -172,10 +172,10 @@ export function UsersTable({
                             </button>
                           </TableCell>
                           <TableCell className="border-r py-2 font-mono text-xs">{user.idNumber || '—'}</TableCell>
-                          <TableCell className="border-r py-2">{user.email}</TableCell>
-                          <TableCell className="border-r py-2">{resolveUserCompanyName(user, contractors, operators)}</TableCell>
-                          <TableCell className="border-r py-2">{user.nationality || '—'}</TableCell>
-                          <TableCell className="border-r py-2">{user.employment?.jobPositionName || '—'}</TableCell>
+                          <TableCell className="border-r py-2 truncate" title={user.email || undefined}>{user.email}</TableCell>
+                          <TableCell className="border-r py-2 truncate" title={resolveUserCompanyName(user, contractors, operators)}>{resolveUserCompanyName(user, contractors, operators)}</TableCell>
+                          <TableCell className="border-r py-2 truncate">{user.nationality || '—'}</TableCell>
+                          <TableCell className="border-r py-2 truncate">{user.employment?.jobPositionName || '—'}</TableCell>
                           <TableCell className="py-2">
                             <Badge variant="secondary">{user.role}</Badge>
                           </TableCell>
