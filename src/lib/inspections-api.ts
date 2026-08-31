@@ -49,3 +49,7 @@ export async function fetchInspectionAnalytics(
   if (filters.inspectorUserId) params.set('inspectorUserId', filters.inspectorUserId);
   return apiRequest<InspectionAnalytics>(`/inspections/analytics?${params.toString()}`, { token });
 }
+
+export async function fetchWorkerInspectionHistory(token: string, workerId: string) {
+  return apiRequest<InspectionRecord[]>(`/inspections/worker/${workerId}`, { token });
+}

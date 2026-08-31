@@ -862,6 +862,21 @@ export async function listProjectRolesRequest(token: string) {
   return apiRequest<import('./types').ProjectRole[]>('/projects/roles', { token });
 }
 
+export type ProjectMembershipSummary = {
+  id: string;
+  name: string;
+  status: string;
+  operatorId: string;
+  operatorName: string;
+  validFromUtc: string;
+  validToUtc: string;
+};
+
+export async function listProjectsForMemberRequest(token: string, memberId: string, operatorId?: string) {
+  const query = operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : '';
+  return apiRequest<ProjectMembershipSummary[]>(`/projects/for-member/${memberId}${query}`, { token });
+}
+
 export async function createProjectRoleRequest(token: string, input: {
   name: string;
   grantsFullProjectAccess: boolean;
