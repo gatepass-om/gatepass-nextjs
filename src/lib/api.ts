@@ -948,6 +948,11 @@ export async function listUsersRequest(token: string, input?: { role?: string; o
   return users.map(normalizeUserProfile);
 }
 
+export async function getUserByIdRequest(token: string, id: string) {
+  const user = await apiRequest<User & { identityNumber?: string | null; employerName?: string | null }>(`/users/${id}`, { token });
+  return normalizeUserProfile(user);
+}
+
 export async function listAccessRequestsPageRequest(
   token: string,
   input?: {

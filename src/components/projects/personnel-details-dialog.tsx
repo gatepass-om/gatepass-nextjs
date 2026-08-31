@@ -14,26 +14,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { WorkerDocuments } from '@/components/workers/worker-documents';
 import { WorkerPositionCompliancePanel } from '@/components/compliance/worker-position-compliance';
-import { listProjectsForMemberRequest, type ProjectMembershipSummary } from '@/lib/api';
+import { getUserByIdRequest, listProjectsForMemberRequest, type ProjectMembershipSummary } from '@/lib/api';
 import { fetchWorkerInspectionHistory, type InspectionRecord } from '@/lib/inspections-api';
-import type { CertificateType } from '@/lib/types';
+import type { CertificateType, User } from '@/lib/types';
 import { useSession } from '@/providers/session-provider';
 
-export type PersonnelDetailPerson = {
-  id: string;
-  name: string;
-  email?: string | null;
-  role: string;
-  status?: string;
-  contractorName?: string | null;
-  operatorName?: string | null;
-  nationality?: string | null;
-  idNumber?: string | null;
-  avatarUrl?: string | null;
-  clearanceStatus?: string | null;
-  certificates?: Array<{ certificateTypeId: string; name?: string | null; expiresAtUtc?: string | null }>;
-  employment?: { jobPositionName?: string | null } | null;
-};
+type PersonnelDetailPerson = User & { contractorName?: string | null; operatorName?: string | null };
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value));
@@ -52,62 +38,75 @@ function InfoRow({ icon: Icon, label, value }: { icon: typeof Mail; label: strin
 }
 
 export function PersonnelDetailsDialog({
-  person,
+  personId,
   open,
   onOpenChange,
   operatorId,
   certificateTypes,
 }: {
-  person: PersonnelDetailPerson | null;
+  personId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   operatorId?: string;
   certificateTypes: CertificateType[];
 }) {
   const { token } = useSession();
+  const [person, setPerson] = useState<PersonnelDetailPerson | null>(null);
+  const [loadingPerson, setLoadingPerson] = useState(false);
   const [projects, setProjects] = useState<ProjectMembershipSummary[]>([]);
   const [inspections, setInspections] = useState<InspectionRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
-    if (!open || !person || !token) return;
+    if (!open || !personId || !token) return;
     let active = true;
+    setPerson(null);
+    setLoadingPerson(true);
     setLoadingHistory(true);
+    getUserByIdRequest(token, personId).then((data) => { if (active) setPerson(data); }).finally(() => { if (active) setLoadingPerson(false); });
     Promise.all([
-      listProjectsForMemberRequest(token, person.id, operatorId).catch(() => []),
-      fetchWorkerInspectionHistory(token, person.id).catch(() => []),
+      listProjectsForMemberRequest(token, personId, operatorId).catch(() => []),
+      fetchWorkerInspectionHistory(token, personId).catch(() => []),
     ]).then(([projectData, inspectionData]) => {
       if (!active) return;
       setProjects(projectData);
       setInspections(inspectionData);
     }).finally(() => { if (active) setLoadingHistory(false); });
     return () => { active = false; };
-  }, [open, person, token, operatorId]);
+  }, [open, personId, token, operatorId]);
 
-  if (!person) return null;
+  if (!personId) return null;
 
-  const initials = person.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase();
-  const company = person.contractorName || person.operatorName || 'Operator';
+  const initials = person?.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() ?? '';
+  const company = person?.contractorName || person?.operatorName || person?.company || 'Operator';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[88vh] flex-col overflow-hidden p-0 sm:max-w-2xl">
+      <DialogContent className="flex h-[min(700px,88vh)] flex-col overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="shrink-0 border-b border-slate-200 px-6 py-5">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-14 w-14 border border-slate-200">
-              <AvatarImage src={person.avatarUrl ?? undefined} alt={person.name} className="object-cover" />
-              <AvatarFallback className="text-lg font-semibold">{initials}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <DialogTitle className="truncate">{person.name}</DialogTitle>
-              <DialogDescription className="truncate">
-                {person.role}{person.employment?.jobPositionName ? ` · ${person.employment.jobPositionName}` : ''} · {company}
-              </DialogDescription>
+          {loadingPerson || !person ? (
+            <>
+              <DialogTitle className="sr-only">Personnel details</DialogTitle>
+              <DialogDescription className="sr-only">Loading personnel details.</DialogDescription>
+              <div className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading personnel details…</div>
+            </>
+          ) : (
+            <div className="flex items-center gap-4">
+              <Avatar className="h-14 w-14 border border-slate-200">
+                <AvatarImage src={person.avatarUrl ?? undefined} alt={person.name} className="object-cover" />
+                <AvatarFallback className="text-lg font-semibold">{initials}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <DialogTitle className="truncate">{person.name}</DialogTitle>
+                <DialogDescription className="truncate">
+                  {person.role}{person.employment?.jobPositionName ? ` · ${person.employment.jobPositionName}` : ''} · {company}
+                </DialogDescription>
+              </div>
+              {person.status ? (
+                <Badge className="ml-auto shrink-0" variant={person.status === 'Active' ? 'secondary' : 'destructive'}>{person.status}</Badge>
+              ) : null}
             </div>
-            {person.status ? (
-              <Badge className="ml-auto shrink-0" variant={person.status === 'Active' ? 'secondary' : 'destructive'}>{person.status}</Badge>
-            ) : null}
-          </div>
+          )}
         </DialogHeader>
 
         <Tabs defaultValue="info" className="flex min-h-0 flex-1 flex-col">
@@ -120,19 +119,27 @@ export function PersonnelDetailsDialog({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             <TabsContent value="info" className="mt-0 grid gap-4 sm:grid-cols-2">
-              <InfoRow icon={Mail} label="Email" value={person.email || 'Not provided'} />
-              <InfoRow icon={ShieldCheck} label="National ID" value={person.idNumber || 'Not provided'} />
-              <InfoRow icon={Building2} label="Company" value={company} />
-              <InfoRow icon={Briefcase} label="Job position" value={person.employment?.jobPositionName || 'Not assigned'} />
-              <InfoRow icon={Globe2} label="Nationality" value={person.nationality || 'Not provided'} />
-              {person.clearanceStatus ? <InfoRow icon={CheckCircle2} label="Clearance status" value={person.clearanceStatus} /> : null}
+              {loadingPerson || !person ? (
+                <div className="col-span-2 flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+              ) : (
+                <>
+                  <InfoRow icon={Mail} label="Email" value={person.email || 'Not provided'} />
+                  <InfoRow icon={ShieldCheck} label="National ID" value={person.idNumber || 'Not provided'} />
+                  <InfoRow icon={Building2} label="Company" value={company} />
+                  <InfoRow icon={Briefcase} label="Job position" value={person.employment?.jobPositionName || 'Not assigned'} />
+                  <InfoRow icon={Globe2} label="Nationality" value={person.nationality || 'Not provided'} />
+                  {person.clearanceStatus ? <InfoRow icon={CheckCircle2} label="Clearance status" value={person.clearanceStatus} /> : null}
+                </>
+              )}
             </TabsContent>
 
             <TabsContent value="certificates" className="mt-0 space-y-4">
-              <WorkerPositionCompliancePanel workerId={person.id} />
+              <WorkerPositionCompliancePanel workerId={personId} />
               <div className="rounded-xl border border-slate-200 p-4">
                 <h3 className="text-sm font-semibold text-slate-900">All certificates on file</h3>
-                {person.certificates?.length ? (
+                {loadingPerson || !person ? (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+                ) : person.certificates?.length ? (
                   <ul className="mt-3 divide-y divide-slate-100">
                     {person.certificates.map((cert) => (
                       <li key={cert.certificateTypeId} className="flex items-center justify-between gap-3 py-2 text-sm">
@@ -171,7 +178,7 @@ export function PersonnelDetailsDialog({
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-2 text-sm text-slate-500">No other projects found for this operator.</p>
+                      <p className="mt-2 text-sm text-slate-500">{operatorId ? 'No other projects found for this operator.' : 'No projects found.'}</p>
                     )}
                   </section>
 
@@ -207,7 +214,7 @@ export function PersonnelDetailsDialog({
             </TabsContent>
 
             <TabsContent value="documents" className="mt-0">
-              <WorkerDocuments workerId={person.id} certificateTypes={certificateTypes} canManage={false} />
+              <WorkerDocuments workerId={personId} certificateTypes={certificateTypes} canManage={false} />
             </TabsContent>
           </div>
         </Tabs>

@@ -31,6 +31,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useEffect, useState } from "react";
 import { ApprovalFields } from './approval-fields';
+import { PersonnelDetailsDialog } from '@/components/projects/personnel-details-dialog';
+import { listCertificateTypesRequest } from '@/lib/api';
+import type { CertificateType } from '@/lib/types';
+import { useSession } from '@/providers/session-provider';
 
 interface RequestDetailsDialogProps {
   request: AccessRequest;
@@ -41,11 +45,15 @@ interface RequestDetailsDialogProps {
   onConfirmDeny?: (requestId: string, reason: string) => Promise<boolean>;
 }
 
-const WorkerDetails = ({ worker }: { worker: AccessRequestWorker }) => {
+const WorkerDetails = ({ worker, onClick }: { worker: AccessRequestWorker; onClick: () => void }) => {
     const missingRequiredCerts = worker.missingCertificates ?? [];
 
     return (
-        <div className="p-3 rounded-md bg-muted/50 border flex flex-col gap-3">
+        <button
+            type="button"
+            onClick={onClick}
+            className="flex flex-col gap-3 rounded-md border bg-muted/50 p-3 text-left transition hover:bg-muted"
+        >
             <div className="flex items-center justify-between gap-2">
                 <div className="font-semibold">{worker.name}</div>
             </div>
@@ -70,7 +78,7 @@ const WorkerDetails = ({ worker }: { worker: AccessRequestWorker }) => {
              {missingRequiredCerts.length === 0 && (
                 <p className="text-xs text-success">No blocking certificate requirements.</p>
              )}
-        </div>
+        </button>
     );
 };
 
@@ -81,6 +89,14 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
   const [decisionMode, setDecisionMode] = useState<'none' | 'approve' | 'deny'>('none');
   const [denyReason, setDenyReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [viewingWorkerId, setViewingWorkerId] = useState<string | null>(null);
+  const { token } = useSession();
+  const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
+
+  useEffect(() => {
+    if (!token) return;
+    listCertificateTypesRequest(token).then(setCertificateTypes).catch(() => undefined);
+  }, [token]);
 
   useEffect(() => {
     if (!open) { setDecisionMode('none'); setDenyReason(''); setBusy(false); }
@@ -107,6 +123,7 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
   
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-[92vw] overflow-y-auto sm:max-w-3xl">
         <SheetHeader>
@@ -184,9 +201,9 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
                     <h3 className="flex items-center gap-2 text-base font-semibold"><Users className="h-5 w-5"/>Personnel Readiness ({workersInRequest.length})</h3>
                     <Badge variant="outline">{certificateIssues} blocking certificate holds</Badge>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid max-h-[340px] grid-cols-1 gap-4 overflow-y-auto pr-1 md:grid-cols-2">
                     {workersInRequest.length > 0 ? workersInRequest.map(worker => (
-                        <WorkerDetails key={worker.userId} worker={worker} />
+                        <WorkerDetails key={worker.userId} worker={worker} onClick={() => setViewingWorkerId(worker.userId)} />
                     )) : (
                         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground md:col-span-2">No worker details returned for this request.</div>
                     )}
@@ -293,6 +310,14 @@ export function RequestDetailsDialog({ request, open, onOpenChange, onDelete, on
         </SheetFooter>
       </SheetContent>
     </Sheet>
+    <PersonnelDetailsDialog
+      personId={viewingWorkerId}
+      open={Boolean(viewingWorkerId)}
+      onOpenChange={(nextOpen) => { if (!nextOpen) setViewingWorkerId(null); }}
+      operatorId={request.operatorId}
+      certificateTypes={certificateTypes}
+    />
+    </>
   );
 }
 
