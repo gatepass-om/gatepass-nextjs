@@ -31,6 +31,7 @@ export type ProjectRecord = {
   operatorId: string;
   operatorName: string;
   supervisorUserId: string;
+  supervisorUserName?: string;
   consultantCompanyId: string;
   consultantCompanyName: string;
   consultantReviewerUserIds: string[];
