@@ -220,37 +220,10 @@ export default function ProjectsPage() {
 
       {notice ? <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
 
-      <section aria-label="Project portfolio summary" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Project portfolio summary" className="grid gap-3 sm:grid-cols-3">
         <MetricCard label="Active projects" value={portfolio.active} detail={`${portfolio.total} total projects`} icon={CircleDot} tone="blue" loading={loading} />
-        <MetricCard label="Ending in 30 days" value={portfolio.endingSoon} detail="Active projects needing review" icon={CalendarClock} tone={portfolio.endingSoon ? 'amber' : 'slate'} loading={loading} />
-        <MetricCard label="Work passes" value={portfolio.workPasses} detail="Across the project portfolio" icon={FileCheck2} tone="emerald" loading={loading} />
-        <MetricCard label="Project coverage" value={portfolio.total ? `${Math.round((portfolio.active / portfolio.total) * 100)}%` : '—'}
-          detail={`${portfolio.upcoming} upcoming · ${portfolio.completed} completed`} icon={CheckCircle2} tone="violet" loading={loading} />
-      </section>
-
-      <section>
-        <div className={`rounded-2xl border p-5 shadow-sm ${
-          portfolio.endingSoon ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'
-        }`}>
-          <div className="flex items-start gap-3">
-            <span className={`rounded-xl p-2.5 ${portfolio.endingSoon ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
-              <CalendarClock className="h-5 w-5" />
-            </span>
-            <div>
-              <h2 className="font-semibold text-slate-950">{portfolio.endingSoon ? 'Dates need attention' : 'Project dates look healthy'}</h2>
-              <p className="mt-1 text-sm leading-5 text-slate-600">
-                {portfolio.endingSoon
-                  ? `${portfolio.endingSoon} active project${portfolio.endingSoon === 1 ? '' : 's'} end within 30 days.`
-                  : 'No active projects are approaching their end date.'}
-              </p>
-              {portfolio.endingSoon ? (
-                <button onClick={() => setStatusFilter('Needs attention')} className="mt-3 text-sm font-semibold text-amber-800 hover:underline">
-                  Review projects <ArrowUpRight className="inline h-3.5 w-3.5" />
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
+        <MetricCard label="Pending access decisions" value={projectWorkPasses.filter((pass) => ['PendingApproval', 'PendingSecondApproval'].includes(pass.status)).length} detail="Requests awaiting action" icon={CalendarClock} tone="amber" loading={loading} />
+        <MetricCard label="Active work passes" value={projectWorkPasses.filter((pass) => pass.status === 'Approved' && new Date(pass.validFromUtc) <= new Date() && new Date(pass.validToUtc) >= new Date()).length} detail="Currently valid project access" icon={FileCheck2} tone="emerald" loading={loading} />
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

@@ -9,13 +9,13 @@ const sidebarSource = readFileSync(
   'utf8',
 );
 
-test('client navigation exposes one emergency center and no card-production tools', () => {
+test('client navigation exposes one emergency center, card verification, and no card-production tools', () => {
   for (const role of ['Operator Admin', 'Manager', 'Security', 'Contractor Admin'] as const) {
     const items = getNavigationForRole(role);
     const routes = items.map((item) => item.href);
 
     assert.equal(routes.includes('/card-production'), false);
-    assert.equal(routes.includes('/card-verification'), false);
+    assert.equal(routes.includes('/card-verification'), true);
     assert.equal(routes.includes('/muster'), false);
   }
 
@@ -49,7 +49,7 @@ test('the account destination uses the simplified account label', () => {
   }
 });
 
-test('external-company users do not see geofencing navigation', () => {
+test('geofencing navigation is hidden for every client role', () => {
   assert.equal(
     getNavigationForRole('Contractor Admin', { externalCompany: true })
       .some((item) => item.href === '/location-governance'),
@@ -63,12 +63,12 @@ test('external-company users do not see geofencing navigation', () => {
   assert.equal(
     getNavigationForRole('Supervisor', { externalCompany: false })
       .some((item) => item.href === '/location-governance'),
-    true,
+    false,
   );
 });
 
 test('deferred modules are hidden and the remaining links are not grouped', () => {
-  const hiddenRoutes = ['/surveillance', '/permits', '/smart-access', '/decision-rules'];
+  const hiddenRoutes = ['/surveillance', '/permits', '/smart-access', '/decision-rules', '/compliance'];
 
   for (const role of [
     'Admin',

@@ -54,7 +54,6 @@ export default function ProjectCommandCenterPage() {
   const [requestOpen, setRequestOpen] = useState(false);
   const [rejecting, setRejecting] = useState<WorkPass | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [viewingPass, setViewingPass] = useState<WorkPass | null>(null);
 
   const load = useCallback(async () => {
     if (!token || !params.id) return;
@@ -148,7 +147,7 @@ export default function ProjectCommandCenterPage() {
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Assigned sites" value={project.siteIds.length} icon={MapPin} />
-        <Metric label="Project personnel" value={project.members.length} icon={UsersRound} />
+        <Link href={`/projects/${project.id}/personnel`}><Metric label="Project personnel" value={project.members.length} icon={UsersRound} /></Link>
         <Metric label="Pending decisions" value={pending} icon={FileWarning} accent={pending ? 'amber' : 'slate'} />
         <Metric label="Access granted" value={granted} icon={ShieldCheck} accent="emerald" />
       </section>
@@ -156,13 +155,13 @@ export default function ProjectCommandCenterPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4"><div><h2 className="font-semibold text-slate-950">Worker access requests</h2><p className="text-sm text-slate-500">Work passes follow the project’s two-stage decision flow</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{workPasses.length}</span></div>
-          {workPasses.length ? <div className="h-[340px] divide-y divide-slate-100 overflow-y-auto">{workPasses.map((pass) => <WorkPassRow key={pass.id} pass={pass} project={project} actor={{ id: user?.id, role: user?.role }} onAction={runAction} onReject={setRejecting} onView={setViewingPass} />)}</div>
+          {workPasses.length ? <div className="h-[340px] divide-y divide-slate-100 overflow-y-auto">{workPasses.map((pass) => <WorkPassRow key={pass.id} pass={pass} project={project} actor={{ id: user?.id, role: user?.role, operatorId: user?.operatorId ?? undefined }} onAction={runAction} onReject={setRejecting} />)}</div>
             : <div className="px-6 py-14 text-center"><ClipboardCheck className="mx-auto h-8 w-8 text-slate-300" /><h3 className="mt-3 font-semibold text-slate-900">No worker requests yet</h3><p className="mt-1 text-sm text-slate-500">Assigned contractors can select project personnel and submit access.</p>{canCreateRequest ? <Button className="mt-4" onClick={() => setRequestOpen(true)}>Request worker access</Button> : null}</div>}
         </section>
 
         <div className="space-y-6">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-950">Project responsibility</h2><div className="mt-4 space-y-4"><PersonRow label="Supervisor" user={stakeholders.supervisor} fallbackId={project.supervisorUserId} /><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Consultant company</p><p className="mt-1 text-sm font-medium text-slate-900">{project.consultantCompanyName}</p><p className="text-xs text-slate-500">{project.members.filter((member) => project.consultantReviewerUserIds.includes(member.userId)).map((member) => member.name).join(', ') || 'No reviewers assigned'}</p></div></div></section>
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-950">Sites & requirements</h2><div className="mt-4 space-y-3">{sites.map((site) => <div key={site.id} className="rounded-xl border border-slate-200 p-3"><div className="flex items-center justify-between gap-3"><span className="font-medium text-slate-900">{site.name}</span><span className="text-xs font-semibold text-slate-500">{site.requiresAccessApproval === false ? 'Compliance only' : 'Authorization'}</span></div><p className="mt-2 text-xs text-slate-500">{site.requiredCertificates?.length ? `Required: ${site.requiredCertificates.join(', ')}` : 'No site certificates configured'}</p></div>)}</div></section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-950">Project sites</h2><div className="mt-4 space-y-3">{sites.map((site) => <div key={site.id} className="rounded-xl border border-slate-200 p-3"><span className="font-medium text-slate-900">{site.name}</span></div>)}</div></section>
         </div>
       </div>
 
@@ -170,24 +169,14 @@ export default function ProjectCommandCenterPage() {
 
       <WorkerAccessDialog open={requestOpen} onOpenChange={setRequestOpen} token={token ?? ''} project={project} sites={sites} users={users} currentUser={user} onCreated={load} />
       <Dialog open={Boolean(rejecting)} onOpenChange={(open) => { if (!open) { setRejecting(null); setRejectionReason(''); } }}><DialogContent><DialogHeader><DialogTitle>Reject worker access</DialogTitle><DialogDescription>The contractor and affected workers will receive this reason in-system and by email when available.</DialogDescription></DialogHeader><div className="py-3"><Label htmlFor="rejection">Reason</Label><Textarea id="rejection" className="mt-2" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} placeholder="Explain what must be corrected" /></div><DialogFooter><Button variant="outline" onClick={() => setRejecting(null)}>Cancel</Button><Button variant="destructive" disabled={!rejectionReason.trim()} onClick={() => void rejectPass()}>Reject request</Button></DialogFooter></DialogContent></Dialog>
-      {viewingPass ? (
-        <WorkPassDetailsSheet
-          pass={viewingPass}
-          project={project}
-          actor={{ id: user?.id, role: user?.role }}
-          onOpenChange={(open) => { if (!open) setViewingPass(null); }}
-          onAction={(pass, action) => { void runAction(pass, action); setViewingPass(null); }}
-          onReject={(pass) => { setRejecting(pass); setViewingPass(null); }}
-        />
-      ) : null}
     </div>
   );
 }
 
-function WorkPassRow({ pass, project, actor, onAction, onReject, onView }: { pass: WorkPass; project: ProjectRecord; actor: { id?: string; role?: string }; onAction: (pass: WorkPass, action: 'submit' | 'approve' | 'second-approve') => void; onReject: (pass: WorkPass) => void; onView: (pass: WorkPass) => void }) {
+function WorkPassRow({ pass, project, actor, onAction, onReject }: { pass: WorkPass; project: ProjectRecord; actor: { id?: string; role?: string; operatorId?: string }; onAction: (pass: WorkPass, action: 'submit' | 'approve' | 'second-approve') => void; onReject: (pass: WorkPass) => void }) {
   const actions = getWorkPassActions(pass, project, actor);
   const statusPresentation = getWorkPassStatusPresentation(pass.status);
-  return <article className="cursor-pointer p-5 transition hover:bg-slate-50" onClick={() => onView(pass)}><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-950">{pass.passNumber}</h3><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusPresentation.className}`}>{statusPresentation.label}</span></div><p className="mt-1 text-sm text-slate-500">{pass.siteName} · {pass.workers.map((worker) => worker.name).join(', ')}</p><p className="mt-2 text-xs text-slate-400">{formatDate(pass.validFromUtc)} – {formatDate(pass.validToUtc)}{pass.generatedAccessRequestIds.length ? ` · ${pass.generatedAccessRequestIds.length} access grant${pass.generatedAccessRequestIds.length === 1 ? '' : 's'}` : ''}</p>{pass.rejectionReason ? <p className="mt-2 text-sm font-medium text-red-700">Reason: {pass.rejectionReason}</p> : null}</div><div className="flex flex-wrap gap-2" onClick={(event) => event.stopPropagation()}>{actions.includes('submit') ? <Button size="sm" onClick={() => onAction(pass, 'submit')}>Submit request</Button> : null}{actions.includes('approve') ? <Button size="sm" onClick={() => onAction(pass, 'approve')}><CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve</Button> : null}{actions.includes('second-approve') ? <Button size="sm" onClick={() => onAction(pass, 'second-approve')}><ShieldCheck className="mr-1.5 h-4 w-4" /> Final approval</Button> : null}{actions.includes('reject') ? <Button size="sm" variant="outline" onClick={() => onReject(pass)}><XCircle className="mr-1.5 h-4 w-4" /> Reject</Button> : null}</div></div></article>;
+  return <article className="p-5 transition hover:bg-slate-50"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><Link href={`/projects/${project.id}/access-requests/${pass.id}`} className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-950">{pass.passNumber}</h3><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusPresentation.className}`}>{statusPresentation.label}</span></div><p className="mt-1 text-sm text-slate-500">{pass.siteName} · {pass.workers.map((worker) => worker.name).join(', ')}</p><p className="mt-2 text-xs text-slate-400">{formatDate(pass.validFromUtc)} – {formatDate(pass.validToUtc)}{pass.generatedAccessRequestIds.length ? ` · ${pass.generatedAccessRequestIds.length} access grant${pass.generatedAccessRequestIds.length === 1 ? '' : 's'}` : ''}</p>{pass.rejectionReason ? <p className="mt-2 text-sm font-medium text-red-700">Reason: {pass.rejectionReason}</p> : null}</Link><div className="flex flex-wrap gap-2">{actions.includes('submit') ? <Button size="sm" onClick={() => onAction(pass, 'submit')}>Submit request</Button> : null}{actions.includes('approve') ? <Button size="sm" onClick={() => onAction(pass, 'approve')}><CheckCircle2 className="mr-1.5 h-4 w-4" /> Approve</Button> : null}{actions.includes('second-approve') ? <Button size="sm" onClick={() => onAction(pass, 'second-approve')}><ShieldCheck className="mr-1.5 h-4 w-4" /> Final approval</Button> : null}{actions.includes('reject') ? <Button size="sm" variant="outline" onClick={() => onReject(pass)}><XCircle className="mr-1.5 h-4 w-4" /> Reject</Button> : null}</div></div></article>;
 }
 
 const PASS_STAGES: Array<{ status: string; label: string; description: string }> = [
@@ -197,7 +186,7 @@ const PASS_STAGES: Array<{ status: string; label: string; description: string }>
   { status: 'Approved', label: 'Access granted', description: 'Workers receive their access authorization' },
 ];
 
-function WorkPassDetailsSheet({ pass, project, actor, onOpenChange, onAction, onReject }: {
+function LegacyWorkPassPanel({ pass, project, actor, onOpenChange, onAction, onReject }: {
   pass: WorkPass;
   project: ProjectRecord;
   actor: { id?: string; role?: string };

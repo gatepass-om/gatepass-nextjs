@@ -146,8 +146,7 @@ export default function AccessRequestsPage() {
       void fetchRequests();
       return true;
     } catch (error) {
-      console.error('Error denying request:', error);
-      toast({ variant: 'destructive', title: 'Action Failed', description: 'Could not deny the request.' });
+      toast({ variant: 'destructive', title: 'Action Failed', description: error instanceof Error ? error.message : 'Could not deny the request.' });
       return false;
     }
   };
@@ -164,8 +163,7 @@ export default function AccessRequestsPage() {
       void fetchRequests();
       return true;
     } catch (error) {
-      console.error('Error approving request:', error);
-      toast({ variant: 'destructive', title: 'Approval Failed', description: 'Could not approve the request.' });
+      toast({ variant: 'destructive', title: 'Approval Failed', description: error instanceof Error ? error.message : 'Could not approve the request.' });
       return false;
     }
   };

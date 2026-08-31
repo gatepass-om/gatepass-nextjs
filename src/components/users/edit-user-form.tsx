@@ -155,7 +155,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
             selectedContractorId: values.contractorId,
             selectedOperatorId: values.operatorId,
         });
-        const assignedSiteIdValue = values.role === 'Security'
+        const assignedSiteIdValue = ['Security', 'Inspector'].includes(values.role)
             ? values.assignedSiteId || null
             : null;
 
@@ -374,7 +374,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
             </div>
 
 
-            {selectedRole === "Security" && (
+            {(selectedRole === "Security" || selectedRole === "Inspector") && (
               <FormField
                 control={form.control}
                 name="assignedSiteId"
@@ -407,7 +407,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      Assign this security user to a specific site.
+                      Assign this {selectedRole === 'Inspector' ? 'inspector' : 'security'} user to a specific site.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

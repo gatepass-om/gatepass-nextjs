@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, BriefcaseBusiness, Building2, Loader2, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, Building2, Loader2, Mail, MapPinned, ShieldCheck } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { EditUserForm } from '@/components/users/edit-user-form';
 import {
@@ -144,6 +144,7 @@ export default function PersonnelProfilePage() {
   if (!user) return null;
 
   const companyName = resolveUserCompanyName(user, contractors, operators);
+  const assignedSiteName = sites.find((site) => site.id === user.assignedSiteId)?.name;
   const canEdit = canEditUserRecord(['Admin', 'Operator Admin', 'Contractor Admin'].includes(currentUser.role), user.role);
   const showCompliance = shouldShowWorkerDocuments(user.role)
     && (canEdit || canReviewWorkerCompliance(currentUser.role, user.role));
@@ -181,6 +182,9 @@ export default function PersonnelProfilePage() {
               <div className="flex gap-3"><ShieldCheck className="mt-0.5 h-4 w-4 text-muted-foreground" /><div><dt className="text-muted-foreground">National ID</dt><dd className="font-medium">{user.idNumber || 'Not provided'}</dd></div></div>
               <div className="flex gap-3"><Building2 className="mt-0.5 h-4 w-4 text-muted-foreground" /><div><dt className="text-muted-foreground">Company</dt><dd className="font-medium">{companyName}</dd></div></div>
               <div className="flex gap-3"><BriefcaseBusiness className="mt-0.5 h-4 w-4 text-muted-foreground" /><div><dt className="text-muted-foreground">Job position</dt><dd className="font-medium">{user.employment?.jobPositionName || 'Not assigned'}</dd></div></div>
+              {['Security', 'Inspector'].includes(user.role) && (
+                <div className="flex gap-3"><MapPinned className="mt-0.5 h-4 w-4 text-muted-foreground" /><div><dt className="text-muted-foreground">Assigned site</dt><dd className="font-medium">{assignedSiteName || 'Not assigned'}</dd></div></div>
+              )}
             </dl>
           </CardContent>
         </Card>

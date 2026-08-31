@@ -5,12 +5,12 @@ import type { UserRole } from '@/lib/types';
  * rather than each carrying a partial switch statement that strands lower-technical operational roles.
  */
 export const workspaceLandingByRole: Record<UserRole, string> = {
-  Admin: '/dashboard',
-  'Operator Admin': '/dashboard',
-  Manager: '/dashboard',
+  Admin: '/projects',
+  'Operator Admin': '/projects',
+  Manager: '/projects',
   Security: '/inspections',
-  'Contractor Admin': '/access-requests',
-  Supervisor: '/access-requests',
+  'Contractor Admin': '/projects',
+  Supervisor: '/projects',
   Worker: '/permits',
   Visitor: '/profile',
   Inspector: '/inspections',

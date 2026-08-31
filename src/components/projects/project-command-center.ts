@@ -2,6 +2,7 @@ export type CommandCenterProject = {
   id: string;
   name: string;
   status: string;
+  operatorId?: string;
   supervisorUserId: string;
   consultantCompanyId: string;
   consultantReviewerUserIds: string[];
@@ -15,7 +16,7 @@ export type CommandCenterWorkPass = {
   submittedByUserId: string;
 };
 
-export type WorkflowActor = { id?: string; role?: string };
+export type WorkflowActor = { id?: string; role?: string; operatorId?: string };
 export type WorkPassAction = 'submit' | 'approve' | 'second-approve' | 'reject';
 export type WorkflowStageState = 'completed' | 'current' | 'upcoming' | 'attention';
 
@@ -51,7 +52,10 @@ export function getWorkPassActions(
   if (!actor.id) return [];
   if (workPass.status === 'Draft' && workPass.submittedByUserId === actor.id) return ['submit'];
   if (workPass.status === 'Submitted' && project.consultantReviewerUserIds.includes(actor.id)) return ['approve', 'reject'];
-  if (workPass.status === 'PendingSecondApproval' && project.supervisorUserId === actor.id) return ['second-approve', 'reject'];
+  if (workPass.status === 'PendingSecondApproval' && (
+    project.supervisorUserId === actor.id
+    || (actor.role === 'Operator Admin' && actor.operatorId === project.operatorId)
+  )) return ['second-approve', 'reject'];
   return [];
 }
 

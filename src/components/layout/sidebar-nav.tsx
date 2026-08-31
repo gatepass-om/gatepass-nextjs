@@ -26,7 +26,7 @@ import {
   MapPinned,
   BellRing,
   Siren,
-  BadgeCheck,
+  CreditCard,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -94,10 +94,10 @@ export function SidebarNav() {
       '/access-requests': ClipboardList,
       '/alerts': BellRing,
       '/muster': Siren,
+      '/card-verification': CreditCard,
       '/inspections': ClipboardCheck,
       '/location-governance': MapPinned,
       '/projects': Briefcase,
-      '/compliance': BadgeCheck,
       '/sites': Building2,
       '/companies': Briefcase,
       '/users': Users,

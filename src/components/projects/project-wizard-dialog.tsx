@@ -18,6 +18,7 @@ import {
   resolveProjectOperatorId,
   shouldShowOperatorSelector,
   type ProjectDraft,
+  type ProjectWizardStep,
   validateProjectStep,
 } from './project-workflow';
 import type { Contractor, ProjectRole, Site, UserRole } from '@/lib/types';
@@ -84,6 +85,7 @@ function initialDraft(project?: ProjectRecord | null): ProjectDraft {
     clientReference: project?.clientReference ?? '',
     description: project?.description ?? '',
     operatorId: project?.operatorId ?? '',
+    supervisorUserId: project?.supervisorUserId ?? '',
     consultantCompanyId: project?.consultantCompanyId ?? '',
     consultantReviewerUserIds: project?.consultantReviewerUserIds ?? [],
     validFromUtc: dateValue(project?.validFromUtc) || today.toISOString().slice(0, 10),
@@ -116,6 +118,8 @@ export function ProjectWizardDialog({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [memberRoleIds, setMemberRoleIds] = useState<Record<string, string>>({});
+  const [step, setStep] = useState<ProjectWizardStep>('details');
+  const steps: ProjectWizardStep[] = ['details', 'sites', 'participants', 'review'];
 
   useEffect(() => {
     if (!open) return;
@@ -127,6 +131,7 @@ export function ProjectWizardDialog({
     setDraft(nextDraft);
     setErrors({});
     setSaveError('');
+    setStep('details');
     setMemberRoleIds(Object.fromEntries((project?.members ?? []).map((member) => [member.userId, member.projectRoleId ?? ''])));
   }, [currentUserOperatorId, open, project]);
 
@@ -142,6 +147,11 @@ export function ProjectWizardDialog({
     () => users.filter((item) => item.contractorId === draft.consultantCompanyId
       && (item.role === 'Contractor Admin' || item.role === 'Supervisor')),
     [draft.consultantCompanyId, users],
+  );
+  const supervisorOptions = useMemo(
+    () => users.filter((item) => item.operatorId === draft.operatorId
+      && ['Operator Admin', 'Manager', 'Supervisor'].includes(item.role ?? '')),
+    [draft.operatorId, users],
   );
   const selectedMembers = useMemo(
     () => users.filter((item) => draft.memberIds.includes(item.id)),
@@ -256,6 +266,16 @@ export function ProjectWizardDialog({
     }
   }
 
+  function goNext() {
+    const stepErrors = validateProjectStep(step, draft, { requireOperator: currentUserRole !== 'Supervisor' });
+    if (Object.keys(stepErrors).length) {
+      setErrors(stepErrors);
+      return;
+    }
+    setErrors({});
+    setStep(steps[Math.min(steps.indexOf(step) + 1, steps.length - 1)]);
+  }
+
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange(nextOpen)}>
       <DialogContent className="max-h-[92vh] overflow-hidden p-0 sm:max-w-4xl">
@@ -268,8 +288,14 @@ export function ProjectWizardDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="grid grid-cols-4 border-b border-slate-200 bg-slate-50 px-6 py-3 text-xs font-medium text-slate-500">
+          {steps.map((item, index) => (
+            <div key={item} className={item === step ? 'text-slate-950' : ''}>{index + 1}. {item === 'details' ? 'Details' : item === 'sites' ? 'Sites' : item === 'participants' ? 'Participants' : 'Review'}</div>
+          ))}
+        </div>
+
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 space-y-8">
-          <div className="space-y-5">
+          {step === 'details' ? <div className="space-y-5">
             <StepHeading title="Project details" description="Define the commercial identity, owner and operating period." />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Project name" error={errors.name} className="sm:col-span-2">
@@ -303,9 +329,9 @@ export function ProjectWizardDialog({
                   className={`${inputClass()} min-h-24 resize-y`} placeholder="What is this project responsible for?" />
               </Field>
             </div>
-          </div>
+          </div> : null}
 
-          <div className="space-y-6">
+          {step === 'sites' ? <div className="space-y-6">
             <StepHeading title="Sites & operating scope" description="Select the operator sites where this project may request work passes and access." />
             <SelectionGroup
               title="Project sites"
@@ -320,10 +346,16 @@ export function ProjectWizardDialog({
               filterLabel="Location"
             />
             {errors.siteIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.siteIds}</p> : null}
-          </div>
+          </div> : null}
 
-          <div className="space-y-6">
+          {step === 'participants' ? <div className="space-y-6">
             <StepHeading title="Participants" description="Choose the organisations and people responsible for delivery." />
+            <Field label="Assigned supervisor" error={errors.supervisorUserId} hint="This person gives the normal final approval. An Operator Admin may override when necessary.">
+              <select value={draft.supervisorUserId} onChange={(event) => updateField('supervisorUserId', event.target.value)} className={inputClass(errors.supervisorUserId)}>
+                <option value="">Select supervisor</option>
+                {supervisorOptions.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.role ? ` · ${supervisor.role}` : ''}</option>)}
+              </select>
+            </Field>
             <Field label="Consultant company" error={errors.consultantCompanyId} hint="The consultant is an external company, not an operator user role.">
               <select value={draft.consultantCompanyId} onChange={(event) => {
                 updateField('consultantCompanyId', event.target.value);
@@ -379,20 +411,36 @@ export function ProjectWizardDialog({
                     </select>
                   </label>
                 ))}
-                {!projectRoles.length ? <p className="text-sm text-amber-700">No project roles are configured. Add one in Compliance Setup before saving team assignments.</p> : null}
+                {!projectRoles.length ? <p className="text-sm text-amber-700">No project roles are configured yet. Team members will use the tenant default.</p> : null}
               </div>
             ) : null}
-          </div>
+          </div> : null}
+
+          {step === 'review' ? <div className="space-y-5">
+            <StepHeading title="Review project" description="Confirm the scope and participants before saving." />
+            <dl className="grid gap-4 rounded-xl border border-slate-200 p-5 sm:grid-cols-2">
+              <ReviewItem label="Project" value={draft.name} />
+              <ReviewItem label="Assigned supervisor" value={supervisorOptions.find((item) => item.id === draft.supervisorUserId)?.name ?? '—'} />
+              <ReviewItem label="Operating period" value={`${draft.validFromUtc} – ${draft.validToUtc}`} />
+              <ReviewItem label="Sites" value={`${draft.siteIds.length} selected`} />
+              <ReviewItem label="Contractors" value={`${draft.contractorIds.length} selected`} />
+              <ReviewItem label="Consultant reviewers" value={`${draft.consultantReviewerUserIds.length} selected`} />
+              <ReviewItem label="Project team" value={`${draft.memberIds.length} selected`} />
+            </dl>
+          </div> : null}
 
           {saveError ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</p> : null}
         </div>
 
         <DialogFooter className="border-t border-slate-200 bg-white px-6 py-4">
           <div className="flex w-full items-center justify-between">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
-            <Button type="button" onClick={() => void saveProject()} disabled={saving}>
-              {saving ? 'Saving…' : project ? 'Save changes' : 'Create project'}
-            </Button>
+            {step === 'details' ? <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+              : <Button type="button" variant="ghost" onClick={() => setStep(steps[steps.indexOf(step) - 1])} disabled={saving}>Back</Button>}
+            {step === 'review' ? (
+              <Button type="button" onClick={() => void saveProject()} disabled={saving}>{saving ? 'Saving…' : project ? 'Save changes' : 'Create project'}</Button>
+            ) : (
+              <Button type="button" onClick={goNext} disabled={saving}>Next</Button>
+            )}
           </div>
         </DialogFooter>
       </DialogContent>
@@ -402,6 +450,10 @@ export function ProjectWizardDialog({
 
 function StepHeading({ title, description }: { title: string; description: string }) {
   return <div><h2 className="text-lg font-semibold text-slate-950">{title}</h2><p className="mt-1 text-sm text-slate-500">{description}</p></div>;
+}
+
+function ReviewItem({ label, value }: { label: string; value: string }) {
+  return <div><dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt><dd className="mt-1 font-medium text-slate-950">{value || '—'}</dd></div>;
 }
 
 function Field({ label, hint, error, className, children }: {
