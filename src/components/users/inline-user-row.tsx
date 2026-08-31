@@ -27,6 +27,8 @@ function creatableRoles(role: UserRole): UserRole[] {
   if (role === 'Admin') return ['Operator Admin', 'Contractor Admin'];
   if (role === 'Operator Admin') return ['Manager', 'Security', 'Worker', 'Inspector'];
   if (role === 'Contractor Admin') return ['Supervisor', 'Worker'];
+  if (role === 'Manager') return ['Security', 'Worker', 'Inspector'];
+  if (role === 'Supervisor') return ['Worker'];
   return [];
 }
 
@@ -85,9 +87,9 @@ export function InlineUserRow({
   };
 
   const companyOptions = draft.role === 'Operator Admin' ? operators : contractors;
-  const companyName = currentUser.role === 'Operator Admin'
+  const companyName = currentUser.role === 'Operator Admin' || currentUser.role === 'Manager'
     ? operators.find((operator) => operator.id === currentUser.operatorId)?.name ?? currentUser.company ?? 'Own operator'
-    : currentUser.role === 'Contractor Admin'
+    : currentUser.role === 'Contractor Admin' || currentUser.role === 'Supervisor'
       ? contractors.find((contractor) => contractor.id === currentUser.contractorId)?.name ?? currentUser.company ?? 'Own contractor'
       : null;
 
@@ -98,12 +100,12 @@ export function InlineUserRow({
       return;
     }
 
-    const operatorId = currentUser.role === 'Operator Admin'
+    const operatorId = currentUser.role === 'Operator Admin' || currentUser.role === 'Manager'
       ? currentUser.operatorId ?? undefined
       : draft.role === 'Operator Admin'
         ? draft.affiliationId
         : undefined;
-    const contractorId = currentUser.role === 'Contractor Admin'
+    const contractorId = currentUser.role === 'Contractor Admin' || currentUser.role === 'Supervisor'
       ? currentUser.contractorId ?? undefined
       : draft.role === 'Contractor Admin'
         ? draft.affiliationId

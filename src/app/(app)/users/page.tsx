@@ -58,7 +58,7 @@ export default function UsersPage() {
     : null;
 
   const canCreateUser = useMemo(() => {
-    return ["Admin", "Operator Admin", "Contractor Admin"].includes(
+    return ["Admin", "Operator Admin", "Contractor Admin", "Manager", "Supervisor"].includes(
       currentUser?.role as string
     );
   }, [currentUser?.role]);
@@ -153,11 +153,11 @@ export default function UsersPage() {
     let operatorId = newUser.operatorId;
     let contractorId = newUser.contractorId;
 
-    if (currentUser.role === "Operator Admin") {
+    if (currentUser.role === "Operator Admin" || currentUser.role === "Manager") {
       operatorId = currentUser.operatorId ?? undefined;
       contractorId = undefined;
     }
-    if (currentUser.role === "Contractor Admin") {
+    if (currentUser.role === "Contractor Admin" || currentUser.role === "Supervisor") {
       contractorId = currentUser.contractorId ?? undefined;
     }
 
