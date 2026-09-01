@@ -30,6 +30,7 @@ import {
   createUserRequest,
   deleteUserRequest,
   listJobPositionsRequest,
+  resendUserActivationRequest,
 } from "@/lib/api";
 import type { CreateUserInput } from "@/lib/api";
 
@@ -215,6 +216,21 @@ export default function UsersPage() {
     }
   };
 
+  const handleResendActivation = async (user: User) => {
+    if (!token) {
+      toast({ variant: "destructive", title: "Session expired", description: "Please log in again to continue." });
+      return;
+    }
+
+    try {
+      await resendUserActivationRequest(token, user.id);
+      toast({ title: "Activation link reissued", description: `A new activation link was sent to ${user.email}.` });
+      await fetchData();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Could not resend activation", description: error.message || "The activation link could not be reissued." });
+    }
+  };
+
   const handleImpersonateUser = async (user: User) => {
     try {
       const impersonated = await startImpersonation(user.id);
@@ -292,6 +308,7 @@ export default function UsersPage() {
         currentUser={currentUser}
         canMutateUsers={canMutateUsers}
         onImpersonateUser={handleImpersonateUser}
+        onResendActivation={handleResendActivation}
         onCreateUser={handleAddUser}
         startWithInlineRow={createFromRequest && canCreateUser}
       />

@@ -32,6 +32,7 @@ export type ProjectRecord = {
   operatorName: string;
   supervisorUserId: string;
   supervisorUserName?: string;
+  isConsultantVerifierDelegationPending?: boolean;
   consultantCompanyId: string;
   consultantCompanyName: string;
   consultantReviewerUserIds: string[];
@@ -144,15 +145,9 @@ export function ProjectWizardDialog({
     () => contractors.filter((item) => item.companyType !== 2 && item.companyType !== 'Consultant'),
     [contractors],
   );
-  const consultantReviewers = useMemo(
-    () => users.filter((item) => item.contractorId === draft.consultantCompanyId
-      && (item.role === 'Contractor Admin' || item.role === 'Supervisor')),
+  const consultantSupervisorOptions = useMemo(
+    () => users.filter((item) => item.contractorId === draft.consultantCompanyId && item.role === 'Supervisor'),
     [draft.consultantCompanyId, users],
-  );
-  const supervisorOptions = useMemo(
-    () => users.filter((item) => item.operatorId === draft.operatorId
-      && ['Manager', 'Supervisor'].includes(item.role ?? '')),
-    [draft.operatorId, users],
   );
   const internalTeamOptions = useMemo(
     () => users.filter((item) => item.operatorId === draft.operatorId && !item.contractorId),
@@ -355,31 +350,22 @@ export function ProjectWizardDialog({
 
           {step === 'participants' ? <div className="space-y-6">
             <StepHeading title="Participants" description="Choose the organisations and people responsible for delivery." />
-            <Field label="Assigned supervisor" error={errors.supervisorUserId} hint="This person gives the normal final approval. An Operator Admin may override when necessary.">
-              <select value={draft.supervisorUserId} onChange={(event) => updateField('supervisorUserId', event.target.value)} className={inputClass(errors.supervisorUserId)}>
-                <option value="">Select supervisor</option>
-                {supervisorOptions.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.role ? ` · ${supervisor.role}` : ''}</option>)}
-              </select>
-            </Field>
             <Field label="Consultant company" error={errors.consultantCompanyId} hint="The consultant is an external company, not an operator user role.">
               <select value={draft.consultantCompanyId} onChange={(event) => {
                 updateField('consultantCompanyId', event.target.value);
+                updateField('supervisorUserId', '');
                 updateField('consultantReviewerUserIds', []);
               }} className={inputClass(errors.consultantCompanyId)}>
                 <option value="">Select consultant company</option>
                 {consultantCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
               </select>
             </Field>
-            <SelectionGroup
-              title="Consultant reviewers"
-              description="Personnel employed by the consultant company. Their project role carries the approval duties."
-              emptyText={draft.consultantCompanyId ? 'No active contractor administrators or supervisors are registered for this consultant company.' : 'Select a consultant company first.'}
-              options={consultantReviewers.map((reviewer) => ({ ...reviewer, subtitle: [reviewer.role, reviewer.email].filter(Boolean).join(' · ') }))}
-              selectedIds={draft.consultantReviewerUserIds}
-              onToggle={(id) => toggleSelection('consultantReviewerUserIds', id)}
-              searchPlaceholder="Search consultant personnel"
-            />
-            {errors.consultantReviewerUserIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.consultantReviewerUserIds}</p> : null}
+            <Field label="Consultant verifier" hint="Optional. If you leave this unassigned, the consultant administrator is notified to choose one of their supervisors. The Operator Admin makes the final decision and can override the verification.">
+              <select value={draft.supervisorUserId} onChange={(event) => updateField('supervisorUserId', event.target.value)} className={inputClass()} disabled={!draft.consultantCompanyId}>
+                <option value="">Delegate to consultant administrator</option>
+                {consultantSupervisorOptions.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.email ? ` · ${supervisor.email}` : ''}</option>)}
+              </select>
+            </Field>
             <SelectionGroup
               title="Contractors"
               description="Companies permitted to supply workers or request work passes."
@@ -425,11 +411,10 @@ export function ProjectWizardDialog({
             <StepHeading title="Review project" description="Confirm the scope and participants before saving." />
             <dl className="grid gap-4 rounded-xl border border-slate-200 p-5 sm:grid-cols-2">
               <ReviewItem label="Project" value={draft.name} />
-              <ReviewItem label="Assigned supervisor" value={supervisorOptions.find((item) => item.id === draft.supervisorUserId)?.name ?? '—'} />
+              <ReviewItem label="Consultant verifier" value={consultantSupervisorOptions.find((item) => item.id === draft.supervisorUserId)?.name ?? 'Delegated to consultant administrator'} />
               <ReviewItem label="Operating period" value={`${draft.validFromUtc} – ${draft.validToUtc}`} />
               <ReviewItem label="Sites" value={`${draft.siteIds.length} selected`} />
               <ReviewItem label="Contractors" value={`${draft.contractorIds.length} selected`} />
-              <ReviewItem label="Consultant reviewers" value={`${draft.consultantReviewerUserIds.length} selected`} />
               <ReviewItem label="Project team" value={`${draft.memberIds.length} selected`} />
             </dl>
           </div> : null}

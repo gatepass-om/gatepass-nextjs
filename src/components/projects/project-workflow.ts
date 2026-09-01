@@ -90,9 +90,7 @@ export function validateProjectStep(
   }
   if (step === 'participants') {
     const errors: Record<string, string> = {};
-    if (!draft.supervisorUserId) errors.supervisorUserId = 'Assign the project supervisor who will give final approval.';
     if (!draft.consultantCompanyId) errors.consultantCompanyId = 'Select a consultant company.';
-    if (!draft.consultantReviewerUserIds.length) errors.consultantReviewerUserIds = 'Select at least one consultant reviewer.';
     if (!draft.contractorIds.length) errors.contractorIds = 'Select at least one delivery contractor.';
     return errors;
   }
@@ -118,7 +116,7 @@ export function buildCreateProjectPayload(draft: ProjectDraft) {
     clientReference: draft.clientReference.trim() || null,
     description: draft.description.trim() || null,
     operatorId: draft.operatorId,
-    supervisorUserId: draft.supervisorUserId,
+    supervisorUserId: draft.supervisorUserId || null,
     consultantCompanyId: draft.consultantCompanyId,
     consultantReviewerUserIds: draft.consultantReviewerUserIds,
     siteIds: draft.siteIds,

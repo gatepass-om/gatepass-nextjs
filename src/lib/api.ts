@@ -1245,6 +1245,13 @@ export async function updateUserRequest(token: string, userId: string, input: Up
   return normalizeUserProfile(user);
 }
 
+export async function resendUserActivationRequest(token: string, userId: string) {
+  return apiRequest<void>(`/users/${userId}/activation-link`, {
+    method: 'POST',
+    token,
+  });
+}
+
 export async function deleteUserRequest(token: string, userId: string) {
   return apiRequest<void>(`/users/${userId}`, {
     method: 'DELETE',

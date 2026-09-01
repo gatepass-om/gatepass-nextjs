@@ -119,7 +119,6 @@ export function InlineUserRow({
         email: draft.email.trim(),
         nationality: draft.nationality,
         role: draft.role,
-        status: 'Active',
         operatorId,
         contractorId,
         assignedSiteId: draft.assignedSiteId || undefined,

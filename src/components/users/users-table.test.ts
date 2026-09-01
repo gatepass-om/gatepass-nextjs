@@ -38,3 +38,8 @@ test('personnel rows and edit actions navigate to a dedicated profile page', () 
   assert.doesNotMatch(source, /<EditUserForm/);
   assert.doesNotMatch(source, /Edit User Profile/);
 });
+
+test('personnel actions provide a secure activation-link resend control', () => {
+  assert.match(source, /onResendActivation/);
+  assert.match(source, /Resend activation link/);
+});

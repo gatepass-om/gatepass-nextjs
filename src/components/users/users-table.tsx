@@ -62,6 +62,7 @@ interface UsersTableProps {
   currentUser: User;
   canMutateUsers: boolean;
   onImpersonateUser: (user: User) => void;
+  onResendActivation: (user: User) => void;
   onCreateUser: (user: CreateUserInput) => Promise<boolean>;
   startWithInlineRow?: boolean;
 }
@@ -77,6 +78,7 @@ export function UsersTable({
   currentUser,
   canMutateUsers,
   onImpersonateUser,
+  onResendActivation,
   onCreateUser,
   startWithInlineRow = false,
 }: UsersTableProps) {
@@ -205,6 +207,11 @@ export function UsersTable({
                                     disabled={user.status === "Inactive"}
                                   >
                                     <UserCheck className="mr-2 h-4 w-4" /> Impersonate
+                                  </DropdownMenuItem>
+                                )}
+                                {canEditUser(user) && user.id !== currentUser.id && user.email && user.interactiveAccountEnabled !== false && (
+                                  <DropdownMenuItem onSelect={() => onResendActivation(user)}>
+                                    Resend activation link
                                   </DropdownMenuItem>
                                 )}
                                 {canEditUser(user) && user.id !== currentUser.id && (

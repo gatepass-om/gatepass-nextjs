@@ -16,7 +16,7 @@ export type CommandCenterWorkPass = {
   submittedByUserId: string;
 };
 
-export type WorkflowActor = { id?: string; role?: string; operatorId?: string };
+export type WorkflowActor = { id?: string; role?: string; operatorId?: string; contractorId?: string };
 export type WorkPassAction = 'submit' | 'approve' | 'second-approve' | 'reject';
 export type WorkflowStageState = 'completed' | 'current' | 'upcoming' | 'attention';
 
@@ -32,8 +32,8 @@ export type WorkPassStatusPresentation = { label: string; className: string };
 
 const WORK_PASS_STATUS_PRESENTATION: Record<string, WorkPassStatusPresentation> = {
   Draft: { label: 'Draft', className: 'bg-slate-100 text-slate-700' },
-  Submitted: { label: 'Pending consultant approval', className: 'bg-amber-100 text-amber-800' },
-  PendingSecondApproval: { label: 'Pending supervisor approval', className: 'bg-violet-100 text-violet-800' },
+  Submitted: { label: 'Pending consultant verification', className: 'bg-amber-100 text-amber-800' },
+  PendingSecondApproval: { label: 'Pending Operator Admin decision', className: 'bg-violet-100 text-violet-800' },
   Approved: { label: 'Access granted', className: 'bg-emerald-100 text-emerald-800' },
   Rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800' },
   Cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-500' },
@@ -51,11 +51,12 @@ export function getWorkPassActions(
 ): WorkPassAction[] {
   if (!actor.id) return [];
   if (workPass.status === 'Draft' && workPass.submittedByUserId === actor.id) return ['submit'];
-  if (workPass.status === 'Submitted' && project.consultantReviewerUserIds.includes(actor.id)) return ['approve', 'reject'];
-  if (workPass.status === 'PendingSecondApproval' && (
-    project.supervisorUserId === actor.id
-    || (actor.role === 'Operator Admin' && actor.operatorId === project.operatorId)
-  )) return ['second-approve', 'reject'];
+  const isOperatorAdmin = actor.role === 'Operator Admin' && actor.operatorId === project.operatorId;
+  const isAssignedConsultantVerifier = project.supervisorUserId === actor.id
+    && actor.role === 'Supervisor'
+    && actor.contractorId === project.consultantCompanyId;
+  if (workPass.status === 'Submitted' && (isAssignedConsultantVerifier || isOperatorAdmin)) return ['approve', 'reject'];
+  if (workPass.status === 'PendingSecondApproval' && isOperatorAdmin) return ['second-approve', 'reject'];
   return [];
 }
 
@@ -95,15 +96,15 @@ export function getProjectWorkflowStages(
     },
     {
       id: 'consultant-access',
-      label: 'Consultant decision',
-      description: 'Consultant reviews submitted worker access',
+      label: 'Consultant verification',
+      description: 'Assigned consultant supervisor verifies submitted worker access',
       state: submitted ? 'current' : rejected && !secondApproval && !granted ? 'attention' : workPasses.length ? 'completed' : 'upcoming',
       count: submitted,
     },
     {
       id: 'supervisor-access',
-      label: 'Supervisor decision',
-      description: 'Project supervisor gives the final decision when required',
+      label: 'Operator decision',
+      description: 'Operator Admin gives the final decision or override',
       state: secondApproval ? 'current' : granted ? 'completed' : 'upcoming',
       count: secondApproval,
     },

@@ -59,6 +59,24 @@ test('create payload trims text and converts project dates to UTC boundaries', (
   });
 });
 
+test('consultant verifier is optional so its administrator can delegate it after project creation', () => {
+  const draft = { ...validDraft, supervisorUserId: '', consultantReviewerUserIds: [] };
+
+  assert.deepEqual(validateProjectStep('participants', draft), {});
+  assert.deepEqual(buildCreateProjectPayload(draft), {
+    name: 'Harbour Expansion',
+    clientReference: 'PO-2044',
+    description: 'Phase one access programme',
+    operatorId: 'operator-1',
+    supervisorUserId: null,
+    consultantCompanyId: 'consultant-company-1',
+    consultantReviewerUserIds: [],
+    siteIds: ['site-1'],
+    validFromUtc: '2026-08-01T00:00:00.000Z',
+    validToUtc: '2026-10-31T23:59:59.000Z',
+  });
+});
+
 test('portfolio statistics distinguish active, upcoming, completed and expiring projects', () => {
   const statistics = calculateProjectPortfolio([
     { status: 'Active', validFromUtc: '2026-07-01', validToUtc: '2026-08-05', workPassCount: 7 },

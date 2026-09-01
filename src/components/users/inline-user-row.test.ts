@@ -26,6 +26,12 @@ test('inline personnel row has explicit save and cancel actions', () => {
   assert.match(source, /Saving…/);
 });
 
+test('inline personnel row creates welcome-email accounts through activation instead of Active status', () => {
+  assert.match(source, /sendWelcomeEmail: true/);
+  assert.match(source, /interactiveAccountEnabled: true/);
+  assert.doesNotMatch(source, /status: 'Active',/);
+});
+
 test('site assignment is conditional inside the role cell rather than a separate table column', () => {
   assert.match(source, /aria-label="Assigned site"/);
   assert.doesNotMatch(source, /<TableCell className="border-r p-1\.5">\s*\{\['Security', 'Inspector'\]/);
