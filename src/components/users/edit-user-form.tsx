@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { User, UserRole, Certificate, CertificateType, Site, UserStatus, Contractor, Operator, JobPosition } from "@/lib/types";
 import { CalendarIcon, FileText, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import * as Popover from "@radix-ui/react-popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { Calendar } from "../ui/calendar";
@@ -505,8 +505,8 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                               />
                             </FormControl>
                           ) : (
-                            <Popover.Root>
-                              <Popover.Trigger asChild>
+                            <Popover>
+                              <PopoverTrigger asChild>
                                 <FormControl>
                                   <Button
                                     variant={"outline"}
@@ -523,21 +523,16 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                   </Button>
                                 </FormControl>
-                              </Popover.Trigger>
-                              <Popover.Portal>
-                                <Popover.Content
-                                  className="w-auto p-0"
-                                  align="start"
-                                >
-                                  <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    initialFocus
-                                  />
-                                </Popover.Content>
-                              </Popover.Portal>
-                            </Popover.Root>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={field.onChange}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
                           );
                         })()}
                         <FormMessage />
