@@ -58,8 +58,18 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
           try {
             setIsScanning(true);
             await qr.start(
-              { facingMode: 'environment' },
-              { fps: 5 },
+              {
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+              },
+              {
+                // Whole-frame decoding at 5 fps is noticeably slow on iPhones. A
+                // focused centre window at 12 fps gives near-instant badge reads.
+                fps: 12,
+                qrbox: { width: 280, height: 280 },
+                disableFlip: true,
+              },
               (decodedText: string) => {
                 console.log("QR code detected:", decodedText);
                 onScanSuccessRef.current(decodedText);
