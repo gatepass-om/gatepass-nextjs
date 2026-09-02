@@ -11,6 +11,13 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const html5QrCodeRef = useRef<any | null>(null);
+  const onScanSuccessRef = useRef(onScanSuccess);
+
+  // The page supplies an inline callback. Keeping it in a ref prevents a render after
+  // detection from tearing down the camera while html5-qrcode is still processing it.
+  useEffect(() => {
+    onScanSuccessRef.current = onScanSuccess;
+  }, [onScanSuccess]);
 
   useEffect(() => {
     const init = async () => {
@@ -23,6 +30,13 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
       }
     };
     init();
+  }, []);
+
+  useEffect(() => () => {
+    const scanner = html5QrCodeRef.current;
+    if (!scanner) return;
+    // This is the only permanent teardown. Do not stop during a scan result render.
+    void scanner.stop?.().catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -48,7 +62,7 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
               { fps: 5 },
               (decodedText: string) => {
                 console.log("QR code detected:", decodedText);
-                onScanSuccess(decodedText);
+                onScanSuccessRef.current(decodedText);
               },
               () => undefined
             );
@@ -64,9 +78,7 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
           try {
             await qr.stop();
             setIsScanning(false);
-          } catch (err) {
-            console.error("Error stopping scanner:", err);
-          }
+          } catch { /* The camera may already have been released by the browser. */ }
         }
       };
 
@@ -78,7 +90,12 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
           startScanner();
         }
       } else {
-        stopScanner();
+        // Pause retains the camera session and avoids the stop/start race after a QR
+        // detection. It also resumes much faster for the next scan.
+        if (qr.getState() === Html5QrcodeScannerState.SCANNING) {
+          qr.pause(true);
+          setIsScanning(false);
+        }
       }
     };
 
@@ -86,9 +103,8 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
 
     return () => {
       cancelled = true;
-      void html5QrCodeRef.current?.stop?.().catch(() => undefined);
     };
-  }, [isPaused, hasPermission, onScanSuccess]);
+  }, [isPaused, hasPermission]);
 
   return { hasPermission, isScanning };
 }
