@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { activateInvitationRequest, activateRequest } from '@/lib/api';
 import { useSession } from '@/providers/session-provider';
+import { workspaceLandingForRole } from '@/lib/role-workspaces';
 import { Suspense, useEffect } from 'react';
 
 const formSchema = z.object({
@@ -40,7 +41,7 @@ function ActivateAccountForm() {
 
   useEffect(() => {
     if (!loading && user && user.status === 'Active') {
-      router.push('/dashboard');
+      router.push(workspaceLandingForRole(user.role));
     }
   }, [user, loading, router]);
 
@@ -57,7 +58,7 @@ function ActivateAccountForm() {
         : await activateRequest({ token: token!, newPassword: values.newPassword });
       setSession(result.token, result.user, result.expiresAt);
       toast({ title: 'Account Activated!', description: 'Your password has been updated.' });
-      router.push('/dashboard');
+      router.push(workspaceLandingForRole(result.user.role));
     } catch (error: any) {
       console.error('Account Activation Error', error);
       toast({ variant: 'destructive', title: 'Activation Failed', description: error.message || 'Could not update your password.' });

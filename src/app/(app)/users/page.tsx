@@ -22,6 +22,7 @@ import { FileUp } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthProtection } from "@/hooks/use-auth-protection";
 import { useSession } from "@/providers/session-provider";
+import { workspaceLandingForRole } from "@/lib/role-workspaces";
 import {
   listUsersRequest,
   listSitesRequest,
@@ -238,11 +239,7 @@ export default function UsersPage() {
         title: "Impersonation started",
         description: `You are now viewing GatePass as ${impersonated.name}.`,
       });
-      router.push(impersonated.role === "Worker" || impersonated.role === "Visitor"
-        ? "/profile"
-        : impersonated.role === "Contractor Admin"
-          ? "/access-requests"
-          : "/dashboard");
+      router.push(workspaceLandingForRole(impersonated.role));
     } catch (error: any) {
       console.error("Error starting impersonation:", error);
       toast({

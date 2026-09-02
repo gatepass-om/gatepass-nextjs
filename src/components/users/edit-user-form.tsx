@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { User, UserRole, Certificate, CertificateType, Site, UserStatus, Contractor, Operator, JobPosition } from "@/lib/types";
-import { CalendarIcon, FileText, Trash2 } from "lucide-react";
+import { CalendarIcon, FileText, FileUp, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ import { format, parseISO } from "date-fns";
 import { Calendar } from "../ui/calendar";
 import { useMediaQuery } from "react-responsive";
 import { useSession } from "@/providers/session-provider";
-import { listCertificateTypesRequest, type UpdateUserInput } from "@/lib/api";
+import { listCertificateTypesRequest, uploadWorkerDocument, type UpdateUserInput } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { buildEmploymentPayload } from '@/components/compliance/compliance-model';
 import { resolveEditAffiliation } from './user-affiliation';
@@ -60,6 +60,7 @@ interface EditUserFormProps {
 export function EditUserForm({ user, currentUser, onUpdateUser, sites, contractors, operators, jobPositions, isLoading }: EditUserFormProps) {
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
+    const [uploadingCertificateIndex, setUploadingCertificateIndex] = useState<number | null>(null);
     const { token } = useSession();
     const { toast } = useToast();
     const roles = React.useMemo<UserRole[]>(() => {
@@ -137,6 +138,23 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
       control: form.control,
       name: "certificates",
     });
+
+    async function uploadCertificateEvidence(index: number, certificateTypeId: string, file?: File) {
+      if (!token || !file) return;
+      if (!certificateTypeId) {
+        toast({ variant: 'destructive', title: 'Choose a certificate type first' });
+        return;
+      }
+      setUploadingCertificateIndex(index);
+      try {
+        await uploadWorkerDocument(token, user.id, file, 'Certificate', certificateTypeId);
+        toast({ title: 'Certificate evidence uploaded', description: file.name });
+      } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Upload failed', description: error.message ?? 'Could not upload certificate evidence.' });
+      } finally {
+        setUploadingCertificateIndex(null);
+      }
+    }
 
     async function onSubmit(values: FormValues) {
         const emptyToNull = (value?: string) => (value && value.trim() ? value.trim() : null);
@@ -539,6 +557,22 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                       </FormItem>
                     )}
                   />
+                  <div className="min-w-[200px]">
+                    <FormLabel>Evidence</FormLabel>
+                    <label className="mt-2 flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent">
+                      <FileUp className="h-4 w-4" />
+                      {uploadingCertificateIndex === index ? 'Uploading…' : 'Upload file'}
+                      <input
+                        type="file"
+                        className="sr-only"
+                        disabled={uploadingCertificateIndex !== null}
+                        onChange={(event) => {
+                          void uploadCertificateEvidence(index, form.getValues(`certificates.${index}.certificateTypeId`), event.target.files?.[0]);
+                          event.currentTarget.value = '';
+                        }}
+                      />
+                    </label>
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
