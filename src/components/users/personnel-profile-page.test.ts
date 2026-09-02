@@ -7,10 +7,10 @@ const source = readFileSync(
   'utf8',
 );
 
-test('the personnel profile route displays identity details and an avatar', () => {
-  assert.match(source, /<Avatar/);
-  assert.match(source, /<AvatarImage[^>]*src=\{user\.avatarUrl/);
-  assert.match(source, /<AvatarFallback/);
+test('the personnel profile route displays identity details and a managed worker profile photo', () => {
+  assert.match(source, /<WorkerProfilePhoto/);
+  assert.match(source, /fallbackUrl=\{user\.avatarUrl\}/);
+  assert.match(source, /canEdit=\{canEdit && user\.role === 'Worker'\}/);
   assert.match(source, /user\.name/);
   assert.match(source, /user\.email/);
   assert.match(source, /user\.role/);

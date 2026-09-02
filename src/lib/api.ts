@@ -1011,8 +1011,8 @@ export async function listGateActivityFilteredRequest(
 export async function createGateActivityRequest(token: string, input: {
   userId: string;
   siteId: string;
-  gate: string;
-  type: 'CheckIn' | 'CheckOut';
+  gateName: string;
+  activityType: 'CheckIn' | 'CheckOut';
 }) {
   const row = await apiRequest<any>('/gate/activity', {
     method: 'POST',
@@ -1029,6 +1029,63 @@ function normalizeGateActivity(row: any) {
     type: row.type ?? row.activityType,
     gate: row.gate ?? row.gateName,
   };
+}
+
+export type PersonnelScanStatus = {
+  userId: string;
+  name: string;
+  role: string;
+  workerCode?: string | null;
+  siteId: string;
+  siteName: string;
+  presenceStatus: string;
+  isCurrentlyOnSite: boolean;
+  hasApprovedAccess: boolean;
+  canCheckIn: boolean;
+  canCheckOut: boolean;
+  decisionReasonCode?: string | null;
+  failureReason?: string | null;
+  missingCertificates: string[];
+  workerProfile?: {
+    employerName?: string | null;
+    jobTitle?: string | null;
+    nationality?: string | null;
+    identityNumber?: string | null;
+    isActive: boolean;
+  } | null;
+  activeWorkPass?: {
+    passNumber: string;
+    projectName: string;
+    taskDescription?: string | null;
+  } | null;
+};
+
+export async function resolvePersonnelScanRequest(
+  token: string,
+  input: { credential: string; siteId: string },
+) {
+  return apiRequest<PersonnelScanStatus>('/scan/resolve', {
+    method: 'POST',
+    token,
+    body: { token: input.credential, siteId: input.siteId },
+  });
+}
+
+export async function createInspectionRequest(
+  token: string,
+  input: {
+    workerId: string;
+    siteId: string;
+    outcome: 'Compliant' | 'NonCompliant';
+    wrongfulConductReason?: string;
+    notes?: string;
+  },
+) {
+  return apiRequest('/inspections', {
+    method: 'POST',
+    token,
+    body: input,
+  });
 }
 
 export async function listCertificateTypesRequest(token: string) {
@@ -1395,6 +1452,14 @@ export async function downloadWorkerDocument(token: string, documentId: string, 
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+export async function getWorkerDocumentPreviewUrl(token: string, documentId: string) {
+  const response = await fetch(`${BACKEND_URL}/documents/${documentId}/download`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('Document preview could not be loaded.');
+  return URL.createObjectURL(await response.blob());
 }
 
 export async function deleteWorkerDocument(token: string, documentId: string) {

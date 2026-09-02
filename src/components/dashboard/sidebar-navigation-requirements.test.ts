@@ -9,8 +9,8 @@ const sidebarSource = readFileSync(
   'utf8',
 );
 
-test('client navigation exposes one emergency center, card verification, and no card-production tools', () => {
-  for (const role of ['Operator Admin', 'Manager', 'Security', 'Contractor Admin'] as const) {
+test('client navigation exposes personnel scan to the roles that can resolve live access', () => {
+  for (const role of ['Admin', 'Manager', 'Security', 'Supervisor', 'Inspector'] as const) {
     const items = getNavigationForRole(role);
     const routes = items.map((item) => item.href);
 
@@ -22,6 +22,10 @@ test('client navigation exposes one emergency center, card verification, and no 
   assert.equal(
     getNavigationForRole('Operator Admin').find((item) => item.href === '/alerts')?.label,
     'Alerts & Muster',
+  );
+  assert.equal(
+    getNavigationForRole('Manager').find((item) => item.href === '/card-verification')?.label,
+    'Personnel Scan',
   );
 });
 

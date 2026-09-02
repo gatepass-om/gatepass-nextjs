@@ -12,7 +12,7 @@ import {
   shouldLoadPersonnelSites,
   shouldShowWorkerDocuments,
 } from '@/components/users/user-actions';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { WorkerProfilePhoto } from '@/components/users/profile-photo';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -164,12 +164,7 @@ export default function PersonnelProfilePage() {
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <Card className="h-fit">
           <CardContent className="flex flex-col items-center p-6 text-center">
-            <Avatar className="h-28 w-28 border-4 border-background shadow-lg">
-              <AvatarImage src={user.avatarUrl ?? undefined} alt={`${user.name}'s profile picture`} className="object-cover" />
-              <AvatarFallback className="text-3xl font-semibold">
-                {user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <WorkerProfilePhoto workerId={user.id} name={user.name} fallbackUrl={user.avatarUrl} canEdit={canEdit && user.role === 'Worker'} />
             <h2 className="mt-4 text-2xl font-semibold">{user.name}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{user.email || 'No email set'}</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">

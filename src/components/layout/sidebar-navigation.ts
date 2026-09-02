@@ -9,7 +9,7 @@ export type NavigationItem = {
 const navigationItems: NavigationItem[] = [
   { href: '/projects', label: 'Projects', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin'] },
   { href: '/alerts', label: 'Alerts & Muster', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },
-  { href: '/card-verification', label: 'Card Verification', roles: ['Admin', 'Operator Admin', 'Manager', 'Security', 'Contractor Admin'] },
+  { href: '/card-verification', label: 'Personnel Scan', roles: ['Admin', 'Manager', 'Security', 'Supervisor', 'Inspector'] },
   { href: '/inspections', label: 'Inspections', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Security', 'Inspector'] },
   { href: '/companies', label: 'Companies', roles: ['Admin', 'Operator Admin', 'Supervisor'] },
   { href: '/users', label: 'Personnel', roles: ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Supervisor'] },
