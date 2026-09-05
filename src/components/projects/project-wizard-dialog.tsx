@@ -390,21 +390,6 @@ export function ProjectWizardDialog({
               searchPlaceholder="Search people by name, role or email"
               filterLabel="Role"
             />
-            {selectedMembers.length > 0 ? (
-              <div className="space-y-3 rounded-xl border border-slate-200 p-4">
-                <div><h3 className="font-semibold text-slate-950">Project responsibilities</h3><p className="text-sm text-slate-500">Assign a workflow role to each selected team member.</p></div>
-                {selectedMembers.map((member) => (
-                  <label key={member.id} className="grid gap-2 sm:grid-cols-[1fr_15rem] sm:items-center">
-                    <span><span className="block text-sm font-medium text-slate-900">{member.name}</span><span className="block text-xs text-slate-500">{member.role}</span></span>
-                    <select className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm" value={memberRoleIds[member.id] || projectRoles.find((role) => role.isDefault)?.id || ''} onChange={(event) => setMemberRoleIds((current) => ({ ...current, [member.id]: event.target.value }))}>
-                      {!projectRoles.some((role) => role.isDefault) ? <option value="">Use tenant default</option> : null}
-                      {projectRoles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
-                    </select>
-                  </label>
-                ))}
-                {!projectRoles.length ? <p className="text-sm text-amber-700">No project roles are configured yet. Team members will use the tenant default.</p> : null}
-              </div>
-            ) : null}
           </div> : null}
 
           {step === 'review' ? <div className="space-y-5">
