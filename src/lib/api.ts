@@ -1,4 +1,4 @@
-import type { AccessDecisionEvaluation, AccessRequest, AccessRuleConfig, ContractorDetail, DecisionReasonOption, OperatorDetail, Tenant, User, WorkerProfile } from './types';
+import type { AccessDecisionEvaluation, AccessRequest, AccessRuleConfig, ContractorDetail, ContractorUserApplication, ContractorUserApplicationAttachment, DecisionReasonOption, OperatorDetail, Tenant, User, WorkerProfile } from './types';
 import { normalizeUserProfile } from './user-profile';
 
 export const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4005').replace(/\/$/, '');
@@ -409,7 +409,7 @@ export async function impersonateUserRequest(token: string, userId: string) {
 }
 
 export async function fetchCurrentUserRequest(token: string) {
-  const user = await apiRequest<User & { identityNumber?: string | null; employerName?: string | null }>('/users/me', {
+  const user = await apiRequest<User & { identityNumber?: string | null; identityExpiresAtUtc?: string | null; employerName?: string | null }>('/users/me', {
     method: 'GET',
     token,
   });
@@ -799,6 +799,7 @@ export async function createContractorRequest(token: string, input: { name: stri
 
 export async function createExternalCompanyRequest(token: string, input: {
   name: string;
+  logoUrl?: string;
   companyType: number;
   operatorId?: string;
   contractNumber?: string;
@@ -818,7 +819,7 @@ export async function updateContractorRequest(token: string, contractorId: strin
   });
 }
 
-export async function updateExternalCompanyRequest(token: string, companyId: string, input: { name: string; companyType: number }) {
+export async function updateExternalCompanyRequest(token: string, companyId: string, input: { name: string; companyType: number; logoUrl?: string; operatorId?: string; supervisorLimit?: number | null }) {
   return apiRequest<any>(`/companies/external/${companyId}`, { method: 'PUT', token, body: input });
 }
 
@@ -936,20 +937,21 @@ export async function evaluateAccessDecisionRequest(
   });
 }
 
-export async function listUsersRequest(token: string, input?: { role?: string; operatorId?: string; contractorId?: string; page?: number; pageSize?: number }) {
+export async function listUsersRequest(token: string, input?: { role?: string; operatorId?: string; contractorId?: string; search?: string; page?: number; pageSize?: number }) {
   const params = new URLSearchParams();
   if (input?.role) params.set('role', input.role);
   if (input?.operatorId) params.set('operatorId', input.operatorId);
   if (input?.contractorId) params.set('contractorId', input.contractorId);
+  if (input?.search) params.set('search', input.search);
   if (input?.page) params.set('page', String(input.page));
   if (input?.pageSize) params.set('pageSize', String(input.pageSize));
   const query = params.toString();
-  const users = await apiRequest<Array<User & { identityNumber?: string | null; employerName?: string | null }>>(`/users${query ? `?${query}` : ''}`, { token });
+  const users = await apiRequest<Array<User & { identityNumber?: string | null; identityExpiresAtUtc?: string | null; employerName?: string | null }>>(`/users${query ? `?${query}` : ''}`, { token });
   return users.map(normalizeUserProfile);
 }
 
 export async function getUserByIdRequest(token: string, id: string) {
-  const user = await apiRequest<User & { identityNumber?: string | null; employerName?: string | null }>(`/users/${id}`, { token });
+  const user = await apiRequest<User & { identityNumber?: string | null; identityExpiresAtUtc?: string | null; employerName?: string | null }>(`/users/${id}`, { token });
   return normalizeUserProfile(user);
 }
 
@@ -1127,6 +1129,7 @@ export type CreateUserInput = {
   company?: string;
   workerCode?: string;
   idNumber?: string;
+  idExpiresAtUtc?: string | null;
   notes?: string;
   certificates?: { certificateTypeId: string; expiresAtUtc?: string | null }[];
   sendWelcomeEmail?: boolean;
@@ -1162,11 +1165,12 @@ export type CreateUserInput = {
 };
 
 function toCreateUserRequestBody(input: CreateUserInput) {
-  const { company, idNumber, ...rest } = input;
+  const { company, idNumber, idExpiresAtUtc, ...rest } = input;
   return {
     ...rest,
     employerName: company,
     identityNumber: idNumber,
+    identityExpiresAtUtc: idExpiresAtUtc,
   };
 }
 
@@ -1265,6 +1269,7 @@ export type UpdateUserInput = {
   nationality?: string | null;
   company?: string | null;
   idNumber?: string | null;
+  idExpiresAtUtc?: string | null;
   notes?: string | null;
   certificates?: { certificateTypeId: string; expiresAtUtc?: string | null }[];
   password?: string;
@@ -1288,14 +1293,15 @@ export type UpdateUserInput = {
 };
 
 export async function updateUserRequest(token: string, userId: string, input: UpdateUserInput) {
-  const { company, idNumber, password, ...rest } = input;
-  const user = await apiRequest<User & { identityNumber?: string | null; employerName?: string | null }>(`/users/${userId}`, {
+  const { company, idNumber, idExpiresAtUtc, password, ...rest } = input;
+  const user = await apiRequest<User & { identityNumber?: string | null; identityExpiresAtUtc?: string | null; employerName?: string | null }>(`/users/${userId}`, {
     method: 'PUT',
     token,
     body: {
       ...rest,
       employerName: company,
       identityNumber: idNumber,
+      identityExpiresAtUtc: idExpiresAtUtc,
       newPassword: password,
     },
   });
@@ -1466,6 +1472,122 @@ export async function deleteWorkerDocument(token: string, documentId: string) {
   return apiRequest<void>(`/documents/${documentId}`, { method: 'DELETE', token });
 }
 
+export type CreateContractorUserApplicationInput = {
+  operatorId: string;
+  contractorId: string;
+  assignedSiteId?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  civilId: string;
+  civilIdExpiresAtUtc: string;
+  position: string;
+  requestedRole: 'ContractorAdmin' | 'Supervisor' | 'Worker';
+  location: string;
+  assetType: string;
+  assetSubClass: string;
+  directorate: string;
+  department: string;
+  contractorRepresentativeName: string;
+  contractorType: string;
+  isSme: boolean;
+  employeeType: string;
+  supervisorUserId?: string;
+  reviewerUserId?: string;
+  remarks?: string;
+  certificateExpiresAtUtc?: string;
+  approvedAccountExpiresAtUtc?: string;
+};
+
+export type ContractorUserApplicationOptions = {
+  assetTypes: string[];
+  assetSubClasses: string[];
+  directorates: string[];
+  departments: string[];
+  contractorTypes: string[];
+  employeeTypes: string[];
+  supervisorCandidates: Array<{ id: string; name: string }>;
+  reviewerCandidates: Array<{ id: string; name: string }>;
+};
+
+export function listContractorUserApplications(token: string, page = 1, pageSize = 20) {
+  return apiRequest<PagedResult<ContractorUserApplication>>(`/contractor-user-applications?page=${page}&pageSize=${pageSize}`, { token });
+}
+
+export function getContractorUserApplicationOptions(token: string, operatorId: string, contractorId?: string) {
+  const query = contractorId ? `?contractorId=${encodeURIComponent(contractorId)}` : '';
+  return apiRequest<ContractorUserApplicationOptions>(`/contractor-user-applications/options/${operatorId}${query}`, { token });
+}
+
+export function updateContractorUserApplicationOptions(token: string, operatorId: string, options: ContractorUserApplicationOptions) {
+  return apiRequest<ContractorUserApplicationOptions>(`/contractor-user-applications/options/${operatorId}`, { method: 'PUT', token, body: options });
+}
+
+export function createContractorUserApplication(token: string, input: CreateContractorUserApplicationInput) {
+  return apiRequest<ContractorUserApplication>('/contractor-user-applications', { method: 'POST', token, body: input });
+}
+
+export function updateContractorUserApplication(token: string, id: string, input: CreateContractorUserApplicationInput) {
+  return apiRequest<ContractorUserApplication>(`/contractor-user-applications/${id}`, { method: 'PUT', token, body: input });
+}
+
+export function withdrawContractorUserApplication(token: string, id: string) {
+  return apiRequest<ContractorUserApplication>(`/contractor-user-applications/${id}/withdraw`, { method: 'POST', token });
+}
+
+export function submitContractorUserApplication(token: string, id: string, declarationAccepted: boolean) {
+  return apiRequest<ContractorUserApplication>(`/contractor-user-applications/${id}/submit`, { method: 'POST', token, body: { declarationAccepted } });
+}
+
+export function reviewContractorUserApplication(token: string, id: string, comments?: string) {
+  return apiRequest<ContractorUserApplication>(`/contractor-user-applications/${id}/review`, { method: 'POST', token, body: { comments } });
+}
+
+export function approveContractorUserApplication(token: string, id: string, comments?: string) {
+  return apiRequest<ContractorUserApplication>(`/contractor-user-applications/${id}/approve`, { method: 'POST', token, body: { comments } });
+}
+
+export function returnContractorUserApplication(token: string, id: string, comments: string) {
+  return apiRequest<ContractorUserApplication>(`/contractor-user-applications/${id}/return`, { method: 'POST', token, body: { comments } });
+}
+
+export async function uploadContractorUserApplicationAttachment(
+  token: string,
+  id: string,
+  type: ContractorUserApplicationAttachment['type'],
+  file: File,
+) {
+  const form = new FormData();
+  form.append('type', type);
+  form.append('file', file);
+  const response = await fetch(`${BACKEND_URL}/contractor-user-applications/${id}/attachments`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(data?.error ?? 'Attachment upload failed.');
+  }
+  return (await response.json()) as ContractorUserApplicationAttachment;
+}
+
+export async function downloadContractorUserApplicationAttachment(token: string, applicationId: string, attachment: ContractorUserApplicationAttachment) {
+  const response = await fetch(`${BACKEND_URL}/contractor-user-applications/${applicationId}/attachments/${attachment.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('Attachment download failed.');
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = attachment.fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function getWorkerDocumentDataUrl(token: string, documentId: string) {
   const response = await fetch(`${BACKEND_URL}/documents/${documentId}/download`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -1487,6 +1609,8 @@ export type WorkerCard = {
   workerCode: string;
   workerName: string;
   employerName: string;
+  contractorName?: string;
+  contractorLogoUrl?: string | null;
   jobTitle: string;
   role: string;
   status: 'Issued' | 'Printed' | 'Replaced' | 'Revoked' | 'Expired';

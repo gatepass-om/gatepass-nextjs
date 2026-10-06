@@ -5,7 +5,7 @@ async function login(page: Page, email = 'admin@gatepass.local', password = 'Cha
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: /sign in/i }).click();
-  await expect(page).toHaveURL(/\/dashboard|\/access-requests/);
+  await expect(page).not.toHaveURL(/\/login/);
 }
 
 async function createSiteThroughUi(
@@ -42,21 +42,13 @@ async function deleteSiteThroughUi(page: Page, name: string) {
 test.describe('GatePass frontend against ASP.NET backend', () => {
   test.describe.configure({ mode: 'serial' });
 
-  test('admin dashboard prioritizes concise operational metrics and visual analysis', async ({ page }) => {
+  test('admin lands in the project-first operational workspace', async ({ page }) => {
     await login(page);
-    await expect(page.getByRole('heading', { name: /good morning, gatepass/i })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: /reporting window/i })).toBeVisible();
-    await expect(page.getByRole('tab')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: /current scope/i })).toBeVisible();
-    await expect(page.getByText(/people on site|pending decisions|workforce readiness/i).first()).toBeVisible();
-    await expect(page.getByRole('heading', { name: /operations queue/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /operational map/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /^access requests$/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /movement activity|clearance pipeline/i })).toBeVisible();
-    await page.getByRole('combobox', { name: /reporting window/i }).click();
-    await page.getByRole('option', { name: /custom range/i }).click();
-    await expect(page.getByLabel(/from date and time/i)).toBeVisible();
-    await expect(page.getByLabel(/to date and time/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^projects$/i })).toBeVisible();
+    await expect(page.getByLabel(/project portfolio summary/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /new project/i })).toBeVisible();
+    await expect(page.getByPlaceholder(/search by project/i)).toBeVisible();
+    await expect(page.getByLabel(/filter projects by status/i)).toBeVisible();
   });
 
   test('smart access page loads provider and device operations', async ({ page }) => {
@@ -85,30 +77,21 @@ test.describe('GatePass frontend against ASP.NET backend', () => {
   test('personnel management does not offer invalid static QR downloads', async ({ page }) => {
     await login(page);
     await page.goto('/users');
-    await expect(page.getByRole('heading', { name: /personnel management/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^personnel$/i })).toBeVisible();
     await page.getByRole('button', { name: /more actions/i }).first().click();
     await expect(page.getByRole('menuitem', { name: /download qr/i })).toHaveCount(0);
   });
 
-  test('authorized reviewer can see pending worker evidence and verify it', async ({ page }) => {
+  test('worker profile removes the generic document uploader', async ({ page }) => {
     await login(page);
     await page.goto('/users');
     const workerRow = page.getByRole('row').filter({ hasText: /worker\.1@gatepass\.local/i });
     await workerRow.getByRole('button', { name: /more actions/i }).first().click();
     await page.getByRole('menuitem', { name: /^edit$/i }).first().click();
-    await expect(page.getByRole('heading', { name: /edit user profile/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /personnel profile/i })).toBeVisible();
 
-    await page.getByRole('combobox', { name: /document type/i }).click();
-    await page.getByRole('option', { name: /id document/i }).click();
-    await page.locator('input[type="file"]').setInputFiles({
-      name: 'identity-review-test.pdf',
-      mimeType: 'application/pdf',
-      buffer: Buffer.from('identity evidence'),
-    });
-
-    const documentRow = page.getByRole('listitem').filter({ hasText: /identity-review-test\.pdf/i }).last();
-    await expect(documentRow.getByText(/pending/i)).toBeVisible();
-    await expect(documentRow.getByRole('button', { name: /verify/i })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: /^document type$/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /upload file/i }).first()).toBeVisible();
   });
 
   test('certificate evidence can be linked to a certificate type before upload', async ({ page }) => {
@@ -118,20 +101,19 @@ test.describe('GatePass frontend against ASP.NET backend', () => {
     await workerRow.getByRole('button', { name: /more actions/i }).first().click();
     await page.getByRole('menuitem', { name: /^edit$/i }).first().click();
 
-    await expect(page.getByRole('combobox', { name: /certificate type for evidence/i })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: /^certificate type$/i }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /upload file/i }).first()).toBeVisible();
   });
 
-  test('verified worker photo is available from the personnel card-issuance action', async ({ page }) => {
+  test('profile photo uses its dedicated uploader and card issuance remains available', async ({ page }) => {
     await login(page);
     await page.goto('/users');
     const workerRow = page.getByRole('row').filter({ hasText: /worker\.1@gatepass\.local/i });
     await workerRow.getByRole('button', { name: /more actions/i }).first().click();
     await page.getByRole('menuitem', { name: /^edit$/i }).first().click();
-    await expect(page.getByRole('heading', { name: /edit user profile/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /personnel profile/i })).toBeVisible();
 
-    await page.getByRole('combobox', { name: /document type/i }).click();
-    await page.getByRole('option', { name: /worker card photo/i }).click();
-    await page.locator('input[type="file"]').setInputFiles({
+    await page.locator('input[type="file"][accept="image/jpeg,image/png,image/webp"]').setInputFiles({
       name: 'worker-card-photo.png',
       mimeType: 'image/png',
       buffer: Buffer.from(
@@ -139,14 +121,9 @@ test.describe('GatePass frontend against ASP.NET backend', () => {
         'base64',
       ),
     });
-    const photoRow = page.getByRole('listitem').filter({ hasText: /worker-card-photo\.png/i }).last();
-    await photoRow.getByRole('button', { name: /^verify$/i }).click();
-    await expect(photoRow.getByText(/^verified$/i)).toBeVisible();
-    await page.getByRole('button', { name: /^close$/i }).click();
-
-    await workerRow.getByRole('button', { name: /more actions/i }).first().click();
-    await page.getByRole('menuitem', { name: /issue worker card/i }).click();
-    await expect(page.getByRole('heading', { name: /issue worker card/i })).toBeVisible();
+    await expect(page.getByRole('img', { name: /profile picture/i })).toBeVisible();
+    await page.getByRole('button', { name: /^refresh$/i }).last().click();
+    await expect(page.getByRole('combobox', { name: /verified worker photo/i })).toBeVisible();
     await expect(page.getByRole('combobox', { name: /verified worker photo/i })).toHaveText(/worker-card-photo\.png/i);
     const horizontalCrop = page.getByLabel(/card photo horizontal crop/i);
     await horizontalCrop.scrollIntoViewIfNeeded();
@@ -160,11 +137,11 @@ test.describe('GatePass frontend against ASP.NET backend', () => {
     await login(page, 'manager.marmul@gatepass.local', 'ChangeMe123!');
     await page.goto('/users');
     const workerRow = page.getByRole('row').filter({ hasText: /worker\.1@gatepass\.local/i });
-    await workerRow.getByRole('button', { name: /more actions/i }).click();
-    await page.getByRole('menuitem', { name: /review compliance/i }).click();
+    await workerRow.getByRole('button', { name: /more actions/i }).first().click();
+    await page.getByRole('menuitem', { name: /^edit$/i }).click();
 
-    await expect(page.getByRole('heading', { name: /worker compliance review/i })).toBeVisible();
-    await expect(page.getByText(/worker clearance/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /personnel profile/i })).toBeVisible();
+    await expect(page.getByText(/position requirements/i)).toBeVisible();
     await expect(page.getByText(/worker timeline/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /upload document/i })).toHaveCount(0);
   });
@@ -179,7 +156,7 @@ test.describe('GatePass frontend against ASP.NET backend', () => {
     await expect(page.getByRole('switch', { name: /smart locks or mobile credentials/i })).toBeVisible();
   });
 
-  test('large operational lists expose usable pagination controls', async ({ page }) => {
+  test('the site register exposes usable pagination controls', async ({ page }) => {
     await login(page);
 
     await page.goto('/sites');
@@ -187,17 +164,13 @@ test.describe('GatePass frontend against ASP.NET backend', () => {
     await expect(page.getByRole('button', { name: /previous sites page/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /next sites page/i })).toBeVisible();
 
-    await page.goto('/access-requests');
-    await page.getByRole('tab', { name: /requests log/i }).click();
-    await expect(page.getByText(/page 1 of \d+/i).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: /previous access requests page/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /next access requests page/i })).toBeVisible();
   });
 
   test('browser journeys distinguish compliance-only sites from guarded authorization sites', async ({ page }) => {
     const runId = Date.now();
-    const complianceSite = `Browser Compliance Open Area ${runId}`;
-    const guardedSite = `Browser Guarded Site ${runId}`;
+    const sortKey = String(Number.MAX_SAFE_INTEGER - runId).padStart(16, '0');
+    const complianceSite = `00-${sortKey} Browser Compliance Open Area`;
+    const guardedSite = `00-${sortKey} Browser Guarded Site`;
 
     await login(page);
     await createSiteThroughUi(page, complianceSite, { approval: false, guarded: false, smart: false });

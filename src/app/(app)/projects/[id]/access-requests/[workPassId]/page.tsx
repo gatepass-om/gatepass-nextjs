@@ -9,8 +9,9 @@ import { useSession } from '@/providers/session-provider';
 import type { ProjectRecord } from '@/components/projects/project-wizard-dialog';
 import type { CertificateType } from '@/lib/types';
 import { PersonnelDetailsDialog } from '@/components/projects/personnel-details-dialog';
+import { isWorkerComplianceSatisfied } from '@/components/projects/project-command-center';
 
-type Worker = { userId: string; name: string; workerCode?: string | null; email?: string | null; contractorName?: string | null; jobPositionName?: string | null };
+type Worker = { userId: string; name: string; nationalId?: string | null; clearanceStatus?: string | null; email?: string | null; contractorName?: string | null; jobPositionName?: string | null };
 type WorkPass = { id: string; projectId: string; projectName: string; siteName: string; passNumber: string; status: string; validFromUtc: string; validToUtc: string; taskDescription?: string | null; submittedByName: string; submittingContractorName?: string | null; approvedByName?: string | null; approvedAtUtc?: string | null; secondApprovedByName?: string | null; workers: Worker[] };
 
 export default function WorkerAccessRequestPage() {
@@ -40,7 +41,10 @@ export default function WorkerAccessRequestPage() {
     listCertificateTypesRequest(token).then(setCertificateTypes).catch(() => []);
   }, [params.id, params.workPassId, token]);
 
-  const isWorkerCompliant = (item: Worker) => jobRoleCompliance[item.userId] ?? true;
+  const isWorkerCompliant = (item: Worker) => isWorkerComplianceSatisfied(
+    jobRoleCompliance[item.userId] ?? true,
+    item.clearanceStatus,
+  );
 
   const filtered = useMemo(() => (request?.workers ?? []).filter((item) => {
     const query = search.trim().toLowerCase();
@@ -70,14 +74,14 @@ export default function WorkerAccessRequestPage() {
       </div>
       <div className="max-h-[60vh] overflow-auto">
         <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500"><tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Company</th><th className="px-5 py-3">Job role</th><th className="px-5 py-3">Worker code</th><th className="px-5 py-3">Compliance</th></tr></thead>
+          <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500"><tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Company</th><th className="px-5 py-3">Job role</th><th className="px-5 py-3">National ID</th><th className="px-5 py-3">Compliance</th></tr></thead>
           <tbody className="divide-y divide-slate-100">{filtered.map((item) => {
             const compliant = isWorkerCompliant(item);
             return <tr key={item.userId} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelectedWorkerId(item.userId)}>
               <td className="px-5 py-4 font-medium">{item.name}</td>
               <td className="px-5 py-4">{item.contractorName || '—'}</td>
               <td className="px-5 py-4">{item.jobPositionName || '—'}</td>
-              <td className="px-5 py-4">{item.workerCode || '—'}</td>
+              <td className="px-5 py-4 font-mono">{item.nationalId || '—'}</td>
               <td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${compliant ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{compliant ? 'Compliant' : 'Non-compliant'}</span></td>
             </tr>;
           })}</tbody>

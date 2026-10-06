@@ -45,11 +45,17 @@ test('inline controls use the same eight table columns as the personnel header',
     'aria-label="Email address"',
     'aria-label="Company"',
     'aria-label="Nationality"',
-    'aria-label="Job position"',
     'aria-label="Type of person"',
+    'aria-label="Job position"',
     'aria-label="Save personnel row"',
   ];
   const positions = controls.map((control) => source.indexOf(control));
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual(positions, [...positions].sort((left, right) => left - right));
+});
+
+test('admin assigns inspector accounts to an operator before invitation', () => {
+  assert.match(source, /\['Operator Admin', 'Manager', 'Security', 'Inspector'\]/);
+  assert.match(source, /OPERATOR_AFFILIATED_ROLES\.includes\(draft\.role\)/);
+  assert.match(source, /operatorId/);
 });

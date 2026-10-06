@@ -5,6 +5,7 @@ type UserProfilePayload = Partial<User> & {
   name: string;
   role: User['role'];
   identityNumber?: string | null;
+  identityExpiresAtUtc?: string | null;
   employerName?: string | null;
 };
 
@@ -12,6 +13,7 @@ export function normalizeUserProfile(payload: UserProfilePayload): User {
   return {
     ...payload,
     idNumber: payload.idNumber ?? payload.identityNumber ?? null,
+    idExpiresAtUtc: payload.idExpiresAtUtc ?? payload.identityExpiresAtUtc ?? null,
     company: payload.company ?? payload.employerName ?? null,
   } as User;
 }

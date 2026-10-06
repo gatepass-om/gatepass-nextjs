@@ -34,6 +34,7 @@ import { useSession } from '@/providers/session-provider';
 import { useEffect, useMemo, useState } from 'react';
 import { getNavigationForRole } from './sidebar-navigation';
 import { BACKEND_URL } from '@/lib/api';
+import { useLocale } from '@/providers/locale-provider';
 
 
 const GatePassLogo = () => (
@@ -52,11 +53,25 @@ const dashboardLabels: Record<string, string> = {
   '/profile': 'My Account',
 };
 
+const arabicLabels: Record<string, string> = {
+  Projects: 'المشاريع',
+  'Alerts & Muster': 'التنبيهات والتجمع',
+  'Personnel Scan': 'مسح الأفراد',
+  Inspections: 'التفتيش',
+  Companies: 'الشركات',
+  Personnel: 'الأفراد',
+  'User Approvals': 'اعتمادات المستخدمين',
+  Certificates: 'الشهادات',
+  'My Account': 'حسابي',
+  Notifications: 'الإشعارات',
+};
+
 export function SidebarNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
   const { user, logout } = useSession();
+  const { locale, setLocale, t } = useLocale();
   const [systemStatus, setSystemStatus] = useState<'checking' | 'operational' | 'degraded'>('checking');
 
   useEffect(() => {
@@ -101,6 +116,7 @@ export function SidebarNav() {
       '/sites': Building2,
       '/companies': Briefcase,
       '/users': Users,
+      '/contractor-user-applications': ClipboardCheck,
       '/certificates': FileBadge,
       '/profile': UserIcon,
       '/notifications': BellRing,
@@ -142,10 +158,10 @@ export function SidebarNav() {
                 <Link href={item.href}>
                   <SidebarMenuButton
                     isActive={pathname.startsWith(item.href)}
-                    tooltip={{ children: item.label, side: 'right' }}
+                    tooltip={{ children: t(item.label, arabicLabels[item.label]), side: 'right' }}
                   >
                     <item.icon />
-                    <span>{pathname === '/dashboard' ? dashboardLabels[item.href] ?? item.label : item.label}</span>
+                    <span>{t(pathname === '/dashboard' ? dashboardLabels[item.href] ?? item.label : item.label, arabicLabels[item.label])}</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
@@ -154,10 +170,18 @@ export function SidebarNav() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-2 flex-col gap-2">
+        <button
+          type="button"
+          className="rounded-lg border border-sidebar-border px-3 py-2 text-xs font-semibold group-data-[collapsible=icon]:hidden"
+          onClick={() => setLocale(locale === 'en' ? 'ar' : 'en')}
+          aria-label={t('Switch to Arabic', 'التبديل إلى الإنجليزية')}
+        >
+          {locale === 'en' ? 'العربية' : 'English'}
+        </button>
         <div className="flex items-center gap-2 rounded-lg bg-sidebar-accent/40 px-3 py-2 group-data-[collapsible=icon]:hidden">
           <span className={`status-dot ${systemStatus === 'operational' ? 'status-dot--live' : systemStatus === 'degraded' ? 'bg-destructive' : 'bg-warning'}`} />
           <span className="text-xs font-medium text-sidebar-foreground/80">
-            {systemStatus === 'operational' ? 'All systems operational' : systemStatus === 'degraded' ? 'Service degraded' : 'Checking systems…'}
+            {systemStatus === 'operational' ? t('All systems operational', 'جميع الأنظمة تعمل') : systemStatus === 'degraded' ? t('Service degraded', 'الخدمة متأثرة') : t('Checking systems…', 'جارٍ فحص الأنظمة…')}
           </span>
         </div>
         <Separator className="bg-sidebar-border/50 my-1" />
@@ -174,7 +198,7 @@ export function SidebarNav() {
             <SidebarMenuItem>
                 <SidebarMenuButton onClick={handleLogout} tooltip={{children: 'Logout', side: 'right'}}>
                   <LogOut/>
-                  <span>Logout</span>
+                  <span>{t('Logout', 'تسجيل الخروج')}</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

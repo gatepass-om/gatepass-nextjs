@@ -154,6 +154,14 @@ export function PersonnelDetailsDialog({
                   <p className="mt-2 text-sm text-slate-500">No certificates on file.</p>
                 )}
               </div>
+              <WorkerDocuments
+                workerId={personId}
+                certificateTypes={certificateTypes}
+                canManage={false}
+                documentTypeFilter="Certificate"
+                title="Certificate evidence"
+                description="Open or download the documents attached to this worker’s certificates."
+              />
             </TabsContent>
 
             <TabsContent value="history" className="mt-0 space-y-5">

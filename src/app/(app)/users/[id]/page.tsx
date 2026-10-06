@@ -20,7 +20,6 @@ import { Separator } from '@/components/ui/separator';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useToast } from '@/hooks/use-toast';
 import {
-  listCertificateTypesRequest,
   listContractorsRequest,
   listJobPositionsRequest,
   listOperatorsRequest,
@@ -29,11 +28,10 @@ import {
   updateUserRequest,
   type UpdateUserInput,
 } from '@/lib/api';
-import type { CertificateType, Contractor, JobPosition, Operator, Site, User } from '@/lib/types';
+import type { Contractor, JobPosition, Operator, Site, User } from '@/lib/types';
 import { resolveUserCompanyName } from '@/components/users/user-company';
 import { useSession } from '@/providers/session-provider';
 import { WorkerCards } from '@/components/workers/worker-cards';
-import { WorkerDocuments } from '@/components/workers/worker-documents';
 import { WorkerPositionCompliancePanel } from '@/components/compliance/worker-position-compliance';
 import { WorkerTimeline } from '@/components/workers/worker-timeline';
 
@@ -50,7 +48,6 @@ export default function PersonnelProfilePage() {
   const [operators, setOperators] = useState<Operator[]>([]);
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
 
   const loadProfile = useCallback(async () => {
     if (!token || !currentUser || !personnelId) return;
@@ -115,19 +112,12 @@ export default function PersonnelProfilePage() {
     void loadProfile();
   }, [loadProfile]);
 
-  useEffect(() => {
-    if (!token) return;
-    void listCertificateTypesRequest(token)
-      .then((types) => setCertificateTypes(types as CertificateType[]))
-      .catch(() => setCertificateTypes([]));
-  }, [token]);
-
   const handleUpdateUser = async (userId: string, originalUser: User, updatedData: UpdateUserInput) => {
     if (!token) return false;
 
     try {
       const updated = await updateUserRequest(token, userId, updatedData);
-      setUser(updated);
+      await loadProfile();
       toast({ title: 'Profile updated', description: `${updated.name}'s profile has been saved.` });
       return true;
     } catch (error: any) {
@@ -211,7 +201,6 @@ export default function PersonnelProfilePage() {
       {showCompliance && (
         <div className="space-y-6">
           <WorkerPositionCompliancePanel workerId={user.id} />
-          <WorkerDocuments workerId={user.id} certificateTypes={certificateTypes} canManage={canEdit} />
           <WorkerTimeline workerId={user.id} />
         </div>
       )}

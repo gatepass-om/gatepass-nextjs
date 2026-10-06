@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const source = readFileSync(new URL('./users-table.tsx', import.meta.url), 'utf8');
+const pageSource = readFileSync(new URL('../../app/(app)/users/page.tsx', import.meta.url), 'utf8');
 
 test('personnel use a compact spreadsheet-style table with operational columns', () => {
   for (const heading of ['Name', 'National ID', 'Email', 'Company', 'Nationality', 'Job position', 'Role']) {
@@ -13,6 +14,7 @@ test('personnel use a compact spreadsheet-style table with operational columns',
   assert.match(source, /user\.idNumber/);
   assert.match(source, /user\.nationality/);
   assert.match(source, /user\.employment\?\.jobPositionName/);
+  assert.ok(source.indexOf('>Role<') < source.indexOf('>Job position<'));
 });
 
 test('personnel can be created from an inline table row without opening a dialog', () => {
@@ -42,4 +44,10 @@ test('personnel rows and edit actions navigate to a dedicated profile page', () 
 test('personnel actions provide a secure activation-link resend control', () => {
   assert.match(source, /onResendActivation/);
   assert.match(source, /Resend activation link/);
+  assert.match(source, /user\.status === ["']Inactive["']/);
+});
+
+test('the personnel list reloads server state after create and delete', () => {
+  const reloads = pageSource.match(/await fetchData\(\)/g) ?? [];
+  assert.ok(reloads.length >= 3, 'create, delete, and activation resend should reload personnel');
 });

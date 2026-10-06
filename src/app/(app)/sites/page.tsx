@@ -147,7 +147,7 @@ export default function SitesPage() {
       .filter((id): id is string => Boolean(id));
 
     try {
-      await createSiteRequest(token, {
+      const created = await createSiteRequest(token, {
         name: trimmedName,
         operatorId,
         managerIds: newSite.managerIds,
@@ -157,8 +157,18 @@ export default function SitesPage() {
         usesSmartAccess: newSite.usesSmartAccess ?? false,
         maximumOccupancy: newSite.maximumOccupancy,
       });
+      setSites((current) => [{
+        id: created.id,
+        name: created.name,
+        operatorId: created.operator?.id ?? created.operatorId ?? operatorId,
+        managerIds: created.managerIds ?? newSite.managerIds ?? [],
+        requiredCertificates: created.requiredCertificates ?? newSite.requiredCertificates ?? [],
+        requiresAccessApproval: created.requiresAccessApproval ?? false,
+        usesSecurityCheckpoints: created.usesSecurityCheckpoints ?? false,
+        usesSmartAccess: created.usesSmartAccess ?? false,
+        maximumOccupancy: created.maximumOccupancy ?? undefined,
+      }, ...current.filter((site) => site.id !== created.id)].slice(0, SITE_PAGE_SIZE));
       toast({ title: "Site Created", description: `The site "${trimmedName}" has been created.` });
-      void fetchData();
       return true;
     } catch (error: any) {
       console.error("Error adding site: ", error);

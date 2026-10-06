@@ -216,9 +216,9 @@ test('bulk roster API supports preview without creating records', async () => {
 
 test('bulk roster parser accepts simple low-tech spreadsheet exports', () => {
   const rows = parseBulkRosterCsv([
-    'name,workerCode,preferredLanguage,interactionMode,phoneAvailable',
-    'Asha Devi,W-101,hi,PrintedCard,no',
-    'Salim Ali,W-102,ar,SupervisorAssisted,yes',
+    'name,nationalId,email,workerCode,preferredLanguage,interactionMode,phoneAvailable',
+    'Asha Devi,10000001,asha@example.test,W-101,hi,PrintedCard,no',
+    'Salim Ali,10000002,salim@example.test,W-102,ar,SupervisorAssisted,yes',
   ].join('\n'));
 
   expect(rows).toHaveLength(2);
@@ -379,14 +379,13 @@ test('supervisor navigation exposes the complete read-only contractor workspace'
   const links = getNavigationForRole('Supervisor').map((item) => item.href);
 
   expect(links).toEqual(expect.arrayContaining([
-    '/dashboard',
-    '/access-requests',
     '/projects',
-    '/location-governance',
-    '/permits',
+    '/card-verification',
+    '/inspections',
     '/companies',
     '/users',
     '/profile',
+    '/notifications',
   ]));
 });
 

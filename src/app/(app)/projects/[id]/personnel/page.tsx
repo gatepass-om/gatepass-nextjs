@@ -9,6 +9,8 @@ import { useSession } from '@/providers/session-provider';
 import type { ProjectRecord } from '@/components/projects/project-wizard-dialog';
 import type { CertificateType } from '@/lib/types';
 import { PersonnelDetailsDialog } from '@/components/projects/personnel-details-dialog';
+import { isWorkerComplianceSatisfied } from '@/components/projects/project-command-center';
+import { isOperationalProjectParticipant } from '@/components/projects/project-workflow';
 
 type Personnel = {
   id: string;
@@ -51,7 +53,8 @@ export default function ProjectPersonnelPage() {
       setCertificateTypes(certTypes);
       const companyIds = new Set(projectData.contractors.map((item) => item.contractorId).concat(projectData.consultantCompanyId));
       const memberIds = new Set(projectData.members.map((item) => item.userId));
-      const scoped = (users as Personnel[]).filter((person) => memberIds.has(person.id) || Boolean(person.contractorId && companyIds.has(person.contractorId)));
+      const scoped = (users as Personnel[]).filter((person) => isOperationalProjectParticipant(person.role)
+        && (memberIds.has(person.id) || Boolean(person.contractorId && companyIds.has(person.contractorId))));
       setPeople(scoped);
       // Job-role compliance (the same credential-requirement check that gates project/work-pass
       // approval) is assessed per person; account status is combined with it client-side below.
@@ -64,7 +67,8 @@ export default function ProjectPersonnelPage() {
     });
   }, [params.id, token]);
 
-  const isPersonCompliant = (person: Personnel) => person.status === 'Active' && (jobRoleCompliance[person.id] ?? true);
+  const isPersonCompliant = (person: Personnel) => person.status === 'Active'
+    && (person.role !== 'Worker' || isWorkerComplianceSatisfied(jobRoleCompliance[person.id] ?? true, person.clearanceStatus));
 
   const filtered = useMemo(() => people.filter((person) => {
     const query = search.trim().toLowerCase();

@@ -23,7 +23,7 @@ COPY package.json package-lock.json ./
 COPY --from=deps /app/node_modules ./node_modules
 RUN npm prune --omit=dev
 COPY --from=build /app/.next ./.next
-COPY --from=build /app/next.config.ts ./next.config.ts
+COPY --from=build /app/next.config.mjs ./next.config.mjs
 
 EXPOSE 3006
 CMD ["npx", "next", "start"]

@@ -90,13 +90,16 @@ export function buildWorkerCardPrintHtml({
   const cropX = Math.round(Math.min(1, Math.max(0, card.photoCropX)) * 100);
   const cropY = Math.round(Math.min(1, Math.max(0, card.photoCropY)) * 100);
   const zoom = Math.min(3, Math.max(1, card.photoZoom));
-  const brand = escapeWorkerCardHtml(branding.companyName);
   const theme = resolveWorkerCardTheme(card.role, branding.primaryColor);
+  const contractorCard = theme.slug === 'worker' || theme.slug === 'supervisor' || theme.slug === 'contractoradmin';
+  const brand = escapeWorkerCardHtml(contractorCard ? 'GatePass' : branding.companyName);
+  const operatorName = escapeWorkerCardHtml(branding.companyName || 'Nama Water');
   const roleSlug = escapeWorkerCardHtml(theme.slug);
   const roleLabel = escapeWorkerCardHtml(theme.label);
-  const logo = branding.logoUrl
-    ? `<img class="logo" src="${escapeWorkerCardHtml(branding.logoUrl)}" alt="">`
-      : `<span class="logo-fallback">GP</span>`;
+  const logoUrl = contractorCard ? card.contractorLogoUrl : branding.logoUrl;
+  const logo = logoUrl
+    ? `<img class="logo" src="${escapeWorkerCardHtml(logoUrl)}" alt="">`
+    : `<span class="logo-fallback">GP</span>`;
 
   return `<!doctype html><html><head>
     <meta charset="utf-8"><title>${escapeWorkerCardHtml(card.cardNumber)}</title>
@@ -127,7 +130,8 @@ export function buildWorkerCardPrintHtml({
           : `<div class="photo-frame initials">${escapeWorkerCardHtml(initials)}</div>`}
         <section class="details">
           <div class="field name"><span class="field-label">FULL NAME</span><span class="field-value">${escapeWorkerCardHtml(card.workerName)}</span></div>
-          <div class="field"><span class="field-label">COMPANY</span><span class="field-value">${escapeWorkerCardHtml(card.employerName || '—')}</span></div>
+          <div class="field"><span class="field-label">CONTRACTOR</span><span class="field-value">${escapeWorkerCardHtml(card.contractorName || card.employerName || '—')}</span></div>
+          ${contractorCard ? `<div class="field"><span class="field-label">OPERATOR</span><span class="field-value">${operatorName}</span></div>` : ''}
           <div class="field"><span class="field-label">POSITION</span><span class="field-value">${escapeWorkerCardHtml(card.jobTitle || roleLabel)}</span></div>
           <div class="field id"><span class="field-label">PERSONNEL ID</span><span class="field-value">${escapeWorkerCardHtml(card.workerCode)}</span></div>
           <div class="field id"><span class="field-label">CARD NUMBER</span><span class="field-value">${escapeWorkerCardHtml(card.cardNumber)}</span></div>

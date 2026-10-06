@@ -15,6 +15,7 @@ import { apiRequest } from '@/lib/api';
 import {
   buildCreateProjectPayload,
   filterSelectionOptions,
+  isOperationalProjectParticipant,
   resolveProjectOperatorId,
   shouldShowOperatorSelector,
   type ProjectDraft,
@@ -150,7 +151,9 @@ export function ProjectWizardDialog({
     [draft.consultantCompanyId, users],
   );
   const internalTeamOptions = useMemo(
-    () => users.filter((item) => item.operatorId === draft.operatorId && !item.contractorId),
+    () => users.filter((item) => item.operatorId === draft.operatorId
+      && !item.contractorId
+      && isOperationalProjectParticipant(item.role)),
     [draft.operatorId, users],
   );
   const selectedMembers = useMemo(
@@ -360,7 +363,7 @@ export function ProjectWizardDialog({
                 {consultantCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
               </select>
             </Field>
-            <Field label="Consultant verifier" hint="Optional. If you leave this unassigned, the consultant administrator is notified to choose one of their supervisors. The Operator Admin makes the final decision and can override the verification.">
+            <Field label="Consultant verifier" hint="Optional. If you leave this unassigned, the consultant administrator is notified to choose one of their supervisors. The operator makes the final decision and can override the verification.">
               <select value={draft.supervisorUserId} onChange={(event) => updateField('supervisorUserId', event.target.value)} className={inputClass()} disabled={!draft.consultantCompanyId}>
                 <option value="">Delegate to consultant administrator</option>
                 {consultantSupervisorOptions.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.email ? ` · ${supervisor.email}` : ''}</option>)}

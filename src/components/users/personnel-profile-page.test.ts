@@ -22,7 +22,11 @@ test('the personnel profile route loads the selected record and supports editing
   assert.match(source, /usersData\.find\(\(person\) => person\.id === personnelId\)/);
   assert.match(source, /<EditUserForm/);
   assert.match(source, /updateUserRequest/);
-  assert.match(source, /setUser\(updated\)/);
+  assert.match(source, /await loadProfile\(\)/);
+});
+
+test('certificate evidence is uploaded beside each certificate rather than in a separate document section', () => {
+  assert.doesNotMatch(source, /<WorkerDocuments/);
 });
 
 test('company-scoped administrators never fall back to an unscoped personnel request', () => {

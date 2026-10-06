@@ -22,9 +22,10 @@ type InlineUserDraft = {
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const OPERATOR_AFFILIATED_ROLES: UserRole[] = ['Operator Admin', 'Manager', 'Security', 'Inspector'];
 
 function creatableRoles(role: UserRole): UserRole[] {
-  if (role === 'Admin') return ['Operator Admin', 'Contractor Admin'];
+  if (role === 'Admin') return ['Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Worker', 'Supervisor', 'Inspector'];
   if (role === 'Operator Admin') return ['Manager', 'Security', 'Worker', 'Inspector'];
   if (role === 'Contractor Admin') return ['Supervisor', 'Worker'];
   if (role === 'Manager') return ['Security', 'Worker', 'Inspector'];
@@ -32,7 +33,7 @@ function creatableRoles(role: UserRole): UserRole[] {
   return [];
 }
 
-export function validateInlineUserDraft(draft: InlineUserDraft): string | null {
+export function validateInlineUserDraft(draft: InlineUserDraft, currentUserRole?: UserRole): string | null {
   if (draft.name.trim().length < 2) return 'Enter the person’s full name.';
   if (!draft.idNumber.trim()) return 'Enter the National ID number.';
   if (!EMAIL_PATTERN.test(draft.email.trim())) return 'Enter a valid email address.';
@@ -45,6 +46,9 @@ export function validateInlineUserDraft(draft: InlineUserDraft): string | null {
   }
   if (draft.role === 'Operator Admin' && !draft.affiliationId) return 'Select an operator company.';
   if (draft.role === 'Contractor Admin' && !draft.affiliationId) return 'Select a contractor company.';
+  if (currentUserRole === 'Admin' && OPERATOR_AFFILIATED_ROLES.includes(draft.role) && !draft.affiliationId) {
+    return 'Select an operator company.';
+  }
   return null;
 }
 
@@ -86,7 +90,7 @@ export function InlineUserRow({
     setError(null);
   };
 
-  const companyOptions = draft.role === 'Operator Admin' ? operators : contractors;
+  const companyOptions = OPERATOR_AFFILIATED_ROLES.includes(draft.role) ? operators : contractors;
   const companyName = currentUser.role === 'Operator Admin' || currentUser.role === 'Manager'
     ? operators.find((operator) => operator.id === currentUser.operatorId)?.name ?? currentUser.company ?? 'Own operator'
     : currentUser.role === 'Contractor Admin' || currentUser.role === 'Supervisor'
@@ -94,7 +98,7 @@ export function InlineUserRow({
       : null;
 
   const submit = async () => {
-    const validationError = validateInlineUserDraft(draft);
+    const validationError = validateInlineUserDraft(draft, currentUser.role);
     if (validationError) {
       setError(validationError);
       return;
@@ -102,7 +106,7 @@ export function InlineUserRow({
 
     const operatorId = currentUser.role === 'Operator Admin' || currentUser.role === 'Manager'
       ? currentUser.operatorId ?? undefined
-      : draft.role === 'Operator Admin'
+      : OPERATOR_AFFILIATED_ROLES.includes(draft.role)
         ? draft.affiliationId
         : undefined;
     const contractorId = currentUser.role === 'Contractor Admin' || currentUser.role === 'Supervisor'
@@ -164,14 +168,6 @@ export function InlineUserRow({
           </select>
         </TableCell>
         <TableCell className="border-r p-1.5">
-          {['Worker', 'Supervisor'].includes(draft.role) ? (
-            <select aria-label="Job position" value={draft.jobPositionId} onChange={(event) => setField('jobPositionId', event.target.value)} className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
-              <option value="">Select position</option>
-              {jobPositions.map((position) => <option key={position.id} value={position.id}>{position.name}</option>)}
-            </select>
-          ) : <span aria-hidden="true" />}
-        </TableCell>
-        <TableCell className="p-1.5">
           <div className="grid gap-2">
             <select aria-label="Type of person" value={draft.role} onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value as UserRole, affiliationId: '', jobPositionId: '', assignedSiteId: '' }))} className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
               {roles.map((role) => <option key={role} value={role}>{role}</option>)}
@@ -183,6 +179,14 @@ export function InlineUserRow({
               </select>
             ) : null}
           </div>
+        </TableCell>
+        <TableCell className="p-1.5">
+          {['Worker', 'Supervisor'].includes(draft.role) ? (
+            <select aria-label="Job position" value={draft.jobPositionId} onChange={(event) => setField('jobPositionId', event.target.value)} className="h-9 w-full min-w-0 rounded-md border bg-background px-2 text-sm">
+              <option value="">Select position</option>
+              {jobPositions.map((position) => <option key={position.id} value={position.id}>{position.name}</option>)}
+            </select>
+          ) : <span aria-hidden="true" />}
         </TableCell>
         <TableCell className="p-1.5">
           <div className="flex justify-end gap-1">

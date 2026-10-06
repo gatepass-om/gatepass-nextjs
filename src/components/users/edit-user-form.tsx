@@ -18,7 +18,7 @@ import { format, parseISO } from "date-fns";
 import { Calendar } from "../ui/calendar";
 import { useMediaQuery } from "react-responsive";
 import { useSession } from "@/providers/session-provider";
-import { listCertificateTypesRequest, uploadWorkerDocument, type UpdateUserInput } from "@/lib/api";
+import { listCertificateTypesRequest, listWorkerDocuments, uploadWorkerDocument, type UpdateUserInput } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { buildEmploymentPayload } from '@/components/compliance/compliance-model';
 import { resolveEditAffiliation } from './user-affiliation';
@@ -30,6 +30,7 @@ const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().trim().email({ message: "Please enter a valid email." }),
   idNumber: z.string().trim().min(1, { message: "National ID number is required." }),
+  idExpiresAtUtc: z.string().optional(),
   nationality: z.string().optional(),
   role: z.enum(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector']),
   status: z.enum(['Active', 'Inactive']),
@@ -61,6 +62,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
     const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
     const [loadingCerts, setLoadingCerts] = useState(true);
     const [uploadingCertificateIndex, setUploadingCertificateIndex] = useState<number | null>(null);
+    const [certificateEvidenceTypeIds, setCertificateEvidenceTypeIds] = useState<Set<string>>(new Set());
     const { token } = useSession();
     const { toast } = useToast();
     const roles = React.useMemo<UserRole[]>(() => {
@@ -83,6 +85,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
             name: user.name || "",
             email: user.email || "",
             idNumber: user.idNumber || "",
+            idExpiresAtUtc: user.idExpiresAtUtc ? user.idExpiresAtUtc.slice(0, 10) : "",
             nationality: user.nationality || "",
             notes: user.notes || "",
             role: user.role || "Worker",
@@ -110,10 +113,15 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
         }
         let isActive = true;
         setLoadingCerts(true);
-        listCertificateTypesRequest(token)
-            .then((certsData) => {
+        Promise.all([listCertificateTypesRequest(token), listWorkerDocuments(token, user.id)])
+            .then(([certsData, documents]) => {
                 if (!isActive) return;
                 setCertificateTypes(certsData as CertificateType[]);
+                setCertificateEvidenceTypeIds(new Set(
+                  documents
+                    .filter((document) => document.documentType === 'Certificate' && document.certificateTypeId)
+                    .map((document) => document.certificateTypeId as string),
+                ));
             })
             .catch((error) => {
                 console.error('Failed to load certificate types', error);
@@ -131,7 +139,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
         return () => {
             isActive = false;
         };
-    }, [token, toast]);
+    }, [token, toast, user.id]);
 
 
     const { fields, append, remove } = useFieldArray({
@@ -148,6 +156,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
       setUploadingCertificateIndex(index);
       try {
         await uploadWorkerDocument(token, user.id, file, 'Certificate', certificateTypeId);
+        setCertificateEvidenceTypeIds((current) => new Set(current).add(certificateTypeId));
         toast({ title: 'Certificate evidence uploaded', description: file.name });
       } catch (error: any) {
         toast({ variant: 'destructive', title: 'Upload failed', description: error.message ?? 'Could not upload certificate evidence.' });
@@ -162,6 +171,20 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
             certificateTypeId: cert.certificateTypeId,
             expiresAtUtc: cert.expiresAtUtc?.toISOString(),
         })) : [];
+        const originalCertificateTypeIds = new Set(user.certificates?.map((certificate) => certificate.certificateTypeId) ?? []);
+        const missingCertificateEvidence = values.role === 'Worker'
+          ? certificates.findIndex((certificate) => !originalCertificateTypeIds.has(certificate.certificateTypeId)
+              && !certificateEvidenceTypeIds.has(certificate.certificateTypeId))
+          : -1;
+
+        if (missingCertificateEvidence >= 0) {
+          form.setError(`certificates.${missingCertificateEvidence}.certificateTypeId`, {
+            type: 'manual',
+            message: 'Upload a document for this certificate before saving.',
+          });
+          toast({ variant: 'destructive', title: 'Certificate document required', description: 'Upload a document for this certificate before saving.' });
+          return;
+        }
 
         const selectedContractor = contractors.find(c => c.id === values.contractorId);
         const selectedOperator = operators.find(o => o.id === values.operatorId);
@@ -193,6 +216,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
             email: values.email || undefined,
             notes: emptyToNull(values.notes),
             idNumber: isMaskedIdentityNumber(values.idNumber) ? undefined : emptyToNull(values.idNumber),
+            idExpiresAtUtc: values.idExpiresAtUtc ? new Date(`${values.idExpiresAtUtc}T23:59:59`).toISOString() : null,
             nationality: emptyToNull(values.nationality),
             assignedSiteId: assignedSiteIdValue,
             contractorId: contractorIdValue,
@@ -370,6 +394,19 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                         <FormLabel>National ID number *</FormLabel>
                         <FormControl>
                             <Input required {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                <FormField
+                    control={form.control}
+                    name="idExpiresAtUtc"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>National ID expiry date</FormLabel>
+                        <FormControl>
+                            <Input type="date" {...field} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -558,7 +595,7 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                     )}
                   />
                   <div className="min-w-[200px]">
-                    <FormLabel>Evidence</FormLabel>
+                    <FormLabel>Evidence *</FormLabel>
                     <label className="mt-2 flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent">
                       <FileUp className="h-4 w-4" />
                       {uploadingCertificateIndex === index ? 'Uploading…' : 'Upload file'}

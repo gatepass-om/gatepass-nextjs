@@ -53,6 +53,22 @@ test('the account destination uses the simplified account label', () => {
   }
 });
 
+test('contractor-user approvals are visible only to initiators and NAMA decision roles', () => {
+  for (const role of ['Admin', 'Operator Admin', 'Manager', 'Contractor Admin'] as const) {
+    assert.equal(
+      getNavigationForRole(role).some((item) => item.href === '/contractor-user-applications'),
+      true,
+    );
+  }
+
+  for (const role of ['Supervisor', 'Worker', 'Security', 'Inspector', 'Visitor'] as const) {
+    assert.equal(
+      getNavigationForRole(role).some((item) => item.href === '/contractor-user-applications'),
+      false,
+    );
+  }
+});
+
 test('geofencing navigation is hidden for every client role', () => {
   assert.equal(
     getNavigationForRole('Contractor Admin', { externalCompany: true })

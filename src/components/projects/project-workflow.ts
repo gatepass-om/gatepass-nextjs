@@ -141,6 +141,10 @@ export function shouldShowOperatorSelector(
   return currentUserRole === 'Admin' && !currentUserOperatorId && !isEditing;
 }
 
+export function isOperationalProjectParticipant(role: string | undefined) {
+  return Boolean(role && ['Manager', 'Supervisor', 'Security', 'Inspector', 'Worker', 'Visitor'].includes(role));
+}
+
 export type SelectionOption = {
   id: string;
   name: string;

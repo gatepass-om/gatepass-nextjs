@@ -31,6 +31,7 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    ".next-playwright-3001/types/**/*.ts",
     ".next-playwright-3017/types/**/*.ts",
     ".next-playwright-3018/types/**/*.ts",
     ".next-playwright-3019/types/**/*.ts",
@@ -43,9 +44,23 @@
     ".next-playwright-3026/types/**/*.ts",
     ".next-playwright-3027/types/**/*.ts",
     ".next-playwright-3028/types/**/*.ts",
+    ".next-playwright-3217/types/**/*.ts",
+    ".next-playwright-3218/types/**/*.ts",
+    ".next-playwright-3219/types/**/*.ts",
+    ".next-playwright-3220/types/**/*.ts",
+    ".next-playwright-3221/types/**/*.ts",
+    ".next-playwright-3222/types/**/*.ts",
+    ".next-playwright-3223/types/**/*.ts",
+    ".next-playwright-3224/types/**/*.ts",
+    ".next-playwright-3225/types/**/*.ts",
+    ".next-playwright-3226/types/**/*.ts",
+    ".next-playwright-3227/types/**/*.ts",
+    ".next-playwright-3228/types/**/*.ts",
+    ".next-playwright-3229/types/**/*.ts",
+    ".next-playwright-3230/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
-    ".next-playwright-3001/types/**/*.ts"
+    ".next-playwright-3231/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

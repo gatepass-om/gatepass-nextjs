@@ -45,7 +45,7 @@ test('printable credential uses a role-coloured identity layout with live QR aut
   assert.match(html, /--role-color:#f05a23/);
   assert.match(html, />VISITOR</);
   assert.match(html, /FULL NAME/);
-  assert.match(html, /COMPANY/);
+  assert.match(html, /CONTRACTOR/);
   assert.match(html, /POSITION/);
   assert.match(html, /PERSONNEL ID/);
   assert.match(html, /ISSUE DATE/);
@@ -53,6 +53,23 @@ test('printable credential uses a role-coloured identity layout with live QR aut
   assert.match(html, /\.date-label,.date-value\{display:block/);
   assert.match(html, /SCAN FOR LIVE ACCESS/);
   assert.match(html, /COLOR IDENTIFIES ROLE/);
+});
+
+test('contractor personnel card shows GatePass, contractor branding, and operator as text only', () => {
+  const html = buildWorkerCardPrintHtml({
+    card: { ...visitorCard, role: 'Worker', cardNumber: 'W-0002', contractorName: 'Acme Services', contractorLogoUrl: 'https://example.test/acme-logo.png' },
+    branding: { ...branding, companyName: 'Nama Water', logoUrl: 'https://example.test/nama-logo.png' },
+    qrDataUrl: 'data:image/png;base64,qr',
+    photoDataUrl: null,
+    autoPrint: false,
+  });
+
+  assert.match(html, /<span class="brand">GatePass<\/span>/);
+  assert.match(html, /OPERATOR/);
+  assert.match(html, /Nama Water/);
+  assert.match(html, /Acme Services/);
+  assert.match(html, /acme-logo\.png/);
+  assert.doesNotMatch(html, /nama-logo\.png/);
 });
 
 test('printable credential escapes worker-controlled text', () => {

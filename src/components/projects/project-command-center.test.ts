@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 // @ts-expect-error Node's built-in TypeScript runner requires the source extension.
-import { getProjectWorkflowStages, getWorkPassActions, getWorkPassQueueItems, type CommandCenterProject, type CommandCenterWorkPass } from './project-command-center.ts';
+import { getProjectWorkflowStages, getWorkPassActions, getWorkPassQueueItems, getWorkPassStatusPresentation, isWorkerComplianceSatisfied, type CommandCenterProject, type CommandCenterWorkPass } from './project-command-center.ts';
 
 const project: CommandCenterProject = {
   id: 'project-1',
@@ -14,7 +14,7 @@ const project: CommandCenterProject = {
   consultantApprovedAtUtc: '2026-08-01T08:00:00Z',
 };
 
-test('work-pass actions follow contractor, consultant verification, then Operator Admin decision', () => {
+test('work-pass actions follow contractor, consultant verification, then operator decision', () => {
   const draft = { id: 'wp-1', status: 'Draft', submittedByUserId: 'contractor-1' } as CommandCenterWorkPass;
   const submitted = { ...draft, status: 'Submitted' };
   const second = { ...draft, status: 'PendingSecondApproval' };
@@ -25,7 +25,19 @@ test('work-pass actions follow contractor, consultant verification, then Operato
   assert.deepEqual(getWorkPassActions(submitted, project, { id: 'supervisor-1', role: 'Supervisor', contractorId: 'consultant-company-1' }), ['approve', 'reject']);
   assert.deepEqual(getWorkPassActions(submitted, project, { id: 'operator-admin-1', role: 'Operator Admin', operatorId: 'operator-1' }), ['approve', 'reject']);
   assert.deepEqual(getWorkPassActions(second, project, { id: 'operator-admin-1', role: 'Operator Admin', operatorId: 'operator-1' }), ['second-approve', 'reject']);
+  assert.deepEqual(getWorkPassActions(submitted, project, { id: 'manager-1', role: 'Manager', operatorId: 'operator-1' }), ['approve', 'reject']);
+  assert.deepEqual(getWorkPassActions(second, project, { id: 'manager-1', role: 'Manager', operatorId: 'operator-1' }), ['second-approve', 'reject']);
   assert.deepEqual(getWorkPassActions(submitted, project, { id: 'admin-1', role: 'Admin' }), []);
+});
+
+test('pending second approval uses the operator approval label', () => {
+  assert.equal(getWorkPassStatusPresentation('PendingSecondApproval').label, 'Pending operator approval');
+});
+
+test('worker compliance includes onboarding clearance as well as job credentials', () => {
+  assert.equal(isWorkerComplianceSatisfied(true, 'Pending'), false);
+  assert.equal(isWorkerComplianceSatisfied(true, 'Cleared'), true);
+  assert.equal(isWorkerComplianceSatisfied(false, 'Cleared'), false);
 });
 
 test('workflow stages show the live queue instead of claiming access is granted', () => {

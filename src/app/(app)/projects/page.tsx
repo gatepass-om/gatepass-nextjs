@@ -253,7 +253,7 @@ export default function ProjectsPage() {
             {filteredProjects.map((project) => {
               const actionable = projectWorkPasses
                 .filter((pass) => pass.projectId === project.id)
-                .map((pass) => ({ pass, actions: getWorkPassActions(pass, project, { id: user?.id, role: user?.role }) }))
+                .map((pass) => ({ pass, actions: getWorkPassActions(pass, project, { id: user?.id, role: user?.role, operatorId: user?.operatorId ?? undefined, contractorId: user?.contractorId ?? undefined }) }))
                 .filter((item) => item.actions.includes('approve') || item.actions.includes('second-approve'));
               return (
                 <ProjectRow

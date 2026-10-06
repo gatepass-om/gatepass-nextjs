@@ -123,8 +123,8 @@ export function UsersTable({
                     <TableHead className="border-r">Email</TableHead>
                     <TableHead className="border-r">Company</TableHead>
                     <TableHead className="border-r">Nationality</TableHead>
-                    <TableHead className="border-r">Job position</TableHead>
-                    <TableHead>Role</TableHead>
+                    <TableHead className="border-r">Role</TableHead>
+                    <TableHead>Job position</TableHead>
                     <TableHead aria-label="Row actions" className="w-14 text-right">
                       {canMutateUsers ? (
                         <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="Add personnel row" title="Add person" onClick={() => setIsAddingRow(true)} disabled={isAddingRow || isLoading}>
@@ -177,10 +177,10 @@ export function UsersTable({
                           <TableCell className="border-r py-2 truncate" title={user.email || undefined}>{user.email}</TableCell>
                           <TableCell className="border-r py-2 truncate" title={resolveUserCompanyName(user, contractors, operators)}>{resolveUserCompanyName(user, contractors, operators)}</TableCell>
                           <TableCell className="border-r py-2 truncate">{user.nationality || '—'}</TableCell>
-                          <TableCell className="border-r py-2 truncate">{user.employment?.jobPositionName || '—'}</TableCell>
-                          <TableCell className="py-2">
+                          <TableCell className="border-r py-2">
                             <Badge variant="secondary">{user.role}</Badge>
                           </TableCell>
+                          <TableCell className="py-2 truncate">{user.employment?.jobPositionName || '—'}</TableCell>
                           <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -209,7 +209,7 @@ export function UsersTable({
                                     <UserCheck className="mr-2 h-4 w-4" /> Impersonate
                                   </DropdownMenuItem>
                                 )}
-                                {canEditUser(user) && user.id !== currentUser.id && user.email && user.interactiveAccountEnabled !== false && (
+                                {canEditUser(user) && user.id !== currentUser.id && user.email && user.interactiveAccountEnabled !== false && user.status === 'Inactive' && (
                                   <DropdownMenuItem onSelect={() => onResendActivation(user)}>
                                     Resend activation link
                                   </DropdownMenuItem>

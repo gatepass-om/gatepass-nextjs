@@ -33,7 +33,7 @@ export type WorkPassStatusPresentation = { label: string; className: string };
 const WORK_PASS_STATUS_PRESENTATION: Record<string, WorkPassStatusPresentation> = {
   Draft: { label: 'Draft', className: 'bg-slate-100 text-slate-700' },
   Submitted: { label: 'Pending consultant verification', className: 'bg-amber-100 text-amber-800' },
-  PendingSecondApproval: { label: 'Pending Operator Admin decision', className: 'bg-violet-100 text-violet-800' },
+  PendingSecondApproval: { label: 'Pending operator approval', className: 'bg-violet-100 text-violet-800' },
   Approved: { label: 'Access granted', className: 'bg-emerald-100 text-emerald-800' },
   Rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800' },
   Cancelled: { label: 'Cancelled', className: 'bg-slate-100 text-slate-500' },
@@ -51,13 +51,18 @@ export function getWorkPassActions(
 ): WorkPassAction[] {
   if (!actor.id) return [];
   if (workPass.status === 'Draft' && workPass.submittedByUserId === actor.id) return ['submit'];
-  const isOperatorAdmin = actor.role === 'Operator Admin' && actor.operatorId === project.operatorId;
+  const isOperatorApprover = ['Operator Admin', 'Manager'].includes(actor.role ?? '')
+    && actor.operatorId === project.operatorId;
   const isAssignedConsultantVerifier = project.supervisorUserId === actor.id
     && actor.role === 'Supervisor'
     && actor.contractorId === project.consultantCompanyId;
-  if (workPass.status === 'Submitted' && (isAssignedConsultantVerifier || isOperatorAdmin)) return ['approve', 'reject'];
-  if (workPass.status === 'PendingSecondApproval' && isOperatorAdmin) return ['second-approve', 'reject'];
+  if (workPass.status === 'Submitted' && (isAssignedConsultantVerifier || isOperatorApprover)) return ['approve', 'reject'];
+  if (workPass.status === 'PendingSecondApproval' && isOperatorApprover) return ['second-approve', 'reject'];
   return [];
+}
+
+export function isWorkerComplianceSatisfied(jobRoleCompliant: boolean, clearanceStatus?: string | null) {
+  return jobRoleCompliant && clearanceStatus === 'Cleared';
 }
 
 export function getWorkPassQueueItems<T extends CommandCenterWorkPass>(
@@ -104,7 +109,7 @@ export function getProjectWorkflowStages(
     {
       id: 'supervisor-access',
       label: 'Operator decision',
-      description: 'Operator Admin gives the final decision or override',
+      description: 'The operator gives the final decision or override',
       state: secondApproval ? 'current' : granted ? 'completed' : 'upcoming',
       count: secondApproval,
     },

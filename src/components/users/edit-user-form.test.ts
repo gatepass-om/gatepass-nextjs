@@ -28,6 +28,12 @@ test('worker clearance is not shown in the personnel editor', () => {
   assert.doesNotMatch(editSource, /WorkerClearance/);
 });
 
+test('adding a worker certificate requires certificate evidence before save', () => {
+  assert.match(editSource, /listWorkerDocuments/);
+  assert.match(editSource, /missingCertificateEvidence/);
+  assert.match(editSource, /Upload a document for this certificate/);
+});
+
 test('company assignment is viewer-scoped and only shown for company administrator roles', () => {
   assert.match(editSource, /currentUser:\s*User/);
   assert.match(tableSource, /currentUser=\{currentUser\}/);

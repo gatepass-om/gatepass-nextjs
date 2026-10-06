@@ -24,6 +24,7 @@ import type { Operator } from '@/lib/types';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Company name must be at least 2 characters." }),
+  logoUrl: z.string().url({ message: "Enter a valid logo URL." }).or(z.literal("")).optional(),
   operatorId: z.string().optional(),
   contractNumber: z.string().optional(),
   contractValidFrom: z.string().optional(),
@@ -38,6 +39,7 @@ interface NewCompanyFormProps {
     companyType: 'operator' | 'contractor';
     onAddCompany: (input: {
         name: string;
+        logoUrl?: string;
         type: 'operator' | 'contractor';
         externalType?: ExternalCompanyType;
         operatorId?: string;
@@ -60,7 +62,7 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
-        defaultValues: { name: "", operatorId: "", contractNumber: "", contractValidFrom: "", contractValidTo: "", adminName: "", adminEmail: "" },
+        defaultValues: { name: "", logoUrl: "", operatorId: "", contractNumber: "", contractValidFrom: "", contractValidTo: "", adminName: "", adminEmail: "" },
     });
 
     const typeCapitalized = companyType.charAt(0).toUpperCase() + companyType.slice(1);
@@ -96,6 +98,7 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
         try {
             const result = await onAddCompany({
                 name: values.name,
+                logoUrl: values.logoUrl?.trim() || undefined,
                 type: companyType,
                 externalType: companyType === 'contractor' ? externalType : undefined,
                 operatorId: currentOperatorId || values.operatorId || undefined,
@@ -172,6 +175,9 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
                                         <SelectContent>{EXTERNAL_COMPANY_TYPES.map((type) => <SelectItem key={type.value} value={String(type.value)}>{type.label}</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>
+                                <FormField control={form.control} name="logoUrl" render={({ field }) => (
+                                    <FormItem><FormLabel>Contractor logo URL</FormLabel><FormControl><Input type="url" placeholder="https://company.example/logo.png" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
                                 {!currentOperatorId && (
                                     <FormField control={form.control} name="operatorId" render={({ field }) => (
                                         <FormItem><FormLabel>Register for operator</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select operator" /></SelectTrigger></FormControl><SelectContent>{operators.map((operator) => <SelectItem key={operator.id} value={operator.id}>{operator.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>

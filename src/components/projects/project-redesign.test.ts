@@ -9,6 +9,8 @@ import { workspaceLandingForRole } from '../../lib/role-workspaces.ts';
 const projectPage = readFileSync(new URL('../../app/(app)/projects/page.tsx', import.meta.url), 'utf8');
 const projectDetail = readFileSync(new URL('../../app/(app)/projects/[id]/page.tsx', import.meta.url), 'utf8');
 const wizard = readFileSync(new URL('./project-wizard-dialog.tsx', import.meta.url), 'utf8');
+const personnelDialog = readFileSync(new URL('./personnel-details-dialog.tsx', import.meta.url), 'utf8');
+const workerDocuments = readFileSync(new URL('../workers/worker-documents.tsx', import.meta.url), 'utf8');
 
 const requestPageUrl = new URL('../../app/(app)/projects/[id]/access-requests/[workPassId]/page.tsx', import.meta.url);
 const personnelPageUrl = new URL('../../app/(app)/projects/[id]/personnel/page.tsx', import.meta.url);
@@ -59,9 +61,22 @@ test('worker access requests open a project-scoped page with provenance and work
     assert.match(requestPage, new RegExp(label));
   }
   assert.match(requestPage, /Dialog/);
+  assert.match(requestPage, />National ID</);
+  assert.match(requestPage, /item\.nationalId/);
+  assert.doesNotMatch(requestPage, />Worker code</);
+  assert.doesNotMatch(projectDetail, /worker\.workerCode/);
   assert.doesNotMatch(requestPage, /router\.push\(`\/users\//);
   assert.match(projectDetail, /access-requests\/\$\{pass\.id\}/);
+  assert.match(projectDetail, /Consultant verifier required/);
+  assert.match(projectDetail, /Awaiting consultant assignment/);
   assert.doesNotMatch(projectDetail, /WorkPassDetailsSheet/);
+});
+
+test('personnel certificate tab provides certificate evidence view and download actions', () => {
+  assert.match(personnelDialog, /documentTypeFilter="Certificate"/);
+  assert.match(workerDocuments, /getWorkerDocumentPreviewUrl/);
+  assert.match(workerDocuments, /View \{doc\.fileName\}/);
+  assert.match(workerDocuments, /Download \{doc\.fileName\}/);
 });
 
 test('project personnel has a filterable project-scoped table', () => {
@@ -73,5 +88,15 @@ test('project personnel has a filterable project-scoped table', () => {
   assert.match(personnelPage, /Company/);
   assert.match(personnelPage, /Job position/);
   assert.match(personnelPage, /Compliance/);
+  assert.match(personnelPage, /isWorkerComplianceSatisfied/);
+  assert.match(personnelPage, /clearanceStatus/);
   assert.match(personnelPage, /Search personnel/);
+});
+
+test('administrators are never selectable or displayed as operational project personnel', () => {
+  const workflow = readFileSync(new URL('./project-workflow.ts', import.meta.url), 'utf8');
+  assert.match(workflow, /isOperationalProjectParticipant/);
+  assert.match(workflow, /\['Manager', 'Supervisor', 'Security', 'Inspector', 'Worker', 'Visitor'\]\.includes\(role\)/);
+  assert.match(wizard, /isOperationalProjectParticipant\(item\.role\)/);
+  assert.match(readFileSync(personnelPageUrl, 'utf8'), /isOperationalProjectParticipant\(person\.role\)/);
 });

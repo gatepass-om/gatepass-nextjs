@@ -39,7 +39,7 @@ export default function CompaniesPage() {
   const [isContractorFormOpen, setIsContractorFormOpen] = useState(false);
 
   const { toast } = useToast();
-  const canManageCompanies = currentUser?.role === 'Admin';
+  const canManageCompanies = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin';
   const canRegisterExternalCompany = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin';
 
   const fetchData = useCallback(async (options?: { silent?: boolean }) => {
@@ -82,7 +82,7 @@ export default function CompaniesPage() {
     void fetchData({ silent: true });
   }, 20000);
 
-  const handleAddCompany = async (input: { name: string; type: 'operator' | 'contractor'; externalType?: ExternalCompanyType; operatorId?: string; contractNumber?: string; contractValidFromUtc?: string; contractValidToUtc?: string; adminName?: string; adminEmail?: string }): Promise<boolean> => {
+  const handleAddCompany = async (input: { name: string; logoUrl?: string; type: 'operator' | 'contractor'; externalType?: ExternalCompanyType; operatorId?: string; contractNumber?: string; contractValidFromUtc?: string; contractValidToUtc?: string; adminName?: string; adminEmail?: string }): Promise<boolean> => {
     const { type } = input;
     const trimmed = input.name.trim();
     if (!token || !trimmed) return false;
@@ -92,6 +92,7 @@ export default function CompaniesPage() {
       } else {
         await createExternalCompanyRequest(token, {
           name: trimmed,
+          logoUrl: input.logoUrl,
           companyType: input.externalType ?? 1,
           operatorId: input.operatorId,
           contractNumber: input.contractNumber,
@@ -124,11 +125,11 @@ export default function CompaniesPage() {
     }
   };
 
-  const handleRenameContractor = async (contractorId: string, name: string, companyType: ExternalCompanyType) => {
+  const handleRenameContractor = async (contractorId: string, name: string, companyType: ExternalCompanyType, logoUrl?: string, supervisorLimit?: number) => {
     const trimmed = name.trim();
     if (!token || !trimmed) return;
     try {
-      await updateExternalCompanyRequest(token, contractorId, { name: trimmed, companyType });
+      await updateExternalCompanyRequest(token, contractorId, { name: trimmed, companyType, logoUrl, operatorId: currentUser?.operatorId ?? undefined, supervisorLimit });
       toast({ title: "Contractor Updated", description: "Company details have been updated." });
       void fetchData();
     } catch (error: any) {
@@ -232,6 +233,7 @@ export default function CompaniesPage() {
 	            isLoading={loadingData}
 	            onRenameContractor={canManageCompanies ? handleRenameContractor : undefined}
 	            onDeleteContractor={canManageCompanies ? handleDeleteContractor : undefined}
+	            canDelete={currentUser?.role === 'Admin'}
               canManage={canManageCompanies}
 	        />
       </div>

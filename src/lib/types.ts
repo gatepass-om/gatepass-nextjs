@@ -2,6 +2,61 @@
 export type UserRole = 'Admin' | 'Operator Admin' | 'Contractor Admin' | 'Manager' | 'Security' | 'Visitor' | 'Worker' | 'Supervisor' | 'Inspector';
 export type UserStatus = 'Active' | 'Inactive';
 
+export type ContractorUserApplicationStatus = 'Draft' | 'Submitted' | 'PendingHseApproval' | 'Returned' | 'Closed' | 'Withdrawn' | 'Expired';
+
+export type ContractorUserApplicationAttachment = {
+  id: string;
+  type: 'CivilId' | 'Certificate' | 'PrivateDocument';
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+};
+
+export type ContractorUserApplication = {
+  id: string;
+  operatorId: string;
+  operatorName: string;
+  contractorId: string;
+  contractorName: string;
+  assignedSiteId?: string | null;
+  name: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  civilId: string;
+  civilIdExpiresAtUtc: string;
+  position: string;
+  requestedRole: 'ContractorAdmin' | 'Supervisor' | 'Worker';
+  location: string;
+  assetType: string;
+  assetSubClass: string;
+  directorate: string;
+  department: string;
+  contractorRepresentativeName: string;
+  contractorType: string;
+  isSme: boolean;
+  employeeType: string;
+  remarks?: string | null;
+  certificateExpiresAtUtc?: string | null;
+  approvedAccountExpiresAtUtc?: string | null;
+  supervisorUserId?: string | null;
+  reviewerUserId?: string | null;
+  reviewerComments?: string | null;
+  approvalComments?: string | null;
+  reviewedByUserId?: string | null;
+  approvedByUserId?: string | null;
+  provisionedUserId?: string | null;
+  status: ContractorUserApplicationStatus;
+  declarationAcceptedAtUtc?: string | null;
+  submittedAtUtc?: string | null;
+  reviewedAtUtc?: string | null;
+  approvedAtUtc?: string | null;
+  stageDueAtUtc?: string | null;
+  earliestExpiryAtUtc?: string | null;
+  attachments: ContractorUserApplicationAttachment[];
+};
+
 export type Certificate = {
   id?: string;
   certificateTypeId: string;
@@ -32,6 +87,7 @@ export type User = {
   avatarUrl?: string | null;
   idCardImageUrl?: string;
   idNumber?: string | null; // For manually entered ID
+  idExpiresAtUtc?: string | null;
   notes?: string | null;
   interactiveAccountEnabled?: boolean;
   preferredName?: string | null;
@@ -134,9 +190,11 @@ export type Contractor = {
     id: string;
     tenantId?: string | null;
     name: string;
+    logoUrl?: string | null;
     companyType?: ExternalCompanyType | keyof typeof ExternalCompanyTypeNames;
     userCount?: number;
     requestCount?: number;
+    supervisorLimit?: number | null;
 }
 
 export const ExternalCompanyTypeNames = {

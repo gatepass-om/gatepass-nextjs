@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { FileUp } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthProtection } from "@/hooks/use-auth-protection";
@@ -52,12 +53,19 @@ export default function UsersPage() {
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
+  const [personnelSearch, setPersonnelSearch] = useState('');
   const { toast } = useToast();
   const createFromRequest = searchParams.get('new') === 'worker';
   const requestedReturnTo = searchParams.get('returnTo');
   const returnTo = requestedReturnTo?.startsWith('/') && !requestedReturnTo.startsWith('//')
     ? requestedReturnTo
     : null;
+  const displayedUsers = useMemo(() => {
+    const term = personnelSearch.trim().toLowerCase();
+    if (!term) return users;
+    return users.filter(person => [person.name, person.email, person.idNumber, person.nationality, person.employment?.jobPositionName]
+      .some(value => value?.toLowerCase().includes(term)));
+  }, [users, personnelSearch]);
 
   const canCreateUser = useMemo(() => {
     return ["Admin", "Operator Admin", "Contractor Admin", "Manager", "Supervisor"].includes(
@@ -202,7 +210,7 @@ export default function UsersPage() {
 
     try {
       await deleteUserRequest(token, userId);
-      setUsers((prev) => prev.filter((user) => user.id !== userId));
+      await fetchData();
       toast({
         title: "User Deleted",
         description: `${userName} has been permanently removed.`,
@@ -294,8 +302,12 @@ export default function UsersPage() {
           </div>
         )}
       </header>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Input value={personnelSearch} onChange={(event) => setPersonnelSearch(event.target.value)} placeholder="Search name, national ID, email or job position" className="max-w-md" />
+        <p className="text-sm text-muted-foreground">{displayedUsers.length} personnel</p>
+      </div>
       <UsersTable
-        users={users}
+        users={displayedUsers}
         sites={sites}
         contractors={contractors}
         operators={operators}

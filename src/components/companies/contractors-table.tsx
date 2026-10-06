@@ -37,16 +37,19 @@ interface ContractorsTableProps {
   users: User[];
   accessRequests: AccessRequest[];
   isLoading?: boolean;
-  onRenameContractor?: (contractorId: string, name: string, companyType: ExternalCompanyType) => void;
+  onRenameContractor?: (contractorId: string, name: string, companyType: ExternalCompanyType, logoUrl?: string, supervisorLimit?: number) => void;
   onDeleteContractor?: (contractorId: string, name: string) => void;
   canManage?: boolean;
+  canDelete?: boolean;
 }
 
-export function ContractorsTable({ contractors, users, accessRequests, isLoading = false, onRenameContractor, onDeleteContractor, canManage = true }: ContractorsTableProps) {
+export function ContractorsTable({ contractors, users, accessRequests, isLoading = false, onRenameContractor, onDeleteContractor, canManage = true, canDelete = canManage }: ContractorsTableProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null);
   const [editedName, setEditedName] = useState('');
   const [editedType, setEditedType] = useState<ExternalCompanyType>(1);
+  const [editedLogoUrl, setEditedLogoUrl] = useState('');
+  const [editedSupervisorLimit, setEditedSupervisorLimit] = useState('');
   
   const getContractorPersonnelCount = (contractorId: string) => {
     return users.filter(u => u.contractorId === contractorId && (u.role === 'Worker' || u.role === 'Supervisor')).length;
@@ -118,13 +121,15 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                               setEditingContractor(contractor);
                               setEditedName(contractor.name);
                               setEditedType(normalizeExternalCompanyType(contractor.companyType));
+                              setEditedLogoUrl(contractor.logoUrl ?? '');
+                              setEditedSupervisorLimit(contractor.supervisorLimit?.toString() ?? '');
                               setIsEditOpen(true);
                             }}
                           >
                             <Pencil className="mr-2 h-4 w-4" /> Rename
                           </DropdownMenuItem>
                           )}
-                          {canManage && (
+                          {canDelete && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <DropdownMenuItem
@@ -185,6 +190,19 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
               onChange={(event) => setEditedName(event.target.value)}
               placeholder="Contractor name"
             />
+            <Input
+              type="url"
+              value={editedLogoUrl}
+              onChange={(event) => setEditedLogoUrl(event.target.value)}
+              placeholder="Contractor logo URL"
+            />
+            <Input
+              type="number"
+              min="0"
+              value={editedSupervisorLimit}
+              onChange={(event) => setEditedSupervisorLimit(event.target.value)}
+              placeholder="Supervisor limit for this operator"
+            />
             <Select value={String(editedType)} onValueChange={(value) => setEditedType(Number(value) as ExternalCompanyType)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>{EXTERNAL_COMPANY_TYPES.map((type) => <SelectItem key={type.value} value={String(type.value)}>{type.label}</SelectItem>)}</SelectContent>
@@ -192,7 +210,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
             <Button
               onClick={() => {
                 if (!editingContractor) return;
-                onRenameContractor?.(editingContractor.id, editedName.trim(), editedType);
+                onRenameContractor?.(editingContractor.id, editedName.trim(), editedType, editedLogoUrl.trim(), editedSupervisorLimit === '' ? undefined : Number(editedSupervisorLimit));
                 setIsEditOpen(false);
               }}
               disabled={!editedName.trim()}

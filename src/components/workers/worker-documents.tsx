@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, FileUp, Trash2, FileText } from 'lucide-react';
+import { Download, Eye, FileUp, Trash2, FileText } from 'lucide-react';
 import { useSession } from '@/providers/session-provider';
 import { useToast } from '@/hooks/use-toast';
 import {
   listWorkerDocuments,
   uploadWorkerDocument,
   downloadWorkerDocument,
+  getWorkerDocumentPreviewUrl,
   deleteWorkerDocument,
   reviewWorkerDocument,
   type WorkerDocument,
@@ -33,10 +34,16 @@ export function WorkerDocuments({
   workerId,
   certificateTypes = [],
   canManage = true,
+  documentTypeFilter,
+  title = 'Documents',
+  description = 'ID, certificates, training records and medical evidence backing this worker.',
 }: {
   workerId: string;
   certificateTypes?: CertificateType[];
   canManage?: boolean;
+  documentTypeFilter?: string;
+  title?: string;
+  description?: string;
 }) {
   const { token, user } = useSession();
   const { toast } = useToast();
@@ -88,6 +95,24 @@ export function WorkerDocuments({
     }
   };
 
+  const handleView = async (doc: WorkerDocument) => {
+    if (!token) return;
+    const previewWindow = window.open('about:blank', '_blank');
+    if (!previewWindow) {
+      toast({ variant: 'destructive', title: 'Preview blocked', description: 'Allow pop-ups to view this document.' });
+      return;
+    }
+    previewWindow.opener = null;
+    try {
+      const previewUrl = await getWorkerDocumentPreviewUrl(token, doc.id);
+      previewWindow.location.replace(previewUrl);
+      window.setTimeout(() => URL.revokeObjectURL(previewUrl), 60_000);
+    } catch (error: any) {
+      previewWindow.close();
+      toast({ variant: 'destructive', title: 'Preview failed', description: error.message ?? 'Could not open the document.' });
+    }
+  };
+
   const canReview = user?.role === 'Admin'
     || user?.role === 'Operator Admin'
     || user?.role === 'Manager';
@@ -112,11 +137,15 @@ export function WorkerDocuments({
     }
   };
 
+  const visibleDocuments = documentTypeFilter
+    ? documents.filter((document) => document.documentType === documentTypeFilter)
+    : documents;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Documents</CardTitle>
-        <CardDescription>ID, certificates, training records and medical evidence backing this worker.</CardDescription>
+        <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> {title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {canManage && (
@@ -152,11 +181,11 @@ export function WorkerDocuments({
           </div>
         )}
 
-        {documents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
+        {visibleDocuments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No matching documents uploaded yet.</p>
         ) : (
           <ul className="divide-y rounded-md border">
-            {documents.map((doc) => (
+            {visibleDocuments.map((doc) => (
               <li key={doc.id} className="flex items-center justify-between gap-3 px-3 py-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{doc.fileName}</p>
@@ -183,16 +212,20 @@ export function WorkerDocuments({
                     </div>
                   )}
                   <div className="flex items-center gap-1">
-                  <Button type="button" variant="ghost" size="icon" onClick={() => token && downloadWorkerDocument(token, doc.id, doc.fileName)}>
-                    <Download className="h-4 w-4" />
-                    <span className="sr-only">Download {doc.fileName}</span>
-                  </Button>
-                  {canManage && doc.reviewStatus === 'Pending' && (
-                    <Button type="button" variant="ghost" size="icon" onClick={() => void handleDelete(doc)}>
-                      <Trash2 className="h-4 w-4 text-danger" />
-                      <span className="sr-only">Delete {doc.fileName}</span>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => void handleView(doc)}>
+                      <Eye className="h-4 w-4" />
+                      <span className="sr-only">View {doc.fileName}</span>
                     </Button>
-                  )}
+                    <Button type="button" variant="ghost" size="icon" onClick={() => token && downloadWorkerDocument(token, doc.id, doc.fileName)}>
+                      <Download className="h-4 w-4" />
+                      <span className="sr-only">Download {doc.fileName}</span>
+                    </Button>
+                    {canManage && doc.reviewStatus === 'Pending' && (
+                      <Button type="button" variant="ghost" size="icon" onClick={() => void handleDelete(doc)}>
+                        <Trash2 className="h-4 w-4 text-danger" />
+                        <span className="sr-only">Delete {doc.fileName}</span>
+                      </Button>
+                    )}
                   </div>
                 </div>
               </li>
