@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import type { Contractor, User, AccessRequest, ExternalCompanyType } from '@/lib/types';
-import { Loader2, ClipboardList, User as UserIcon, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react';
+import { Loader2, ClipboardList, User as UserIcon, MoreHorizontal, Pencil, Trash2, Eye, Check, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import {
   DropdownMenu,
@@ -41,9 +41,12 @@ interface ContractorsTableProps {
   onDeleteContractor?: (contractorId: string, name: string) => void;
   canManage?: boolean;
   canDelete?: boolean;
+  canDecideSubcontractors?: boolean;
+  onApproveSubcontractor?: (contractorId: string) => void;
+  onRejectSubcontractor?: (contractorId: string) => void;
 }
 
-export function ContractorsTable({ contractors, users, accessRequests, isLoading = false, onRenameContractor, onDeleteContractor, canManage = true, canDelete = canManage }: ContractorsTableProps) {
+export function ContractorsTable({ contractors, users, accessRequests, isLoading = false, onRenameContractor, onDeleteContractor, canManage = true, canDelete = canManage, canDecideSubcontractors = false, onApproveSubcontractor, onRejectSubcontractor }: ContractorsTableProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null);
   const [editedName, setEditedName] = useState('');
@@ -72,6 +75,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
               <TableRow>
                 <TableHead>Company Name</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Personnel</TableHead>
                 <TableHead>Active Requests</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -79,7 +83,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
               ) : contractors.length > 0 ? (
 		                contractors.map((contractor) => (
 	                  <TableRow key={contractor.id}>
@@ -89,6 +93,12 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                       </Link>
                     </TableCell>
                     <TableCell><Badge variant="outline">{externalCompanyTypeLabel(contractor.companyType)}</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant={contractor.approvalStatus === 'Approved' || !contractor.approvalStatus ? 'secondary' : 'outline'}>
+                        {contractor.approvalStatus === 'PendingOperatorApproval' ? 'Pending operator approval' : contractor.approvalStatus ?? 'Approved'}
+                      </Badge>
+                      {contractor.parentContractorName && <div className="mt-1 text-xs text-muted-foreground">Main: {contractor.parentContractorName}</div>}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <UserIcon className="h-4 w-4 text-muted-foreground" />
@@ -110,6 +120,10 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                           </Button>
                         </DropdownMenuTrigger>
 	                        <DropdownMenuContent align="end">
+                            {canDecideSubcontractors && contractor.approvalStatus === 'PendingOperatorApproval' && <>
+                              <DropdownMenuItem onSelect={() => onApproveSubcontractor?.(contractor.id)}><Check className="mr-2 h-4 w-4" /> Approve subcontractor</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onSelect={() => onRejectSubcontractor?.(contractor.id)}><X className="mr-2 h-4 w-4" /> Reject subcontractor</DropdownMenuItem>
+                            </>}
                             <DropdownMenuItem asChild>
                               <Link href={`/companies/contractors/${contractor.id}`}>
                                 <Eye className="mr-2 h-4 w-4" /> View details
@@ -163,7 +177,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
 	                  </TableRow>
                   ))
               ) : (
-                <TableRow><TableCell colSpan={5} className="h-24 text-center">No contractors or consultants found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="h-24 text-center">No contractors or consultants found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

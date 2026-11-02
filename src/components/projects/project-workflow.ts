@@ -11,6 +11,7 @@ export type ProjectDraft = {
   validFromUtc: string;
   validToUtc: string;
   contractorIds: string[];
+  contractorContracts?: Record<string, string | null>;
   siteIds: string[];
   memberIds: string[];
   status: string;
@@ -112,6 +113,9 @@ export function validateProjectStep(
 
 export function buildCreateProjectPayload(draft: ProjectDraft) {
   return {
+    contractorContracts: Object.fromEntries(draft.contractorIds
+      .filter((id) => Object.hasOwn(draft.contractorContracts ?? {}, id))
+      .map((id) => [id, draft.contractorContracts?.[id]?.trim() || null])),
     name: draft.name.trim(),
     clientReference: draft.clientReference.trim() || null,
     description: draft.description.trim() || null,

@@ -27,6 +27,8 @@ import {
   BellRing,
   Siren,
   CreditCard,
+  GitBranch,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -64,6 +66,7 @@ const arabicLabels: Record<string, string> = {
   Certificates: 'الشهادات',
   'My Account': 'حسابي',
   Notifications: 'الإشعارات',
+  'Workflow Studio': 'استوديو سير العمل',
 };
 
 export function SidebarNav() {
@@ -113,6 +116,8 @@ export function SidebarNav() {
       '/inspections': ClipboardCheck,
       '/location-governance': MapPinned,
       '/projects': Briefcase,
+      '/workflows': GitBranch,
+      '/reports': FileSpreadsheet,
       '/sites': Building2,
       '/companies': Briefcase,
       '/users': Users,

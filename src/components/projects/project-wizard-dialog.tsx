@@ -42,7 +42,7 @@ export type ProjectRecord = {
   status: string;
   validFromUtc: string;
   validToUtc: string;
-  contractors: Array<{ contractorId: string; contractorName: string }>;
+  contractors: Array<{ contractorId: string; contractorName: string; contractNumber?: string | null }>;
   members: Array<{
     userId: string;
     name: string;
@@ -94,6 +94,7 @@ function initialDraft(project?: ProjectRecord | null): ProjectDraft {
     validFromUtc: dateValue(project?.validFromUtc) || today.toISOString().slice(0, 10),
     validToUtc: dateValue(project?.validToUtc) || defaultEnd.toISOString().slice(0, 10),
     contractorIds: project?.contractors.map((item) => item.contractorId) ?? [],
+    contractorContracts: Object.fromEntries(project?.contractors.map((item) => [item.contractorId, item.contractNumber ?? '']) ?? []),
     siteIds: project?.siteIds ?? [],
     memberIds: project?.members
       .filter((item) => !project.consultantReviewerUserIds.includes(item.userId))
@@ -222,18 +223,13 @@ export function ProjectWizardDialog({
           },
         });
       } else {
-        const created = await apiRequest<ProjectRecord>('/projects', {
+        savedProject = await apiRequest<ProjectRecord>('/projects', {
           method: 'POST',
           token,
           body: {
             ...buildCreateProjectPayload(draft),
             contractorIds: draft.contractorIds,
           },
-        });
-        savedProject = await apiRequest<ProjectRecord>(`/projects/${created.id}`, {
-          method: 'PUT',
-          token,
-          body: { contractorIds: draft.contractorIds },
         });
       }
 
@@ -379,6 +375,18 @@ export function ProjectWizardDialog({
               searchPlaceholder="Search contractors"
             />
             {errors.contractorIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.contractorIds}</p> : null}
+            {draft.contractorIds.length > 0 ? <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold">Contract numbers for this project</h3>
+                <p className="mt-1 text-sm text-slate-600">Each contractor can have a different contract on every project. These contracts apply to the sites selected for this project.</p>
+              </div>
+              {draft.contractorIds.map((id) => <div key={id} className="space-y-2">
+                <label htmlFor={`contract-${id}`} className="text-sm font-medium">{contractors.find((company) => company.id === id)?.name ?? 'Contractor'} contract number</label>
+                <input id={`contract-${id}`} maxLength={200} value={draft.contractorContracts?.[id] ?? ''}
+                  onChange={(event) => updateField('contractorContracts', { ...draft.contractorContracts, [id]: event.target.value })}
+                  className={inputClass()} placeholder="e.g. NWS-2026-001" />
+              </div>)}
+            </div> : null}
             <SelectionGroup
               title="Project team"
               description="Internal users who can view or coordinate this project."
@@ -403,6 +411,9 @@ export function ProjectWizardDialog({
               <ReviewItem label="Operating period" value={`${draft.validFromUtc} – ${draft.validToUtc}`} />
               <ReviewItem label="Sites" value={`${draft.siteIds.length} selected`} />
               <ReviewItem label="Contractors" value={`${draft.contractorIds.length} selected`} />
+              {draft.contractorIds.map((id) => <ReviewItem key={id}
+                label={`${contractors.find((company) => company.id === id)?.name ?? 'Contractor'} contract`}
+                value={draft.contractorContracts?.[id] || draft.clientReference || 'Not specified'} />)}
               <ReviewItem label="Project team" value={`${draft.memberIds.length} selected`} />
             </dl>
           </div> : null}

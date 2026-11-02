@@ -774,7 +774,7 @@ export async function createOperatorRequest(token: string, input: { name: string
   });
 }
 
-export async function updateOperatorRequest(token: string, operatorId: string, input: { name: string }) {
+export async function updateOperatorRequest(token: string, operatorId: string, input: { name: string; supervisorLimit?: number | null }) {
   return apiRequest<any>(`/companies/operators/${operatorId}`, {
     method: 'PUT',
     token,
@@ -832,6 +832,14 @@ export async function deleteContractorRequest(token: string, contractorId: strin
 
 export async function deleteExternalCompanyRequest(token: string, companyId: string) {
   return apiRequest<void>(`/companies/external/${companyId}`, { method: 'DELETE', token });
+}
+
+export function approveSubcontractorRequest(token: string, companyId: string) {
+  return apiRequest(`/companies/contractors/${companyId}/approve`, { method: 'POST', token });
+}
+
+export function rejectSubcontractorRequest(token: string, companyId: string, reason: string) {
+  return apiRequest(`/companies/contractors/${companyId}/reject`, { method: 'POST', token, body: { reason } });
 }
 
 export async function listJobPositionsRequest(token: string) {
@@ -1956,5 +1964,45 @@ export async function downloadComplianceCsv(authToken: string, params?: { asOf?:
   document.body.appendChild(a);
   a.click();
   a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export type WorkerTraceabilityRow = {
+  nationalId: string;
+  workerName: string;
+  mainContractor?: string | null;
+  employer: string;
+  project?: string | null;
+  site?: string | null;
+  jobRole: string;
+  clearanceStatus: string;
+  accessStatus: string;
+  nationalIdExpiresAtUtc?: string | null;
+  nextTrainingOrCertificateExpiryUtc?: string | null;
+};
+
+export type WorkerTraceabilityReport = {
+  generatedAtUtc: string;
+  schemaVersion: string;
+  rows: WorkerTraceabilityRow[];
+};
+
+export function fetchWorkerTraceability(authToken: string) {
+  return apiRequest<WorkerTraceabilityReport>('/audit/worker-traceability', { token: authToken });
+}
+
+export async function downloadWorkerTraceability(authToken: string, format: 'csv' | 'xlsx') {
+  const response = await fetch(`${BACKEND_URL}/audit/worker-traceability.${format}`, {
+    headers: { Authorization: `Bearer ${authToken}` },
+  });
+  if (!response.ok) throw new Error(`Failed to export worker traceability as ${format.toUpperCase()}.`);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `worker-traceability-${new Date().toISOString().slice(0, 10)}.${format}`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
   URL.revokeObjectURL(url);
 }

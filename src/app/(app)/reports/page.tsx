@@ -1,35 +1,44 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useSession } from '@/providers/session-provider';
 import { useToast } from '@/hooks/use-toast';
-import { fetchAuditLog, downloadComplianceCsv, type AuditLogEntry } from '@/lib/api';
+import { fetchAuditLog, downloadComplianceCsv, downloadWorkerTraceability, fetchWorkerTraceability, type AuditLogEntry, type WorkerTraceabilityRow } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ReportsPage() {
-  const { loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Manager']);
-  const { token } = useSession();
+  const { loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Manager', 'Contractor Admin']);
+  const { token, user } = useSession();
+  const canViewAudit = Boolean(user && ['Admin', 'Operator Admin', 'Manager'].includes(user.role));
   const { toast } = useToast();
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [traceability, setTraceability] = useState<WorkerTraceabilityRow[]>([]);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token || !isAuthorized) return;
     setLoading(true);
+    setLoadError('');
     try {
-      setEntries(await fetchAuditLog(token, { take: 100 }));
-    } catch {
-      // best-effort
+      const [audit, workerReport] = await Promise.all([
+        canViewAudit ? fetchAuditLog(token, { take: 100 }) : Promise.resolve([]),
+        fetchWorkerTraceability(token),
+      ]);
+      setEntries(audit);
+      setTraceability(workerReport.rows);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Could not load reports. Try again.');
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [canViewAudit, isAuthorized, token]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -46,6 +55,19 @@ export default function ReportsPage() {
     }
   };
 
+  const handleTraceabilityExport = async (format: 'csv' | 'xlsx') => {
+    if (!token) return;
+    setBusy(true);
+    try {
+      await downloadWorkerTraceability(token, format);
+      toast({ title: 'Worker report exported', description: `${format.toUpperCase()} export downloaded successfully.` });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Export failed', description: error.message ?? 'Could not export worker traceability.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (authLoading) return <Skeleton className="h-64 w-full" />;
   if (!isAuthorized) return <UnauthorizedComponent />;
 
@@ -56,13 +78,52 @@ export default function ReportsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Audit &amp; Reports</h1>
           <p className="text-muted-foreground">The immutable activity trail and audit-ready compliance export.</p>
         </div>
-        <Button onClick={handleExport} disabled={busy}>
-          <Download className="mr-2 h-4 w-4" />
-          {busy ? 'Exporting…' : 'Export compliance report (CSV)'}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {canViewAudit && <Button variant="outline" onClick={handleExport} disabled={busy}>
+            <Download className="mr-2 h-4 w-4" /> Compliance CSV
+          </Button>}
+          <Button variant="outline" onClick={() => void handleTraceabilityExport('csv')} disabled={busy}>
+            <FileText className="mr-2 h-4 w-4" /> Traceability CSV
+          </Button>
+          <Button onClick={() => void handleTraceabilityExport('xlsx')} disabled={busy}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" /> {busy ? 'Exporting…' : 'Traceability Excel'}
+          </Button>
+        </div>
       </header>
 
+      {loadError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 p-4 text-sm text-destructive">
+        <span>{loadError}</span><Button variant="outline" size="sm" onClick={() => void load()}>Try again</Button>
+      </div>}
+
       <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><FileSpreadsheet className="h-5 w-5" /> Worker traceability</CardTitle>
+          <CardDescription>Power BI-ready worker records connecting identity, employer hierarchy, project, site, role, clearance, and expiry.</CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {loading ? <Skeleton className="h-48 w-full" /> : (
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>National ID</TableHead><TableHead>Worker</TableHead><TableHead>Employer</TableHead>
+                <TableHead>Project / site</TableHead><TableHead>Job role</TableHead><TableHead>Clearance</TableHead><TableHead>Access</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {traceability.length === 0 ? <TableRow><TableCell colSpan={7} className="py-10 text-center text-muted-foreground">No project workers match your scope.</TableCell></TableRow> : traceability.slice(0, 100).map((row, index) => (
+                  <TableRow key={`${row.nationalId}-${row.project}-${row.site}-${index}`}>
+                    <TableCell className="font-mono text-xs">{row.nationalId || '—'}</TableCell>
+                    <TableCell className="font-medium">{row.workerName}</TableCell>
+                    <TableCell><div>{row.employer}</div>{row.mainContractor && <div className="text-xs text-muted-foreground">Main: {row.mainContractor}</div>}</TableCell>
+                    <TableCell><div>{row.project || '—'}</div><div className="text-xs text-muted-foreground">{row.site || '—'}</div></TableCell>
+                    <TableCell>{row.jobRole || '—'}</TableCell><TableCell>{row.clearanceStatus}</TableCell><TableCell>{row.accessStatus}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {canViewAudit && <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> Recent audit activity</CardTitle>
           <CardDescription>Who did what, and when — the latest 100 recorded actions.</CardDescription>
@@ -97,7 +158,7 @@ export default function ReportsPage() {
             </Table>
           )}
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   );
 }

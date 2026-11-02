@@ -184,6 +184,7 @@ export type Operator = {
     name: string;
     siteCount?: number;
     userCount?: number;
+    supervisorLimit?: number | null;
 }
 
 export type Contractor = {
@@ -195,6 +196,9 @@ export type Contractor = {
     userCount?: number;
     requestCount?: number;
     supervisorLimit?: number | null;
+    parentContractorId?: string | null;
+    parentContractorName?: string | null;
+    approvalStatus?: 'PendingOperatorApproval' | 'Approved' | 'Rejected';
 }
 
 export const ExternalCompanyTypeNames = {

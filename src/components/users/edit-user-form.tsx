@@ -36,7 +36,7 @@ const formSchema = z.object({
   status: z.enum(['Active', 'Inactive']),
   notes: z.string().optional(),
   certificates: z.array(z.object({
-      certificateTypeId: z.string({ required_error: "Please select a certificate type."}).min(1, "Certificate type is required."),
+      certificateTypeId: z.string({ error: (issue) => issue.input === undefined ? "Please select a certificate type." : undefined }).min(1, "Certificate type is required."),
       expiresAtUtc: z.date().optional(),
   })).optional(),
   assignedSiteId: z.string().optional(),

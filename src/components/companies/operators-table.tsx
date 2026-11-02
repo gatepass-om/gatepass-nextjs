@@ -34,7 +34,7 @@ interface OperatorsTableProps {
   users: User[];
   sites: Site[];
   isLoading?: boolean;
-  onRenameOperator?: (operatorId: string, name: string) => void;
+  onRenameOperator?: (operatorId: string, name: string, supervisorLimit?: number) => void;
   onDeleteOperator?: (operatorId: string, name: string) => void;
   canManage?: boolean;
 }
@@ -43,6 +43,7 @@ export function OperatorsTable({ operators, users, sites, isLoading = false, onR
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingOperator, setEditingOperator] = useState<Operator | null>(null);
   const [editedName, setEditedName] = useState('');
+  const [editedSupervisorLimit, setEditedSupervisorLimit] = useState('');
   
   const getOperatorPersonnel = (operatorId: string) => {
     return users.filter(u => (u.role === 'Admin' || u.role === 'Manager' || u.role === 'Operator Admin') && u.operatorId === operatorId);
@@ -113,6 +114,7 @@ export function OperatorsTable({ operators, users, sites, isLoading = false, onR
 	                              onSelect={() => {
                                 setEditingOperator(operator);
                                 setEditedName(operator.name);
+                                setEditedSupervisorLimit(operator.supervisorLimit?.toString() ?? '');
                                 setIsEditOpen(true);
                               }}
                             >
@@ -181,10 +183,11 @@ export function OperatorsTable({ operators, users, sites, isLoading = false, onR
               onChange={(event) => setEditedName(event.target.value)}
               placeholder="Operator name"
             />
+            <Input type="number" min="0" value={editedSupervisorLimit} onChange={(event) => setEditedSupervisorLimit(event.target.value)} placeholder="Operator supervisor limit" />
             <Button
               onClick={() => {
                 if (!editingOperator) return;
-                onRenameOperator?.(editingOperator.id, editedName.trim());
+                onRenameOperator?.(editingOperator.id, editedName.trim(), editedSupervisorLimit === '' ? undefined : Number(editedSupervisorLimit));
                 setIsEditOpen(false);
               }}
               disabled={!editedName.trim()}

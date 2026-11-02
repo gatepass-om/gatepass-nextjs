@@ -19,6 +19,17 @@ const validDraft = {
   status: 'Active',
 };
 
+test('project contract payload includes only selected contractors and trims their independent awards', () => {
+  const payload = buildCreateProjectPayload({
+    ...validDraft,
+    contractorContracts: { 'contractor-1': ' NAMA-001 ', 'removed-contractor': 'NAMA-999' },
+  });
+  assert.deepEqual(payload.contractorContracts, { 'contractor-1': 'NAMA-001' });
+  const another = buildCreateProjectPayload({ ...validDraft, contractorContracts: { 'contractor-1': 'NAMA-002' } });
+  assert.equal(another.contractorContracts['contractor-1'], 'NAMA-002');
+  assert.equal(payload.contractorContracts['contractor-1'], 'NAMA-001');
+});
+
 test('details step requires a name, operator, and valid date range', () => {
   const errors = validateProjectStep('details', {
     ...validDraft,
@@ -46,6 +57,7 @@ test('supervisors derive the responsible operator from project sites instead of 
 
 test('create payload trims text and converts project dates to UTC boundaries', () => {
   assert.deepEqual(buildCreateProjectPayload(validDraft), {
+    contractorContracts: {},
     name: 'Harbour Expansion',
     clientReference: 'PO-2044',
     description: 'Phase one access programme',
@@ -64,6 +76,7 @@ test('consultant verifier is optional so its administrator can delegate it after
 
   assert.deepEqual(validateProjectStep('participants', draft), {});
   assert.deepEqual(buildCreateProjectPayload(draft), {
+    contractorContracts: {},
     name: 'Harbour Expansion',
     clientReference: 'PO-2044',
     description: 'Phase one access programme',

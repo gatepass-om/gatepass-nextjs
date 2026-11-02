@@ -23,11 +23,13 @@ import {
   updateExternalCompanyRequest,
   deleteOperatorRequest,
   deleteExternalCompanyRequest,
+  approveSubcontractorRequest,
+  rejectSubcontractorRequest,
 } from '@/lib/api';
 import { usePolling } from '@/lib/polling';
 
 export default function CompaniesPage() {
-  const { currentUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Supervisor']);
+  const { currentUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Supervisor']);
   const { token } = useSession();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
@@ -40,7 +42,7 @@ export default function CompaniesPage() {
 
   const { toast } = useToast();
   const canManageCompanies = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin';
-  const canRegisterExternalCompany = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin';
+  const canRegisterExternalCompany = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin' || currentUser?.role === 'Contractor Admin';
 
   const fetchData = useCallback(async (options?: { silent?: boolean }) => {
     if (!token || !currentUser?.id) return;
@@ -112,11 +114,11 @@ export default function CompaniesPage() {
     }
   };
 
-  const handleRenameOperator = async (operatorId: string, name: string) => {
+  const handleRenameOperator = async (operatorId: string, name: string, supervisorLimit?: number) => {
     const trimmed = name.trim();
     if (!token || !trimmed) return;
     try {
-      await updateOperatorRequest(token, operatorId, { name: trimmed });
+      await updateOperatorRequest(token, operatorId, { name: trimmed, supervisorLimit });
       toast({ title: "Operator Updated", description: "Operator name has been updated." });
       void fetchData();
     } catch (error: any) {
@@ -159,6 +161,22 @@ export default function CompaniesPage() {
     } catch (error: any) {
       console.error('Error deleting contractor:', error);
       toast({ variant: "destructive", title: "Deletion Failed", description: error.message || "Could not delete contractor." });
+    }
+  };
+
+  const handleSubcontractorDecision = async (contractorId: string, approve: boolean) => {
+    if (!token) return;
+    try {
+      if (approve) await approveSubcontractorRequest(token, contractorId);
+      else {
+        const reason = window.prompt('Reason for rejecting this subcontractor registration:')?.trim();
+        if (!reason) return;
+        await rejectSubcontractorRequest(token, contractorId, reason);
+      }
+      toast({ title: approve ? 'Subcontractor approved' : 'Subcontractor rejected' });
+      await fetchData();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Decision failed', description: error.message ?? 'Could not update subcontractor status.' });
     }
   };
 
@@ -210,6 +228,7 @@ export default function CompaniesPage() {
             onOpenChange={setIsContractorFormOpen}
             operators={operators}
             currentOperatorId={currentUser.operatorId ?? undefined}
+            subcontractorRegistrationOnly={currentUser.role === 'Contractor Admin'}
           />
         </>
       )}
@@ -235,6 +254,9 @@ export default function CompaniesPage() {
 	            onDeleteContractor={canManageCompanies ? handleDeleteContractor : undefined}
 	            canDelete={currentUser?.role === 'Admin'}
               canManage={canManageCompanies}
+              canDecideSubcontractors={currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin'}
+              onApproveSubcontractor={(id) => void handleSubcontractorDecision(id, true)}
+              onRejectSubcontractor={(id) => void handleSubcontractorDecision(id, false)}
 	        />
       </div>
     </div>

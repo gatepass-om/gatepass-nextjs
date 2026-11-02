@@ -14,7 +14,7 @@ import { CalendarIcon, Check, InfinityIcon } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 
 const formSchema = z.object({
-  validFrom: z.date({ required_error: "A start date is required." }),
+  validFrom: z.date({ error: (issue) => issue.input === undefined ? "A start date is required." : undefined }),
   expiryType: z.enum(['date', 'permanent']),
   expiresAt: z.date().optional(),
 }).refine(data => {

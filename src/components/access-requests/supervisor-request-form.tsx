@@ -39,8 +39,8 @@ const workerSchema = z.object({
 });
 
 const formSchema = z.object({
-  operatorId: z.string({ required_error: "Please select an operator." }),
-  siteId: z.string({ required_error: "Please select a site." }),
+  operatorId: z.string({ error: (issue) => issue.input === undefined ? "Please select an operator." : undefined }),
+  siteId: z.string({ error: (issue) => issue.input === undefined ? "Please select a site." : undefined }),
   contractNumber: z.string().min(1, { message: "Contract number is required." }),
   focalPoint: z.string().min(2, { message: "Focal point name is required." }),
   notes: z.string().optional(),

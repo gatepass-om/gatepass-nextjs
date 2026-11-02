@@ -53,11 +53,12 @@ interface NewCompanyFormProps {
     onOpenChange: (open: boolean) => void;
     operators?: Operator[];
     currentOperatorId?: string;
+    subcontractorRegistrationOnly?: boolean;
 }
 
-export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, operators = [], currentOperatorId }: NewCompanyFormProps) {
+export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, operators = [], currentOperatorId, subcontractorRegistrationOnly = false }: NewCompanyFormProps) {
     const [submitting, setSubmitting] = useState(false);
-    const [externalType, setExternalType] = useState<ExternalCompanyType>(1);
+    const [externalType, setExternalType] = useState<ExternalCompanyType>(subcontractorRegistrationOnly ? 4 : 1);
     const [step, setStep] = useState(0);
 
     const form = useForm<FormValues>({
@@ -69,7 +70,7 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
 
     async function onSubmit(values: FormValues) {
         if (companyType === 'contractor') {
-            if (!currentOperatorId && !values.operatorId) {
+            if (!subcontractorRegistrationOnly && !currentOperatorId && !values.operatorId) {
                 form.setError('operatorId', { message: 'Select the operator registering this company.' });
                 return;
             }
@@ -170,15 +171,15 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
                             <>
                                 <div className="space-y-2">
                                     <FormLabel>Relationship type</FormLabel>
-                                    <Select value={String(externalType)} onValueChange={(value) => setExternalType(Number(value) as ExternalCompanyType)}>
+                                    <Select disabled={subcontractorRegistrationOnly} value={String(externalType)} onValueChange={(value) => setExternalType(Number(value) as ExternalCompanyType)}>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>{EXTERNAL_COMPANY_TYPES.map((type) => <SelectItem key={type.value} value={String(type.value)}>{type.label}</SelectItem>)}</SelectContent>
+                                        <SelectContent>{(subcontractorRegistrationOnly ? EXTERNAL_COMPANY_TYPES.filter(type => type.value === 4) : EXTERNAL_COMPANY_TYPES).map((type) => <SelectItem key={type.value} value={String(type.value)}>{type.label}</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>
                                 <FormField control={form.control} name="logoUrl" render={({ field }) => (
                                     <FormItem><FormLabel>Contractor logo URL</FormLabel><FormControl><Input type="url" placeholder="https://company.example/logo.png" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
-                                {!currentOperatorId && (
+                                {!subcontractorRegistrationOnly && !currentOperatorId && (
                                     <FormField control={form.control} name="operatorId" render={({ field }) => (
                                         <FormItem><FormLabel>Register for operator</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select operator" /></SelectTrigger></FormControl><SelectContent>{operators.map((operator) => <SelectItem key={operator.id} value={operator.id}>{operator.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                                     )} />
