@@ -23,5 +23,6 @@ const navigationItems: NavigationItem[] = [
 
 export function getNavigationForRole(role: UserRole, context: { externalCompany?: boolean } = {}) {
   return navigationItems.filter((item) =>
-    item.roles.includes(role));
+    item.roles.includes(role)
+      && (item.href !== '/workflows' || process.env.NEXT_PUBLIC_WORKFLOW_STUDIO_ENABLED === 'true'));
 }
