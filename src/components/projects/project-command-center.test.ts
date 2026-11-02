@@ -5,6 +5,7 @@ import test from 'node:test';
 import { getProjectWorkflowStages, getWorkPassActions, getWorkPassQueueItems, getWorkPassStatusPresentation, isWorkerComplianceSatisfied, type CommandCenterProject, type CommandCenterWorkPass } from './project-command-center.ts';
 
 const workPassDetailSource = readFileSync(new URL('../../app/(app)/projects/[id]/access-requests/[workPassId]/page.tsx', import.meta.url), 'utf8');
+const reportsPageSource = readFileSync(new URL('../../app/(app)/reports/page.tsx', import.meta.url), 'utf8');
 
 const project: CommandCenterProject = {
   id: 'project-1',
@@ -36,6 +37,7 @@ test('work-pass actions follow contractor, consultant verification, then operato
 test('pending second approval uses the operator approval label', () => {
   assert.equal(getWorkPassStatusPresentation('PendingSecondApproval').label, 'Pending operator approval');
   assert.match(workPassDetailSource, /getWorkPassStatusPresentation\(request\.status\)/);
+  assert.match(reportsPageSource, /getWorkPassStatusPresentation\(row\.accessStatus\)/);
 });
 
 test('worker compliance includes onboarding clearance as well as job credentials', () => {

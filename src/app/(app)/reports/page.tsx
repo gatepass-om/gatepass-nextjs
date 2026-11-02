@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/providers/locale-provider';
+import { getWorkPassStatusPresentation } from '@/components/projects/project-command-center';
 
 export default function ReportsPage() {
   const { loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Manager', 'Contractor Admin']);
@@ -116,7 +117,7 @@ export default function ReportsPage() {
                     <TableCell className="font-medium">{row.workerName}</TableCell>
                     <TableCell><div>{row.employer}</div>{row.mainContractor && <div className="text-xs text-muted-foreground">{t('Main contractor')}: {row.mainContractor}</div>}</TableCell>
                     <TableCell><div>{row.project || '—'}</div><div className="text-xs text-muted-foreground">{row.site || '—'}</div></TableCell>
-                    <TableCell>{row.jobRole || '—'}</TableCell><TableCell>{row.clearanceStatus}</TableCell><TableCell>{row.accessStatus}</TableCell>
+                    <TableCell>{row.jobRole || '—'}</TableCell><TableCell>{row.clearanceStatus}</TableCell><TableCell>{t(getWorkPassStatusPresentation(row.accessStatus).label)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
