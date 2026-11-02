@@ -21,6 +21,7 @@ import { useSession } from '@/providers/session-provider';
 import { fetchAlerts, fetchUserNotifications } from '@/lib/api';
 import { usePolling } from '@/lib/polling';
 import { useLiveEvents } from '@/hooks/use-live-events';
+import { useLocale } from '@/providers/locale-provider';
 
 const ALERT_VIEWER_ROLES = ['Admin', 'Operator Admin', 'Manager', 'Security'];
 
@@ -28,6 +29,7 @@ export function Header() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, token, logout, isImpersonating, impersonatedBy, stopImpersonation } = useSession();
+  const { t } = useLocale();
   const [alertCount, setAlertCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
   const canViewAlerts = !!user && ALERT_VIEWER_ROLES.includes(user.role);
@@ -65,13 +67,13 @@ export function Header() {
 
   const handleLogout = () => {
     logout();
-    toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+    toast({ title: t('Logged out'), description: t('You have been successfully logged out.') });
     router.push('/login');
   };
 
   const handleStopImpersonation = async () => {
     await stopImpersonation();
-    toast({ title: 'Impersonation ended', description: 'You are back in your admin session.' });
+    toast({ title: t('Impersonation ended'), description: t('You are back in your admin session.') });
     router.push('/companies');
   };
 
@@ -86,11 +88,11 @@ export function Header() {
 
       {/* Center: global search */}
       <div className="relative flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Search personnel, sites, requests…"
-          className="w-full rounded-lg border-border bg-muted/40 pl-9 text-sm placeholder:text-muted-foreground focus-visible:ring-primary/40 md:w-[260px] lg:w-[360px]"
+          placeholder={t('Search personnel, sites, requests…')}
+          className="w-full rounded-lg border-border bg-muted/40 ps-9 text-sm placeholder:text-muted-foreground focus-visible:ring-primary/40 md:w-[260px] lg:w-[360px]"
         />
       </div>
 
@@ -99,15 +101,15 @@ export function Header() {
         {isImpersonating && (
           <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-2 py-1">
             <Badge variant="outline" className="border-warning/50 text-warning">
-              Impersonating
+              {t('Impersonating')}
             </Badge>
             <span className="hidden max-w-[220px] truncate text-xs text-muted-foreground lg:inline">
               {user?.name}
-              {impersonatedBy ? ` via ${impersonatedBy.name}` : ''}
+              {impersonatedBy ? ` ${t('via')} ${impersonatedBy.name}` : ''}
             </span>
             <Button variant="ghost" size="sm" className="h-7 px-2" onClick={handleStopImpersonation}>
-              <Undo2 className="mr-1 h-3.5 w-3.5" />
-              Return
+              <Undo2 className="me-1 h-3.5 w-3.5" />
+              {t('Return')}
             </Button>
           </div>
         )}
@@ -127,7 +129,7 @@ export function Header() {
                   {alertCount > 99 ? '99+' : alertCount}
                 </span>
               )}
-              <span className="sr-only">{alertCount > 0 ? `${alertCount} unacknowledged alerts` : 'View alerts'}</span>
+              <span className="sr-only">{alertCount > 0 ? `${alertCount} ${t('unacknowledged alerts')}` : t('View alerts')}</span>
             </Link>
           </Button>
         )}
@@ -136,7 +138,7 @@ export function Header() {
           <Link href="/notifications">
             <Bell className="h-5 w-5" />
             {notificationCount > 0 ? <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-white ring-2 ring-background">{notificationCount > 99 ? '99+' : notificationCount}</span> : null}
-            <span className="sr-only">{notificationCount ? `${notificationCount} unread notifications` : 'View notifications'}</span>
+            <span className="sr-only">{notificationCount ? `${notificationCount} ${t('unread notifications')}` : t('View notifications')}</span>
           </Link>
         </Button>
 
@@ -154,19 +156,19 @@ export function Header() {
               </div>
               <div className="hidden flex-col items-start leading-tight md:flex">
                 <span className="text-sm font-semibold text-foreground">
-                  {user?.name || 'Loading…'}
+                  {user?.name || t('Loading…')}
                 </span>
                 <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {user?.role || '—'}
+                  {user?.role ? t(user.role) : '—'}
                 </span>
               </div>
-              <span className="sr-only">Toggle user menu</span>
+              <span className="sr-only">{t('Toggle user menu')}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user?.name || 'Loading...'}</p>
+                <p className="text-sm font-medium leading-none">{user?.name || t('Loading…')}</p>
                 <p className="text-xs leading-none text-muted-foreground">
                   {user?.email || ''}
                 </p>
@@ -176,19 +178,19 @@ export function Header() {
             {isImpersonating && (
               <>
                 <DropdownMenuItem onClick={handleStopImpersonation}>
-                  <Undo2 className="mr-2 h-4 w-4" />
-                  <span>Return to admin</span>
+                  <Undo2 className="me-2 h-4 w-4" />
+                  <span>{t('Return to admin')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
             )}
             <DropdownMenuItem asChild>
-              <Link href="/profile"><UserIcon className="mr-2 h-4 w-4" /><span>Profile</span></Link>
+              <Link href="/profile"><UserIcon className="me-2 h-4 w-4" /><span>{t('Profile')}</span></Link>
             </DropdownMenuItem>
-            <DropdownMenuItem><Settings className="mr-2 h-4 w-4" /><span>Settings</span></DropdownMenuItem>
-            <DropdownMenuItem><LifeBuoy className="mr-2 h-4 w-4" /><span>Support</span></DropdownMenuItem>
+            <DropdownMenuItem><Settings className="me-2 h-4 w-4" /><span>{t('Settings')}</span></DropdownMenuItem>
+            <DropdownMenuItem><LifeBuoy className="me-2 h-4 w-4" /><span>{t('Support')}</span></DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}><LogOut className="mr-2 h-4 w-4" /><span>Log out</span></DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}><LogOut className="me-2 h-4 w-4" /><span>{t('Log out')}</span></DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

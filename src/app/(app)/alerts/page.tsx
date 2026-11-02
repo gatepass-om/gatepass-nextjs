@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SummaryCard, EmptyRow } from '@/components/smart-access/common';
 import { AcknowledgeAlertDialog } from '@/components/alerts/acknowledge-dialog';
+import { useLocale } from '@/providers/locale-provider';
 
 const severityClass: Record<string, string> = {
   Critical: 'bg-danger/15 text-danger border-danger/30',
@@ -24,10 +25,10 @@ const severityClass: Record<string, string> = {
   Low: 'bg-muted text-muted-foreground border-border',
 };
 
-function SeverityBadge({ severity }: { severity: string }) {
+function SeverityBadge({ severity, label }: { severity: string; label: string }) {
   return (
     <span className={`inline-block rounded-md border px-2 py-0.5 text-xs font-semibold ${severityClass[severity] ?? severityClass.Low}`}>
-      {severity}
+      {label}
     </span>
   );
 }
@@ -38,6 +39,7 @@ export default function AlertsPage() {
   ]);
   const { token } = useSession();
   const { toast } = useToast();
+  const { locale, t } = useLocale();
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState('all');
   const [unacknowledgedOnly, setUnacknowledgedOnly] = useState(false);
@@ -64,11 +66,11 @@ export default function AlertsPage() {
       setAlerts(alertRows);
     } catch (error: any) {
       console.error('Failed to load alerts', error);
-      toast({ variant: 'destructive', title: 'Alerts Load Failed', description: error.message || 'Could not load site alerts.' });
+      toast({ variant: 'destructive', title: t('Alerts load failed'), description: error.message || t('Could not load site alerts.') });
     } finally {
       if (!opts?.silent) setLoadingData(false);
     }
-  }, [currentUser, siteFilter, unacknowledgedOnly, toast, token]);
+  }, [currentUser, siteFilter, t, toast, token]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
   // Live: an alert raised or acknowledged anywhere in scope refreshes the table instantly (silent so the Refresh
@@ -88,35 +90,35 @@ export default function AlertsPage() {
     setBusy(true);
     try {
       await acknowledgeAlert(token, alertId, note || undefined);
-      toast({ title: 'Alert Acknowledged', description: 'The alert has been marked as handled.' });
+      toast({ title: t('Alert acknowledged'), description: t('The alert has been marked as handled.') });
       await fetchData();
       return true;
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Acknowledge Failed', description: error.message || 'Could not acknowledge alert.' });
+      toast({ variant: 'destructive', title: t('Acknowledge failed'), description: error.message || t('Could not acknowledge alert.') });
       return false;
     } finally {
       setBusy(false);
     }
   };
 
-  if (authLoading || !currentUser) return <div>Loading...</div>;
+  if (authLoading || !currentUser) return <div>{t('Loading…')}</div>;
   if (!isAuthorized) return <UnauthorizedComponent />;
 
   return (
     <div className="space-y-4 md:space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Alerts & Muster</h1>
-          <p className="text-muted-foreground">Monitor site alerts and open the emergency roll-call workspace from one place.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('Alerts & Muster')}</h1>
+          <p className="text-muted-foreground">{t('Monitor site alerts and open the emergency roll-call workspace from one place.')}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Button asChild variant="outline">
-            <Link href="/muster"><Siren className="mr-2 h-4 w-4" />Muster / Roll-call</Link>
+            <Link href="/muster"><Siren className="me-2 h-4 w-4" />{t('Muster / Roll-call')}</Link>
           </Button>
           <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
             <SelectTrigger className="w-full sm:w-[240px]"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Sites</SelectItem>
+              <SelectItem value="all">{t('All sites')}</SelectItem>
               {sites.map((site) => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -124,51 +126,51 @@ export default function AlertsPage() {
             variant={unacknowledgedOnly ? 'default' : 'outline'}
             onClick={() => setUnacknowledgedOnly((value) => !value)}
           >
-            <BellRing className="mr-2 h-4 w-4" />
-            {unacknowledgedOnly ? 'Unacknowledged' : 'All statuses'}
+            <BellRing className="me-2 h-4 w-4" />
+            {unacknowledgedOnly ? t('Unacknowledged') : t('All statuses')}
           </Button>
           <Button variant="outline" disabled={loadingData} onClick={() => void fetchData()}>
-            <RefreshCw className="mr-2 h-4 w-4" />Refresh
+            <RefreshCw className="me-2 h-4 w-4" />{t('Refresh')}
           </Button>
         </div>
       </header>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <SummaryCard icon={ShieldAlert} label="Total Alerts" value={alerts.length} />
-        <SummaryCard icon={BellRing} label="Unacknowledged" value={unacknowledgedCount} />
-        <SummaryCard icon={Siren} label="Critical Unacknowledged" value={criticalCount} />
+        <SummaryCard icon={ShieldAlert} label={t('Total alerts')} value={alerts.length} />
+        <SummaryCard icon={BellRing} label={t('Unacknowledged')} value={unacknowledgedCount} />
+        <SummaryCard icon={Siren} label={t('Critical unacknowledged')} value={criticalCount} />
       </div>
 
       <Card className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Severity</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Site</TableHead>
-              <TableHead className="hidden md:table-cell">Description</TableHead>
-              <TableHead className="hidden lg:table-cell">Occurred (UTC)</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead>{t('Severity')}</TableHead>
+              <TableHead>{t('Type')}</TableHead>
+              <TableHead>{t('Site')}</TableHead>
+              <TableHead className="hidden md:table-cell">{t('Description')}</TableHead>
+              <TableHead className="hidden lg:table-cell">{t('Occurred (UTC)')}</TableHead>
+              <TableHead>{t('Status')}</TableHead>
+              <TableHead className="text-end">{t('Action')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {alerts.length === 0 ? (
-              <EmptyRow colSpan={7} label={loadingData ? 'Loading alerts…' : 'No alerts to display.'} />
+              <EmptyRow colSpan={7} label={loadingData ? t('Loading alerts…') : t('No alerts to display.')} />
             ) : (
               alerts.map((alert) => (
                 <TableRow key={alert.id} className={alert.isAcknowledged ? 'opacity-60' : undefined}>
-                  <TableCell><SeverityBadge severity={alert.severity} /></TableCell>
-                  <TableCell className="font-medium">{alert.eventType}</TableCell>
+                  <TableCell><SeverityBadge severity={alert.severity} label={t(alert.severity)} /></TableCell>
+                  <TableCell className="font-medium">{t(alert.eventType)}</TableCell>
                   <TableCell>{alert.siteName}</TableCell>
                   <TableCell className="hidden max-w-[420px] truncate md:table-cell" title={alert.description}>{alert.description}</TableCell>
-                  <TableCell className="hidden whitespace-nowrap text-muted-foreground lg:table-cell">{new Date(alert.occurredAtUtc).toLocaleString()}</TableCell>
+                  <TableCell className="hidden whitespace-nowrap text-muted-foreground lg:table-cell">{new Date(alert.occurredAtUtc).toLocaleString(locale === 'ar' ? 'ar-OM' : 'en-GB')}</TableCell>
                   <TableCell>
                     {alert.isAcknowledged
-                      ? <span className="text-xs text-success">Acknowledged{alert.acknowledgedByUserName ? ` · ${alert.acknowledgedByUserName}` : ''}</span>
-                      : <span className="inline-flex items-center gap-1 text-xs text-warning"><AlertTriangle className="h-3 w-3" />Open</span>}
+                      ? <span className="text-xs text-success">{t('Acknowledged')}{alert.acknowledgedByUserName ? ` · ${alert.acknowledgedByUserName}` : ''}</span>
+                      : <span className="inline-flex items-center gap-1 text-xs text-warning"><AlertTriangle className="h-3 w-3" />{t('Open')}</span>}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-end">
                     {alert.isAcknowledged
                       ? <span className="text-xs text-muted-foreground">—</span>
                       : <AcknowledgeAlertDialog alert={alert} busy={busy} onAcknowledge={handleAcknowledge} />}
