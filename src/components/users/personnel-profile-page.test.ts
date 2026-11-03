@@ -26,7 +26,9 @@ test('the personnel profile route loads the selected record and supports editing
 });
 
 test('certificate evidence is uploaded beside each certificate rather than in a separate document section', () => {
-  assert.doesNotMatch(source, /<WorkerDocuments/);
+  assert.match(source, /documentTypeFilter="IdDocument"/);
+  assert.match(source, /documentTypeFilter="Photo"/);
+  assert.doesNotMatch(source, /documentTypeFilter="Certificate"/);
 });
 
 test('company-scoped administrators never fall back to an unscoped personnel request', () => {

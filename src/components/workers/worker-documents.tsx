@@ -48,7 +48,7 @@ export function WorkerDocuments({
   const { token, user } = useSession();
   const { toast } = useToast();
   const [documents, setDocuments] = useState<WorkerDocument[]>([]);
-  const [docType, setDocType] = useState('Certificate');
+  const [docType, setDocType] = useState(documentTypeFilter ?? 'Certificate');
   const [certificateTypeId, setCertificateTypeId] = useState('');
   const [busy, setBusy] = useState(false);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
@@ -150,12 +150,12 @@ export function WorkerDocuments({
       <CardContent className="space-y-4">
         {canManage && (
           <div className="flex flex-wrap items-center gap-3">
-            <Select value={docType} onValueChange={setDocType}>
+            {!documentTypeFilter && <Select value={docType} onValueChange={setDocType}>
               <SelectTrigger aria-label="Document type" className="w-[200px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {DOC_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
               </SelectContent>
-            </Select>
+            </Select>}
             {docType === 'Certificate' && (
               <Select value={certificateTypeId} onValueChange={setCertificateTypeId}>
                 <SelectTrigger aria-label="Certificate type for evidence" className="w-[240px]">

@@ -34,6 +34,8 @@ import { useSession } from '@/providers/session-provider';
 import { WorkerCards } from '@/components/workers/worker-cards';
 import { WorkerPositionCompliancePanel } from '@/components/compliance/worker-position-compliance';
 import { WorkerTimeline } from '@/components/workers/worker-timeline';
+import { WorkerDocuments } from '@/components/workers/worker-documents';
+import { WorkerClearance } from '@/components/workers/worker-clearance';
 
 export default function PersonnelProfilePage() {
   const params = useParams<{ id: string }>();
@@ -200,6 +202,9 @@ export default function PersonnelProfilePage() {
 
       {showCompliance && (
         <div className="space-y-6">
+          <WorkerDocuments workerId={user.id} canManage={canEdit} documentTypeFilter="IdDocument" title="Civil ID evidence" description="Upload the Civil ID copy for review. Set its expiry date in the personnel details above." />
+          <WorkerDocuments workerId={user.id} canManage={false} documentTypeFilter="Photo" title="Photo verification" description="Review the uploaded profile photo before issuing a personnel card. Upload or replace the photo from the profile picture above." />
+          <WorkerClearance key={`${user.id}-${user.clearanceStatus}`} workerId={user.id} initialStatus={user.clearanceStatus} />
           <WorkerPositionCompliancePanel workerId={user.id} />
           <WorkerTimeline workerId={user.id} />
         </div>
