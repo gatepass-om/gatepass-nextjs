@@ -137,10 +137,11 @@ export default function PersonnelProfilePage() {
 
   const companyName = resolveUserCompanyName(user, contractors, operators);
   const assignedSiteName = sites.find((site) => site.id === user.assignedSiteId)?.name;
-  const canEdit = canEditUserRecord(['Admin', 'Operator Admin', 'Contractor Admin'].includes(currentUser.role), user.role);
-  const showCompliance = shouldShowWorkerDocuments(user.role)
+  const isChildCompanyPersonnel = currentUser.role === 'Contractor Admin' && user.contractorId !== currentUser.contractorId;
+  const canEdit = !isChildCompanyPersonnel && canEditUserRecord(['Admin', 'Operator Admin', 'Contractor Admin'].includes(currentUser.role), user.role);
+  const showCompliance = !isChildCompanyPersonnel && shouldShowWorkerDocuments(user.role)
     && (canEdit || canReviewWorkerCompliance(currentUser.role, user.role));
-  const showCard = canManageWorkerCard(currentUser.role, user.status);
+  const showCard = !isChildCompanyPersonnel && canManageWorkerCard(currentUser.role, user.status);
 
   return (
     <div className="space-y-6">

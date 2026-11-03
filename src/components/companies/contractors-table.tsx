@@ -39,7 +39,7 @@ interface ContractorsTableProps {
   users: User[];
   accessRequests: AccessRequest[];
   isLoading?: boolean;
-  onRenameContractor?: (contractorId: string, name: string, companyType: ExternalCompanyType, logoUrl?: string, supervisorLimit?: number) => void;
+  onRenameContractor?: (contractorId: string, name: string, companyType: ExternalCompanyType, logoUrl?: string, supervisorLimit?: number | null) => void;
   onDeleteContractor?: (contractorId: string, name: string) => void;
   canManage?: boolean;
   canDelete?: boolean;
@@ -100,6 +100,7 @@ export function ContractorsTable({ title = 'External Companies', description = '
                         {contractor.approvalStatus === 'PendingOperatorApproval' ? 'Pending operator approval' : contractor.approvalStatus ?? 'Approved'}
                       </Badge>
                       {contractor.parentContractorName && <div className="mt-1 text-xs text-muted-foreground">Main: {contractor.parentContractorName}</div>}
+                      {contractor.rejectionReason && <p className="mt-2 max-w-xs whitespace-normal text-sm text-destructive">Reason: {contractor.rejectionReason}</p>}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -227,7 +228,7 @@ export function ContractorsTable({ title = 'External Companies', description = '
             <Button
               onClick={() => {
                 if (!editingContractor) return;
-                onRenameContractor?.(editingContractor.id, editedName.trim(), editedType, editedLogoUrl.trim(), editedSupervisorLimit === '' ? undefined : Number(editedSupervisorLimit));
+                onRenameContractor?.(editingContractor.id, editedName.trim(), editedType, editedLogoUrl.trim(), editedSupervisorLimit === '' ? null : Number(editedSupervisorLimit));
                 setIsEditOpen(false);
               }}
               disabled={!editedName.trim()}

@@ -92,6 +92,7 @@ export default function ContractorDetailPage() {
         </div>
         <Badge variant="outline" className="w-fit">{detail.tenantName ?? detail.tenantId ?? 'No tenant'}</Badge>
       </header>
+      {detail.approvalStatus && <div className="rounded-md border p-4 text-sm"><p className="font-medium">Registration: {detail.approvalStatus.replace(/([a-z])([A-Z])/g, '$1 $2')}</p>{detail.parentContractorName && <p>Main contractor: {detail.parentContractorName}</p>}{detail.rejectionReason && <p className="mt-2 text-destructive">Rejection reason: {detail.rejectionReason}</p>}</div>}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Personnel" value={detail.userCount} icon={Users} />

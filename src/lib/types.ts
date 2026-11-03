@@ -199,6 +199,8 @@ export type Contractor = {
     parentContractorId?: string | null;
     parentContractorName?: string | null;
     approvalStatus?: 'PendingOperatorApproval' | 'Approved' | 'Rejected' | 'Unlinked';
+    operatorId?: string;
+    rejectionReason?: string | null;
 }
 
 export const ExternalCompanyTypeNames = {
@@ -395,6 +397,9 @@ export type OperatorDetail = {
 };
 
 export type ContractorDetail = {
+  approvalStatus?: string;
+  rejectionReason?: string | null;
+  parentContractorName?: string | null;
   id: string;
   tenantId?: string | null;
   tenantName?: string | null;

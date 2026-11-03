@@ -8,7 +8,7 @@ import { useSession } from '@/providers/session-provider';
 import { useToast } from '@/hooks/use-toast';
 import { usePolling } from '@/lib/polling';
 import { useLiveEvents } from '@/hooks/use-live-events';
-import { acknowledgeAlert, fetchAlerts, listSitesRequest, type SiteAlert } from '@/lib/api';
+import { acknowledgeAlert, apiRequest, fetchAlerts, listSitesRequest, type SiteAlert } from '@/lib/api';
 import type { Site } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -47,6 +47,20 @@ export default function AlertsPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [busy, setBusy] = useState(false);
   const siteFilter = selectedSiteId === 'all' ? undefined : selectedSiteId;
+  const [expiryCheckBusy, setExpiryCheckBusy] = useState(false);
+  const [expiryCheckResult, setExpiryCheckResult] = useState('');
+
+  const runExpiryCheck = async () => {
+    if (!token) return;
+    setExpiryCheckBusy(true);
+    try {
+      const counts = await apiRequest<{ certificateAlerts: number; identityAlerts: number; cardAlerts: number; trainingAlerts: number }>('/operations/expiry-alerts/run', { method: 'POST', token });
+      setExpiryCheckResult(`Expiry check complete: ${counts.certificateAlerts} certificate, ${counts.identityAlerts} Civil ID, ${counts.cardAlerts} card and ${counts.trainingAlerts} training alerts created. Previously raised alerts are not duplicated.`);
+      await fetchData({ silent: true });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Expiry check failed', description: error instanceof Error ? error.message : 'Try again.' });
+    } finally { setExpiryCheckBusy(false); }
+  };
 
   const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
     if (!token || !currentUser) return;
@@ -112,6 +126,7 @@ export default function AlertsPage() {
           <p className="text-muted-foreground">{t('Monitor site alerts and open the emergency roll-call workspace from one place.')}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          {currentUser?.role === 'Admin' && <Button variant="outline" disabled={expiryCheckBusy} onClick={() => void runExpiryCheck()}>{expiryCheckBusy ? 'Checking expiry…' : 'Run expiry check'}</Button>}
           <Button asChild variant="outline">
             <Link href="/muster"><Siren className="me-2 h-4 w-4" />{t('Muster / Roll-call')}</Link>
           </Button>
@@ -134,6 +149,7 @@ export default function AlertsPage() {
           </Button>
         </div>
       </header>
+      {expiryCheckResult && <p role="status" className="rounded-md border p-3 text-sm">{expiryCheckResult}</p>}
 
       <div className="grid gap-4 md:grid-cols-3">
         <SummaryCard icon={ShieldAlert} label={t('Total alerts')} value={alerts.length} />

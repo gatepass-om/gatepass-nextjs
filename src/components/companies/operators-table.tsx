@@ -34,7 +34,7 @@ interface OperatorsTableProps {
   users: User[];
   sites: Site[];
   isLoading?: boolean;
-  onRenameOperator?: (operatorId: string, name: string, supervisorLimit?: number) => void;
+  onRenameOperator?: (operatorId: string, name: string, supervisorLimit?: number | null) => void;
   onDeleteOperator?: (operatorId: string, name: string) => void;
   canManage?: boolean;
 }
@@ -187,7 +187,7 @@ export function OperatorsTable({ operators, users, sites, isLoading = false, onR
             <Button
               onClick={() => {
                 if (!editingOperator) return;
-                onRenameOperator?.(editingOperator.id, editedName.trim(), editedSupervisorLimit === '' ? undefined : Number(editedSupervisorLimit));
+                onRenameOperator?.(editingOperator.id, editedName.trim(), editedSupervisorLimit === '' ? null : Number(editedSupervisorLimit));
                 setIsEditOpen(false);
               }}
               disabled={!editedName.trim()}

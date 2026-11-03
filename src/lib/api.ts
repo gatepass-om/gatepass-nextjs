@@ -1904,6 +1904,9 @@ export type AuditLogEntry = {
   id: string;
   actorUserId?: string | null;
   actorRole?: string | null;
+  actorName?: string | null;
+  displaySummary?: string | null;
+  metadataJson?: string | null;
   actionType: string;
   entityType: string;
   entityId?: string | null;

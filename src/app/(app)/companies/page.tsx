@@ -118,7 +118,7 @@ export default function CompaniesPage() {
     }
   };
 
-  const handleRenameOperator = async (operatorId: string, name: string, supervisorLimit?: number) => {
+  const handleRenameOperator = async (operatorId: string, name: string, supervisorLimit?: number | null) => {
     const trimmed = name.trim();
     if (!token || !trimmed) return;
     try {
@@ -131,11 +131,11 @@ export default function CompaniesPage() {
     }
   };
 
-  const handleRenameContractor = async (contractorId: string, name: string, companyType: ExternalCompanyType, logoUrl?: string, supervisorLimit?: number) => {
+  const handleRenameContractor = async (contractorId: string, name: string, companyType: ExternalCompanyType, logoUrl?: string, supervisorLimit?: number | null) => {
     const trimmed = name.trim();
     if (!token || !trimmed) return;
     try {
-      await updateExternalCompanyRequest(token, contractorId, { name: trimmed, companyType, logoUrl, operatorId: currentUser?.operatorId ?? undefined, supervisorLimit });
+      await updateExternalCompanyRequest(token, contractorId, { name: trimmed, companyType, logoUrl, operatorId: currentUser?.operatorId ?? contractors.find((company) => company.id === contractorId)?.operatorId, supervisorLimit });
       toast({ title: "Contractor Updated", description: "Company details have been updated." });
       void fetchData();
     } catch (error: any) {

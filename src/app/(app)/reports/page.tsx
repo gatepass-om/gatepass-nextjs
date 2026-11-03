@@ -13,6 +13,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/providers/locale-provider';
 import { getWorkPassStatusPresentation } from '@/components/projects/project-command-center';
 
+function formatAuditDetails(value: string) {
+  try { return JSON.stringify(JSON.parse(value), null, 2); }
+  catch { return value; }
+}
+
 export default function ReportsPage() {
   const { loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Manager', 'Contractor Admin']);
   const { token, user } = useSession();
@@ -108,7 +113,7 @@ export default function ReportsPage() {
             <Table>
               <TableHeader><TableRow>
                 <TableHead>{t('National ID')}</TableHead><TableHead>{t('Worker')}</TableHead><TableHead>{t('Employer')}</TableHead>
-                <TableHead>{t('Project / site')}</TableHead><TableHead>{t('Job role')}</TableHead><TableHead>{t('Clearance')}</TableHead><TableHead>{t('Access')}</TableHead>
+                <TableHead>{t('Project / site')}</TableHead><TableHead>{t('Job role')}</TableHead><TableHead>{t('Current clearance')}</TableHead><TableHead>{t('Access')}</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {traceability.length === 0 ? <TableRow><TableCell colSpan={7} className="py-10 text-center text-muted-foreground">{t('No project workers match your scope.')}</TableCell></TableRow> : traceability.slice(0, 100).map((row, index) => (
@@ -153,8 +158,8 @@ export default function ReportsPage() {
                     <TableCell className="font-mono text-xs">{e.occurredAtUtc.slice(0, 19).replace('T', ' ')}</TableCell>
                     <TableCell>{e.actionType}</TableCell>
                     <TableCell>{e.entityType}</TableCell>
-                    <TableCell className="max-w-md truncate">{e.summary}</TableCell>
-                    <TableCell className="text-muted-foreground">{e.actorRole ?? '—'}</TableCell>
+                    <TableCell className="max-w-md whitespace-normal"><div>{e.displaySummary ?? e.summary}</div>{e.metadataJson && <details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">Change details</summary><pre className="mt-2 max-w-lg overflow-auto whitespace-pre-wrap">{formatAuditDetails(e.metadataJson)}</pre></details>}</TableCell>
+                    <TableCell className="text-muted-foreground"><div>{e.actorName ?? 'System'}</div><div className="text-xs">{e.actorRole ?? '—'}</div></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
