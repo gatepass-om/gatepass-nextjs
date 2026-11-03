@@ -12,7 +12,7 @@ const navigationItems: NavigationItem[] = [
   { href: '/alerts', label: 'Alerts & Muster', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },
   { href: '/card-verification', label: 'Personnel Scan', roles: ['Admin', 'Manager', 'Security', 'Supervisor', 'Inspector'] },
   { href: '/inspections', label: 'Inspections', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Security', 'Inspector'] },
-  { href: '/companies', label: 'Companies', roles: ['Admin', 'Operator Admin', 'Supervisor'] },
+  { href: '/companies', label: 'Companies', roles: ['Admin', 'Operator Admin', 'Contractor Admin', 'Supervisor'] },
   { href: '/reports', label: 'Reports', roles: ['Admin', 'Operator Admin', 'Manager', 'Contractor Admin'] },
   { href: '/users', label: 'Personnel', roles: ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Supervisor'] },
   { href: '/contractor-user-applications', label: 'User Approvals', roles: ['Admin', 'Operator Admin', 'Manager', 'Contractor Admin'] },

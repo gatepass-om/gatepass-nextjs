@@ -55,11 +55,12 @@ export function WorkerCards({ workerId }: { workerId: string }) {
     ]);
     setCards(cardRows);
     setBranding(cardBranding);
-    const validCard = cardRows.find(card => card.isValid);
-    if (validCard) {
-      setPhotoCropX(validCard.photoCropX);
-      setPhotoCropY(validCard.photoCropY);
-      setPhotoZoom(validCard.photoZoom);
+    const sourceCard = cardRows.find(card => card.isValid)
+      ?? cardRows.find(card => card.status === 'Expired');
+    if (sourceCard) {
+      setPhotoCropX(sourceCard.photoCropX);
+      setPhotoCropY(sourceCard.photoCropY);
+      setPhotoZoom(sourceCard.photoZoom);
     }
     const verifiedPhotos = documents.filter(document =>
       document.documentType === 'Photo'
@@ -75,6 +76,7 @@ export function WorkerCards({ workerId }: { workerId: string }) {
   }, [load]);
 
   const activeCard = cards.find(card => card.isValid);
+  const expiredCard = cards.find(card => card.status === 'Expired');
 
   const mutate = async (operation: () => Promise<unknown>, success: string) => {
     setBusy(true);
@@ -101,6 +103,16 @@ export function WorkerCards({ workerId }: { workerId: string }) {
       photoZoom,
     }),
     'Worker card issued',
+  );
+
+  const handleRenew = () => mutate(
+    () => issueWorkerCard(token!, workerId, {
+      photoDocumentId: photoDocumentId || expiredCard?.photoDocumentId || undefined,
+      photoCropX,
+      photoCropY,
+      photoZoom,
+    }),
+    'Worker card renewed',
   );
 
   const handleReplace = (card: WorkerCard) => mutate(
@@ -189,8 +201,13 @@ export function WorkerCards({ workerId }: { workerId: string }) {
             <RefreshCw className="mr-2 h-4 w-4" /> Refresh
           </Button>
           {!activeCard && (
-            <Button type="button" size="sm" disabled={busy || photos.length === 0} onClick={handleIssue}>
-              Issue card
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy || photos.length === 0}
+              onClick={expiredCard ? handleRenew : handleIssue}
+            >
+              {expiredCard ? 'Renew card' : 'Issue card'}
             </Button>
           )}
           {photos.length === 0 && (

@@ -33,6 +33,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { EXTERNAL_COMPANY_TYPES, externalCompanyTypeLabel, normalizeExternalCompanyType } from '@/components/compliance/compliance-model';
 
 interface ContractorsTableProps {
+  title?: string;
+  description?: string;
   contractors: Contractor[];
   users: User[];
   accessRequests: AccessRequest[];
@@ -46,7 +48,7 @@ interface ContractorsTableProps {
   onRejectSubcontractor?: (contractorId: string) => void;
 }
 
-export function ContractorsTable({ contractors, users, accessRequests, isLoading = false, onRenameContractor, onDeleteContractor, canManage = true, canDelete = canManage, canDecideSubcontractors = false, onApproveSubcontractor, onRejectSubcontractor }: ContractorsTableProps) {
+export function ContractorsTable({ title = 'External Companies', description = 'Contractors and subcontractors connected to an operator. Pending subcontractor registrations require operator approval before activation.', contractors, users, accessRequests, isLoading = false, onRenameContractor, onDeleteContractor, canManage = true, canDelete = canManage, canDecideSubcontractors = false, onApproveSubcontractor, onRejectSubcontractor }: ContractorsTableProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null);
   const [editedName, setEditedName] = useState('');
@@ -65,8 +67,8 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
   return (
     <Card>
       <CardHeader>
-        <CardTitle>External Companies</CardTitle>
-        <CardDescription>Contractors, consultants, vendors, and other third parties connected to an operator.</CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -112,6 +114,7 @@ export function ContractorsTable({ contractors, users, accessRequests, isLoading
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
+                      {canDecideSubcontractors && contractor.approvalStatus === 'PendingOperatorApproval' && <div className="mb-2 flex justify-end gap-2"><Button size="sm" onClick={() => onApproveSubcontractor?.(contractor.id)}>Approve subcontractor</Button><Button size="sm" variant="outline" onClick={() => onRejectSubcontractor?.(contractor.id)}>Reject</Button></div>}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">

@@ -39,6 +39,8 @@ export default function CompaniesPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [isOperatorFormOpen, setIsOperatorFormOpen] = useState(false);
   const [isContractorFormOpen, setIsContractorFormOpen] = useState(false);
+  const [showCompanyApprovals, setShowCompanyApprovals] = useState(false);
+  const [submittedCompany, setSubmittedCompany] = useState('');
 
   const { toast } = useToast();
   const canManageCompanies = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin';
@@ -53,8 +55,8 @@ export default function CompaniesPage() {
         listOperatorsRequest(token),
         listExternalCompaniesRequest(token),
         listUsersRequest(token),
-        listSitesRequest(token),
-        listAccessRequestsRequest(token),
+        currentUser.role === 'Contractor Admin' ? Promise.resolve([]) : listSitesRequest(token),
+        listAccessRequestsRequest(token).catch(() => []),
       ]);
 
       setOperators(operatorsData as Operator[]);
@@ -104,7 +106,9 @@ export default function CompaniesPage() {
           adminEmail: input.adminEmail ?? '',
         });
       }
-      toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} Created`, description: `Company "${trimmed}" has been added.` });
+      const isRegistrationRequest = currentUser?.role === 'Contractor Admin' && type === 'contractor';
+      toast({ title: isRegistrationRequest ? 'Registration request submitted' : `${type.charAt(0).toUpperCase() + type.slice(1)} Created`, description: isRegistrationRequest ? `"${trimmed}" is awaiting operator approval. The company and administrator remain inactive until approved.` : `Company "${trimmed}" has been added.` });
+      if (isRegistrationRequest) { setShowCompanyApprovals(true); setSubmittedCompany(trimmed); }
       void fetchData();
       return true;
     } catch (error: any) {
@@ -196,7 +200,7 @@ export default function CompaniesPage() {
           <p className="text-muted-foreground">
             {canManageCompanies
               ? 'Overview of operators and all connected contractor companies.'
-              : 'Contractors and consultants registered for your operator.'}
+              : 'Request subcontractor registration and track operator approval before company activation.'}
           </p>
         </div>
         {canRegisterExternalCompany && (
@@ -207,11 +211,12 @@ export default function CompaniesPage() {
             </Button>}
             <Button onClick={() => setIsContractorFormOpen(true)}>
               <HardHat className="mr-2 h-4 w-4" />
-              New contractor
+              {currentUser.role === 'Contractor Admin' ? 'Request subcontractor registration' : 'Register company'}
             </Button>
           </div>
         )}
       </header>
+      {submittedCompany && <div role="status" className="rounded-md border bg-muted/30 p-4"><p className="font-medium">Registration request submitted: {submittedCompany}</p><p className="mt-1 text-sm text-muted-foreground">Awaiting operator approval. The company and proposed administrator remain inactive. Track the decision in Registration requests.</p></div>}
 
       {canRegisterExternalCompany && (
         <>
@@ -234,7 +239,8 @@ export default function CompaniesPage() {
       )}
 
       <div className="space-y-6">
-        {canManageCompanies && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Company views"><Button variant={showCompanyApprovals ? 'outline' : 'default'} aria-pressed={!showCompanyApprovals} onClick={() => setShowCompanyApprovals(false)}>Company directory</Button><Button variant={showCompanyApprovals ? 'default' : 'outline'} aria-pressed={showCompanyApprovals} onClick={() => setShowCompanyApprovals(true)}>{canManageCompanies ? 'Company approvals' : 'Registration requests'} ({contractors.filter((company) => company.approvalStatus === 'PendingOperatorApproval').length} pending)</Button></div>
+        {canManageCompanies && !showCompanyApprovals && (
 	        <OperatorsTable
 	            operators={operators}
 	            users={users}
@@ -246,7 +252,9 @@ export default function CompaniesPage() {
 	        />
         )}
 	        <ContractorsTable
-	            contractors={contractors}
+              title={showCompanyApprovals ? (canManageCompanies ? 'Company approvals' : 'Registration requests') : 'External Companies'}
+              description={showCompanyApprovals ? (canManageCompanies ? 'Review subcontractor registration requests. Approval activates the company and invites its administrator; rejection requires a reason.' : 'Track your subcontractor requests. Pending companies and their administrators remain inactive until the operator approves.') : undefined}
+	            contractors={showCompanyApprovals ? contractors.filter((company) => company.approvalStatus === 'PendingOperatorApproval' || company.approvalStatus === 'Rejected') : contractors}
 	            users={users}
 	            accessRequests={requests}
 	            isLoading={loadingData}

@@ -198,7 +198,7 @@ export type Contractor = {
     supervisorLimit?: number | null;
     parentContractorId?: string | null;
     parentContractorName?: string | null;
-    approvalStatus?: 'PendingOperatorApproval' | 'Approved' | 'Rejected';
+    approvalStatus?: 'PendingOperatorApproval' | 'Approved' | 'Rejected' | 'Unlinked';
 }
 
 export const ExternalCompanyTypeNames = {

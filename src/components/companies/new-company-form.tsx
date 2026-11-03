@@ -67,10 +67,18 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
     });
 
     const typeCapitalized = companyType.charAt(0).toUpperCase() + companyType.slice(1);
+    const wizardSteps = ['Company details', 'Contract details', 'Admin details', 'Review & submit'];
+
+    function closeForm() {
+        if (submitting) return;
+        form.reset(); setStep(0); setExternalType(subcontractorRegistrationOnly ? 4 : 1);
+        onOpenChange(false);
+    }
 
     async function onSubmit(values: FormValues) {
+        if (companyType === 'contractor' && step < 3) { await advance(); return; }
         if (companyType === 'contractor') {
-            if (!subcontractorRegistrationOnly && !currentOperatorId && !values.operatorId) {
+            if (!currentOperatorId && !values.operatorId) {
                 form.setError('operatorId', { message: 'Select the operator registering this company.' });
                 return;
             }
@@ -101,7 +109,7 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
                 name: values.name,
                 logoUrl: values.logoUrl?.trim() || undefined,
                 type: companyType,
-                externalType: companyType === 'contractor' ? externalType : undefined,
+                externalType: companyType === 'contractor' ? (subcontractorRegistrationOnly ? 4 : externalType) : undefined,
                 operatorId: currentOperatorId || values.operatorId || undefined,
                 contractNumber: values.contractNumber?.trim(),
                 contractValidFromUtc: values.contractValidFrom ? new Date(`${values.contractValidFrom}T00:00:00Z`).toISOString() : undefined,
@@ -111,6 +119,8 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
             });
             if (result !== false) {
                 form.reset();
+                setStep(0);
+                setExternalType(subcontractorRegistrationOnly ? 4 : 1);
                 onOpenChange(false);
             }
         } finally {
@@ -120,7 +130,7 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
 
     async function advance() {
         if (step === 0) {
-            const nameValid = await form.trigger('name');
+            const nameValid = await form.trigger(['name', 'logoUrl']);
             if (!currentOperatorId && !form.getValues('operatorId')) {
                 form.setError('operatorId', { message: 'Select the operator registering this company.' });
                 return;
@@ -128,12 +138,21 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
             if (!nameValid) return;
         }
         if (step === 1) {
+            form.clearErrors(['contractNumber', 'contractValidFrom', 'contractValidTo']);
             const start = form.getValues('contractValidFrom');
             const end = form.getValues('contractValidTo');
             if (!form.getValues('contractNumber')?.trim()) form.setError('contractNumber', { message: 'Contract number is required.' });
             if (!start) form.setError('contractValidFrom', { message: 'Contract start date is required.' });
             if (!end || (start && end <= start)) form.setError('contractValidTo', { message: 'Contract end date must be after the start date.' });
             if (!form.getValues('contractNumber')?.trim() || !start || !end || end <= start) return;
+        }
+        if (step === 2) {
+            form.clearErrors(['adminName', 'adminEmail']);
+            const name = form.getValues('adminName')?.trim();
+            const email = form.getValues('adminEmail')?.trim();
+            if (!name) form.setError('adminName', { message: 'Administrator name is required.' });
+            if (!email || !z.string().email().safeParse(email).success) form.setError('adminEmail', { message: 'Enter a valid administrator email.' });
+            if (!name || !email || !z.string().email().safeParse(email).success) return;
         }
         setStep((current) => current + 1);
     }
@@ -142,15 +161,15 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
         <Dialog
             open={open}
             onOpenChange={(next) => {
-                if (!next) { form.reset(); setExternalType(1); setStep(0); }
-                onOpenChange(next);
+                if (!next) closeForm();
+                else onOpenChange(next);
             }}
         >
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>Add New {companyType === 'contractor' ? 'Contractor' : typeCapitalized}</DialogTitle>
-                    <DialogDescription>{companyType === 'contractor' ? 'Register a contractor, consultant, vendor, or other third-party company.' : 'Create a new operator company record.'}</DialogDescription>
-                    {companyType === 'contractor' && <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-medium">{['Company details', 'Contract details', 'Admin details'].map((label, index) => <div key={label} className={index === step ? 'text-foreground' : 'text-muted-foreground'}><div className={`mb-1 h-1 rounded-full ${index <= step ? 'bg-primary' : 'bg-muted'}`} />{label}</div>)}</div>}
+                    <DialogTitle>{subcontractorRegistrationOnly ? 'Request subcontractor registration' : `Add New ${companyType === 'contractor' ? 'Contractor' : typeCapitalized}`}</DialogTitle>
+                    <DialogDescription>{subcontractorRegistrationOnly ? 'Submit the company, contract and proposed administrator for operator approval. The company and administrator remain inactive until approved.' : companyType === 'contractor' ? 'Register a contractor, consultant, vendor, or other third-party company.' : 'Create a new operator company record.'}</DialogDescription>
+                    {companyType === 'contractor' && <ol aria-label="Registration progress" className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">{wizardSteps.map((label, index) => <li key={label} aria-current={index === step ? 'step' : undefined} className={index === step ? 'font-semibold text-primary' : 'text-muted-foreground'}>{index + 1}. {label}</li>)}</ol>}
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -159,7 +178,7 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>{typeCapitalized} Name</FormLabel>
+                                    <FormLabel>{subcontractorRegistrationOnly ? 'Subcontractor company name' : `${typeCapitalized} Name`}</FormLabel>
                                     <FormControl>
                                         <Input placeholder={`e.g., ${typeCapitalized} Inc.`} {...field} />
                                     </FormControl>
@@ -179,7 +198,7 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
                                 <FormField control={form.control} name="logoUrl" render={({ field }) => (
                                     <FormItem><FormLabel>Contractor logo URL</FormLabel><FormControl><Input type="url" placeholder="https://company.example/logo.png" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
-                                {!subcontractorRegistrationOnly && !currentOperatorId && (
+                                {!currentOperatorId && (
                                     <FormField control={form.control} name="operatorId" render={({ field }) => (
                                         <FormItem><FormLabel>Register for operator</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select operator" /></SelectTrigger></FormControl><SelectContent>{operators.map((operator) => <SelectItem key={operator.id} value={operator.id}>{operator.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                                     )} />
@@ -213,22 +232,30 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
                                             <FormItem><FormLabel>Administrator email</FormLabel><FormControl><Input type="email" autoComplete="email" placeholder="admin@company.com" {...field} /></FormControl><FormMessage /></FormItem>
                                         )} />
                                     </div>
-                                    <p className="mt-3 text-xs text-muted-foreground">GatePass sends a secure activation invitation after registration.</p>
+                                    <p className="mt-3 text-sm text-muted-foreground">{subcontractorRegistrationOnly ? 'This is the proposed administrator. An activation invitation is sent only after the operator approves the company request.' : 'GatePass sends a secure activation invitation after registration.'}</p>
                                 </div>
                         )}
-                        <DialogFooter>
+                        {companyType === 'contractor' && step === 3 && <section aria-label="Review registration request" className="space-y-5">
+                            <h3 className="font-semibold">Review before submitting</h3>
+                            <dl className="grid gap-4 text-sm sm:grid-cols-2">
+                                {[['Company', form.getValues('name')], ['Operator', operators.find((operator) => operator.id === (currentOperatorId || form.getValues('operatorId')))?.name || 'Your operator'], ['Relationship', subcontractorRegistrationOnly ? 'Subcontractor' : EXTERNAL_COMPANY_TYPES.find((type) => type.value === externalType)?.label], ['Contract number', form.getValues('contractNumber')], ['Contract period', `${form.getValues('contractValidFrom')} to ${form.getValues('contractValidTo')}`], ['Proposed administrator', form.getValues('adminName')], ['Administrator email', form.getValues('adminEmail')]].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>)}
+                            </dl>
+                            {subcontractorRegistrationOnly && <p className="rounded-md bg-muted p-4 text-sm">Your request will be sent to the selected operator for approval. The subcontractor cannot register personnel or receive project access before approval. Its administrator will receive an activation invitation after approval.</p>}
+                        </section>}
+                        <DialogFooter className="border-t pt-4">
                             <Button
                                 type="button"
                                 variant="ghost"
-                                onClick={() => onOpenChange(false)}
+                                onClick={closeForm}
                                 disabled={submitting}
                             >
                                 Cancel
                             </Button>
                             {companyType === 'contractor' && step > 0 && <Button type="button" variant="outline" onClick={() => setStep((current) => current - 1)} disabled={submitting}>Back</Button>}
-                            {companyType === 'contractor' && step < 2 ? <Button type="button" onClick={() => void advance()}>Next</Button> : <Button type="submit" disabled={submitting}>
+                            {companyType === 'contractor' && <span className="self-center text-sm text-muted-foreground">Step {step + 1} of 4</span>}
+                            {companyType === 'contractor' && step < 3 ? <Button key="next" type="button" onClick={(event) => { event.preventDefault(); void advance(); }}>Next</Button> : <Button key="submit" type="submit" disabled={submitting}>
                                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {companyType === 'contractor' ? 'Register company & invite admin' : `Add ${typeCapitalized}`}
+                                {subcontractorRegistrationOnly ? 'Submit registration request' : companyType === 'contractor' ? 'Register company & invite admin' : `Add ${typeCapitalized}`}
                             </Button>}
                         </DialogFooter>
                     </form>

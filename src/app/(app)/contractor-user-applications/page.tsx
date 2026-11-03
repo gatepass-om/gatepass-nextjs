@@ -1,12 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { cloneElement, isValidElement, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import Link from 'next/link';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from '@/providers/session-provider';
@@ -77,27 +79,38 @@ export default function ContractorUserApplicationsPage() {
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [step, setStep] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const steps = ['Assignment', 'Personal details', 'Employment', 'Documents & review'];
   const canCreate = currentUser?.role === 'Contractor Admin' || currentUser?.role === 'Admin';
   const canDecide = ['Admin', 'Operator Admin', 'Manager'].includes(currentUser?.role ?? '');
   const canConfigure = ['Admin', 'Operator Admin'].includes(currentUser?.role ?? '');
 
   const reload = useCallback(async () => {
     if (!token) return;
+    setLoadingData(true); setLoadError('');
+    try {
     const [applicationPage, operatorRows, contractorRows, siteRows] = await Promise.all([
-      listContractorUserApplications(token, page, 20), listOperatorsRequest(token), listContractorsRequest(token), listSitesRequest(token),
+      listContractorUserApplications(token, page, 20), listOperatorsRequest(token), listContractorsRequest(token),
+      currentUser?.role === 'Contractor Admin' ? Promise.resolve([]) : listSitesRequest(token),
     ]);
     setItems(applicationPage.items);
     setTotalPages(applicationPage.totalPages);
     setTotalCount(applicationPage.totalCount);
     setOperators(operatorRows as Operator[]);
     setContractors(contractorRows as Contractor[]);
-    setSites(siteRows as Site[]);
+    setSites(siteRows.map((site: any) => ({ ...site, operatorId: site.operator?.id ?? site.operatorId ?? '' })) as Site[]);
     setForm((current) => ({
       ...current,
       operatorId: current.operatorId || currentUser?.operatorId || operatorRows[0]?.id || '',
       contractorId: current.contractorId || currentUser?.contractorId || contractorRows[0]?.id || '',
     }));
-  }, [token, currentUser?.operatorId, currentUser?.contractorId, page]);
+    } catch (error) { setLoadError(error instanceof Error ? error.message : 'Could not load applications.'); throw error; }
+    finally { setLoadingData(false); }
+  }, [token, currentUser?.operatorId, currentUser?.contractorId, currentUser?.role, page]);
 
   useEffect(() => { void reload().catch((error) => toast({ variant: 'destructive', title: 'Could not load applications', description: error instanceof Error ? error.message : 'Try again.' })); }, [reload, toast]);
   const eligibleSites = useMemo(() => sites.filter((site) => !form.operatorId || site.operatorId === form.operatorId), [sites, form.operatorId]);
@@ -110,6 +123,13 @@ export default function ContractorUserApplicationsPage() {
   }, [token, form.operatorId, form.contractorId, toast, t]);
 
   const update = (key: keyof FormState, value: string | boolean) => setForm((current) => ({ ...current, [key]: value }));
+  const nextStep = () => {
+    const fields: (keyof FormState)[][] = [['operatorId', 'contractorId', 'location'], ['firstName', 'lastName', 'email', 'phone', 'civilId', 'position', 'contractorRepresentativeName'], ['assetType', 'assetSubClass', 'directorate', 'department', 'contractorType', 'employeeType', 'civilIdExpiresAtUtc']];
+    if (fields[step]?.some((key) => !String(form[key]).trim())) { toast({ variant: 'destructive', title: 'Complete this step', description: 'Fill in the required fields before continuing.' }); return; }
+    if (step === 1 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { toast({ variant: 'destructive', title: 'Enter a valid email address' }); return; }
+    if (step === 2 && new Date(form.civilIdExpiresAtUtc).getTime() <= Date.now()) { toast({ variant: 'destructive', title: 'Civil ID must have a future expiry date' }); return; }
+    setStep((value) => Math.min(3, value + 1));
+  };
 
   const createAndSubmit = async () => {
     const editingApplication = items.find((item) => item.id === editingId);
@@ -140,6 +160,7 @@ export default function ContractorUserApplicationsPage() {
       await submitContractorUserApplication(token, saved.id, true);
       setForm({ ...emptyForm, operatorId: form.operatorId, contractorId: form.contractorId });
       setEditingId(null);
+      setFormOpen(false); setStep(0);
       setCivilIdFile(null); setCertificateFile(null);
       await reload();
       toast({ title: 'Application submitted', description: 'The NAMA reviewer queue has been notified.' });
@@ -150,6 +171,7 @@ export default function ContractorUserApplicationsPage() {
   };
 
   const startEdit = (item: ContractorUserApplication) => {
+    setCivilIdFile(null); setCertificateFile(null);
     setEditingId(item.id);
     setForm({
       operatorId: item.operatorId, contractorId: item.contractorId, assignedSiteId: item.assignedSiteId ?? '',
@@ -161,7 +183,7 @@ export default function ContractorUserApplicationsPage() {
       approvedAccountExpiresAtUtc: item.approvedAccountExpiresAtUtc?.slice(0, 10) ?? '', isSme: item.isSme, declarationAccepted: false,
       supervisorUserId: item.supervisorUserId ?? '', reviewerUserId: item.reviewerUserId ?? '',
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setStep(0); setFormOpen(true);
   };
 
   const withdraw = async (item: ContractorUserApplication) => {
@@ -206,7 +228,10 @@ export default function ContractorUserApplicationsPage() {
   return <div className="space-y-6 p-4 md:p-6">
     <div><h1 className="text-2xl font-semibold">{t('Contractor user approvals', 'اعتمادات مستخدمي المقاولين')}</h1><p className="text-sm text-muted-foreground">{t('Contractor login accounts are created only after NAMA review and independent final approval.', 'لا يتم إنشاء حسابات المقاولين إلا بعد مراجعة نماء والموافقة النهائية المستقلة.')}</p></div>
 
-    {canConfigure && form.operatorId && <Card>
+    <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="link" asChild><Link href="/companies">Companies & subcontractor approvals</Link></Button><div className="flex gap-2">{canConfigure && <Button variant="outline" onClick={() => setSettingsOpen((value) => !value)}>Application settings</Button>}{canCreate && <Button disabled={loadingData || !!loadError || !operators.length} onClick={() => { setEditingId(null); setForm({ ...emptyForm, operatorId: operators[0]?.id ?? '', contractorId: currentUser?.contractorId || contractors[0]?.id || '' }); setCivilIdFile(null); setCertificateFile(null); setStep(0); setFormOpen(true); }}>New user application</Button>}</div></div>
+    {loadError && <div role="alert" className="rounded-md border border-destructive p-4 text-sm">{loadError}<Button className="ml-3" variant="outline" onClick={() => void reload().catch(() => undefined)}>Retry</Button></div>}
+    {!loadingData && !loadError && canCreate && !operators.length && <p role="status" className="rounded-md border p-4 text-sm">No approved operator is available for this account. Check your company relationship in Companies.</p>}
+    {canConfigure && settingsOpen && form.operatorId && <Card>
       <CardHeader><CardTitle>{t('Operator application options', 'خيارات طلبات المشغل')}</CardTitle><CardDescription>{t('Control the approved choices shown to contractor administrators.', 'تحكم في الخيارات المعتمدة التي تظهر لمسؤولي المقاولين.')}</CardDescription></CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-2">
         {configurableOptionKeys.map((key) => <Field key={key} label={key.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase())}><Textarea value={options[key].join('\n')} onChange={(event) => setOptions((current) => ({ ...current, [key]: event.target.value.split(/\n|,/).map((value) => value.trim()).filter(Boolean) }))} /></Field>)}
@@ -214,13 +239,17 @@ export default function ContractorUserApplicationsPage() {
       </CardContent>
     </Card>}
 
-    {canCreate && <Card>
-      <CardHeader><CardTitle>{editingId ? t('Correct returned application', 'تصحيح الطلب المعاد') : t('New contractor-user application', 'طلب مستخدم مقاول جديد')}</CardTitle><CardDescription>{t('Complete the NAMA pilot fields, attach evidence, and affirm the submission.', 'أكمل حقول تجربة نماء وأرفق المستندات وأكد صحة الطلب.')}</CardDescription></CardHeader>
-      <CardContent className="grid gap-4 md:grid-cols-3">
-        <Field label="Operator"><select className="h-10 w-full rounded-md border bg-background px-3" value={form.operatorId} onChange={(event) => update('operatorId', event.target.value)}>{operators.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></Field>
+    {canCreate && <Dialog open={formOpen} onOpenChange={setFormOpen}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{editingId ? 'Correct returned application' : 'New user application'}</DialogTitle><DialogDescription>Complete each step, then review and submit for approval.</DialogDescription></DialogHeader>
+      <ol aria-label="Application progress" className="grid grid-cols-2 gap-3 border-b pb-4 sm:grid-cols-4">{steps.map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined} className={`text-sm ${step === index ? 'font-semibold text-primary' : 'text-muted-foreground'}`}>{index + 1}. {label}</li>)}</ol>
+      <div>
+      <div className="space-y-5">
+      <fieldset hidden={step !== 0} style={{ display: step === 0 ? undefined : 'none' }} className="grid gap-4 sm:grid-cols-2"><legend className="mb-4 font-semibold">Assignment</legend>
+        {operators.length === 1 ? <div className="text-sm"><span className="text-muted-foreground">Operator</span><p className="mt-2 font-medium">{operators[0].name}</p></div> : <Field label="Operator"><select aria-label="Operator" disabled={!!editingId} className="h-10 w-full rounded-md border bg-background px-3" value={form.operatorId} onChange={(event) => setForm((current) => ({ ...current, operatorId: event.target.value, assignedSiteId: '', location: '', reviewerUserId: '' }))}>{operators.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></Field>}
         <Field label="Contractor company"><select className="h-10 w-full rounded-md border bg-background px-3" value={form.contractorId} disabled={currentUser?.role === 'Contractor Admin'} onChange={(event) => update('contractorId', event.target.value)}>{contractors.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></Field>
-        <Field label="Location"><select className="h-10 w-full rounded-md border bg-background px-3" value={form.assignedSiteId} onChange={(event) => { update('assignedSiteId', event.target.value); update('location', eligibleSites.find((site) => site.id === event.target.value)?.name ?? ''); }}><option value="">Select location</option>{eligibleSites.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></Field>
+        {currentUser?.role === 'Contractor Admin' ? <Field label="Location"><Input aria-label="Location" value={form.location} placeholder="Project or site location" onChange={(event) => update('location', event.target.value)} /></Field> : <Field label="Location"><select className="h-10 w-full rounded-md border bg-background px-3" value={form.assignedSiteId} onChange={(event) => { update('assignedSiteId', event.target.value); update('location', eligibleSites.find((site) => site.id === event.target.value)?.name ?? ''); }}><option value="">Select location</option>{eligibleSites.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></Field>}
+      </fieldset><fieldset hidden={step !== 1} style={{ display: step === 1 ? undefined : 'none' }} className="grid gap-4 sm:grid-cols-2"><legend className="mb-4 font-semibold">Personal details</legend>
         {(['firstName','lastName','email','phone','civilId','position','contractorRepresentativeName'] as const).map((key) => <Field key={key} label={key.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase())}><Input type={key === 'email' ? 'email' : 'text'} value={form[key]} onChange={(event) => update(key, event.target.value)} required /></Field>)}
+      </fieldset><fieldset hidden={step !== 2} style={{ display: step === 2 ? undefined : 'none' }} className="grid gap-4 sm:grid-cols-2"><legend className="mb-4 font-semibold">Employment & classification</legend>
         <ConfiguredSelect label="Asset type" value={form.assetType} values={options.assetTypes} onChange={(value) => update('assetType', value)} />
         <ConfiguredSelect label="Asset sub class" value={form.assetSubClass} values={options.assetSubClasses} onChange={(value) => update('assetSubClass', value)} />
         <ConfiguredSelect label="Directorate" value={form.directorate} values={options.directorates} onChange={(value) => update('directorate', value)} />
@@ -231,6 +260,8 @@ export default function ContractorUserApplicationsPage() {
         <Field label="Requested role"><select className="h-10 w-full rounded-md border bg-background px-3" value={form.requestedRole} onChange={(event) => update('requestedRole', event.target.value)}><option value="ContractorAdmin">Contractor Admin</option><option value="Supervisor">Supervisor</option><option value="Worker">Worker</option></select></Field>
         <Field label={t('Supervisor (optional)', 'المشرف (اختياري)')}><select className="h-10 w-full rounded-md border bg-background px-3" value={form.supervisorUserId} onChange={(event) => update('supervisorUserId', event.target.value)}><option value="">{t('No supervisor', 'بدون مشرف')}</option>{options.supervisorCandidates.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></Field>
         <Field label={t('NAMA reviewer', 'مراجع نماء')}><select className="h-10 w-full rounded-md border bg-background px-3" value={form.reviewerUserId} onChange={(event) => update('reviewerUserId', event.target.value)}><option value="">{t('Any available manager', 'أي مدير متاح')}</option>{options.reviewerCandidates.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></Field>
+      </fieldset><fieldset hidden={step !== 3} style={{ display: step === 3 ? undefined : 'none' }} className="grid gap-4 sm:grid-cols-2"><legend className="mb-4 font-semibold">Documents & review</legend>
+        <div className="rounded-md bg-muted p-3 text-sm sm:col-span-2"><p className="font-medium">{form.firstName} {form.lastName} · {form.position}</p><p>{form.email} · {form.location}</p><p>{operators.find((row) => row.id === form.operatorId)?.name} / {contractors.find((row) => row.id === form.contractorId)?.name}</p><p>Civil ID: {form.civilId} · Expires {form.civilIdExpiresAtUtc}</p></div>
         <Field label="Certificate expiry (if applicable)"><Input type="date" value={form.certificateExpiresAtUtc} onChange={(event) => update('certificateExpiresAtUtc', event.target.value)} /></Field>
         <Field label="Approved account expiry (optional)"><Input type="date" value={form.approvedAccountExpiresAtUtc} onChange={(event) => update('approvedAccountExpiresAtUtc', event.target.value)} /></Field>
         <Field label="Civil ID evidence"><Input type="file" accept=".pdf,image/*" onChange={(event) => setCivilIdFile(event.target.files?.[0] ?? null)} required /></Field>
@@ -238,9 +269,10 @@ export default function ContractorUserApplicationsPage() {
         <Field label="Remarks"><Textarea value={form.remarks} onChange={(event) => update('remarks', event.target.value)} /></Field>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isSme} onChange={(event) => update('isSme', event.target.checked)} /> SME contractor</label>
         <label className="flex items-start gap-2 text-sm md:col-span-2"><input className="mt-1" type="checkbox" checked={form.declarationAccepted} onChange={(event) => update('declarationAccepted', event.target.checked)} /><span>I affirm that all information and documents submitted are complete, correct and true.</span></label>
-        <div className="flex gap-2 md:col-span-3"><Button disabled={busy} onClick={createAndSubmit}>{busy ? 'Submitting…' : editingId ? 'Update and resubmit' : 'Submit for NAMA review'}</Button>{editingId && <Button variant="outline" onClick={() => { setEditingId(null); setForm({ ...emptyForm, operatorId: form.operatorId, contractorId: form.contractorId }); }}>Cancel edit</Button>}</div>
-      </CardContent>
-    </Card>}
+      </fieldset>
+        <div className="flex items-center justify-between border-t pt-4"><Button variant="outline" disabled={busy} onClick={() => step ? setStep((value) => value - 1) : setFormOpen(false)}>{step ? 'Back' : 'Cancel'}</Button><span className="text-sm text-muted-foreground">Step {step + 1} of 4</span>{step < 3 ? <Button onClick={nextStep}>Continue</Button> : <Button disabled={busy} onClick={createAndSubmit}>{busy ? 'Submitting…' : editingId ? 'Update and resubmit' : 'Submit for NAMA review'}</Button>}</div>
+      </div></div>
+    </DialogContent></Dialog>}
 
     <Card><CardHeader><CardTitle>{t('Applications', 'الطلبات')}</CardTitle><CardDescription>{totalCount} {t(totalCount === 1 ? 'application' : 'applications', 'طلب')} {t('in your scope', 'ضمن نطاقك')}</CardDescription></CardHeader><CardContent className="space-y-3">
       {items.length === 0 && <p className="text-sm text-muted-foreground">No contractor-user applications yet.</p>}
@@ -261,7 +293,8 @@ export default function ContractorUserApplicationsPage() {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-1.5"><Label>{label}</Label>{children}</div>;
+  const id = useId();
+  return <div className="space-y-1.5"><Label htmlFor={id}>{label}</Label>{isValidElement(children) ? cloneElement(children as React.ReactElement<{ id?: string }>, { id }) : children}</div>;
 }
 
 function ConfiguredSelect({ label, value, values, onChange }: { label: string; value: string; values: string[]; onChange: (value: string) => void }) {
