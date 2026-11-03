@@ -147,6 +147,8 @@ export default function ContractorUserApplicationsPage() {
       const payload = {
         ...form,
         assignedSiteId: form.assignedSiteId || undefined,
+        supervisorUserId: form.supervisorUserId || undefined,
+        reviewerUserId: form.reviewerUserId || undefined,
         certificateExpiresAtUtc: form.certificateExpiresAtUtc ? new Date(form.certificateExpiresAtUtc).toISOString() : undefined,
         approvedAccountExpiresAtUtc: form.approvedAccountExpiresAtUtc ? new Date(form.approvedAccountExpiresAtUtc).toISOString() : undefined,
         civilIdExpiresAtUtc: new Date(form.civilIdExpiresAtUtc).toISOString(),
