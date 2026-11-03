@@ -37,6 +37,7 @@ export default function CompaniesPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [isOperatorFormOpen, setIsOperatorFormOpen] = useState(false);
   const [isContractorFormOpen, setIsContractorFormOpen] = useState(false);
   const [showCompanyApprovals, setShowCompanyApprovals] = useState(false);
@@ -51,32 +52,44 @@ export default function CompaniesPage() {
     if (!options?.silent) setLoadingData(true);
 
     try {
-      const [operatorsData, contractorsData, usersData, sitesData, requestData] = await Promise.all([
+      const [operatorsData, contractorsData, usersData, sitesData, requestData] = await Promise.allSettled([
         listOperatorsRequest(token),
         listExternalCompaniesRequest(token),
         listUsersRequest(token),
         currentUser.role === 'Contractor Admin' ? Promise.resolve([]) : listSitesRequest(token),
-        listAccessRequestsRequest(token).catch(() => []),
+        listAccessRequestsRequest(token),
       ]);
 
-      setOperators(operatorsData as Operator[]);
-      setContractors(contractorsData as Contractor[]);
-      setUsers(usersData as User[]);
-      setSites((sitesData as any[]).map((site) => ({
+      const failedSections: string[] = [];
+      function applyLoaded<T>(result: PromiseSettledResult<T>, section: string, onLoaded: (value: T) => void) {
+        if (result.status === 'fulfilled') onLoaded(result.value);
+        else {
+          failedSections.push(section);
+          console.error(`Failed to load company ${section}`, result.reason);
+        }
+      }
+      applyLoaded(operatorsData, 'operators', (data) => setOperators(data as Operator[]));
+      applyLoaded(contractorsData, 'registrations', (data) => setContractors(data as Contractor[]));
+      applyLoaded(usersData, 'personnel', (data) => setUsers(data as User[]));
+      applyLoaded(sitesData, 'sites', (data) => setSites((data as any[]).map((site) => ({
         id: site.id,
         name: site.name,
         operatorId: site.operator?.id ?? site.operatorId ?? '',
         managerIds: site.managerIds ?? [],
         requiredCertificates: site.requiredCertificates ?? [],
-      })));
-      setRequests(requestData as AccessRequest[]);
+      }))));
+      applyLoaded(requestData, 'access requests', (data) => setRequests(data as AccessRequest[]));
+      const message = failedSections.length ? `Could not load ${failedSections.join(', ')}. Successfully loaded company data remains available.` : '';
+      setLoadError(message);
+      if (message && !options?.silent) toast({ variant: 'destructive', title: 'Some company data is unavailable', description: message });
     } catch (error) {
       console.error('Failed to load companies data', error);
+      setLoadError('Could not load company data. Please retry.');
       toast({ variant: "destructive", title: "Loading Failed", description: "Could not load company data." });
     } finally {
       if (!options?.silent) setLoadingData(false);
     }
-  }, [token, currentUser?.id, toast]);
+  }, [token, currentUser?.id, currentUser?.role, toast]);
 
   useEffect(() => {
     void fetchData();
@@ -209,13 +222,15 @@ export default function CompaniesPage() {
               <Building2 className="mr-2 h-4 w-4" />
               New operator
             </Button>}
-            <Button onClick={() => setIsContractorFormOpen(true)}>
+            <Button disabled={loadingData || (!currentUser.operatorId && operators.length === 0)} onClick={() => setIsContractorFormOpen(true)}>
               <HardHat className="mr-2 h-4 w-4" />
               {currentUser.role === 'Contractor Admin' ? 'Request subcontractor registration' : 'Register company'}
             </Button>
           </div>
         )}
       </header>
+      {loadError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 p-4"><p className="text-sm">{loadError}</p><Button variant="outline" disabled={loadingData} onClick={() => void fetchData()}>Retry company data</Button></div>}
+      {!loadingData && !loadError && canRegisterExternalCompany && !currentUser.operatorId && operators.length === 0 && <p role="status" className="rounded-md border p-4 text-sm">No approved operator is linked to your company. An operator must approve the company relationship before you can register a subcontractor.</p>}
       {submittedCompany && <div role="status" className="rounded-md border bg-muted/30 p-4"><p className="font-medium">Registration request submitted: {submittedCompany}</p><p className="mt-1 text-sm text-muted-foreground">Awaiting operator approval. The company and proposed administrator remain inactive. Track the decision in Registration requests.</p></div>}
 
       {canRegisterExternalCompany && (
