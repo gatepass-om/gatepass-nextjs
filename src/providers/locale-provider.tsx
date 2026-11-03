@@ -50,10 +50,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
           originalText.set(textNode, raw);
           const trimmed = raw.trim();
           const translated = translateToArabic(trimmed);
-          const nextText = translated !== trimmed ? raw.replace(trimmed, translated) : raw;
-          // MutationObserver callbacks run after this function returns. Reassigning
-          // an unchanged Text.data value would enqueue another mutation forever.
-          if (textNode.data !== nextText) textNode.data = nextText;
+          if (translated !== trimmed) textNode.data = raw.replace(trimmed, translated);
           translatedText.set(textNode, textNode.data);
         }
         node = walker.nextNode();
@@ -66,8 +63,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
           const originals = originalAttributes.get(element) ?? new Map<string, string>();
           if (!originalAttributes.has(element)) originalAttributes.set(element, originals);
           if (!originals.has(attribute)) originals.set(attribute, value);
-          const translatedAttribute = translateToArabic(originals.get(attribute) ?? value);
-          if (value !== translatedAttribute) element.setAttribute(attribute, translatedAttribute);
+          element.setAttribute(attribute, translateToArabic(originals.get(attribute) ?? value));
         }
       }
       applying = false;
