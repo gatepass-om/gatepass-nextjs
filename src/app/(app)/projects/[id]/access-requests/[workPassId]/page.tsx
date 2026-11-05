@@ -9,9 +9,10 @@ import { useSession } from '@/providers/session-provider';
 import type { ProjectRecord } from '@/components/projects/project-wizard-dialog';
 import type { CertificateType } from '@/lib/types';
 import { PersonnelDetailsDialog } from '@/components/projects/personnel-details-dialog';
+import { WorkerTransferReview, type TransferWorker } from '@/components/projects/worker-transfer-review';
 import { getWorkPassStatusPresentation, isWorkerComplianceSatisfied } from '@/components/projects/project-command-center';
 
-type Worker = { userId: string; name: string; nationalId?: string | null; clearanceStatus?: string | null; email?: string | null; contractorName?: string | null; jobPositionName?: string | null };
+type Worker = TransferWorker & { nationalId?: string | null; clearanceStatus?: string | null; email?: string | null; contractorName?: string | null; jobPositionName?: string | null };
 type WorkPass = { id: string; projectId: string; projectName: string; siteName: string; passNumber: string; status: string; validFromUtc: string; validToUtc: string; taskDescription?: string | null; submittedByName: string; submittingContractorName?: string | null; approvedByName?: string | null; approvedAtUtc?: string | null; secondApprovedByName?: string | null; workers: Worker[] };
 
 export default function WorkerAccessRequestPage() {
@@ -27,6 +28,7 @@ export default function WorkerAccessRequestPage() {
   const [jobRole, setJobRole] = useState('all');
   const [compliance, setCompliance] = useState('all');
   const [error, setError] = useState('');
+  const [decisionRevision, setDecisionRevision] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -39,7 +41,7 @@ export default function WorkerAccessRequestPage() {
     }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to load this request.'));
     apiRequest<ProjectRecord>(`/projects/${params.id}`, { token }).then(setProject).catch(() => {});
     listCertificateTypesRequest(token).then(setCertificateTypes).catch(() => []);
-  }, [params.id, params.workPassId, token]);
+  }, [params.id, params.workPassId, token, decisionRevision]);
 
   const isWorkerCompliant = (item: Worker) => isWorkerComplianceSatisfied(
     jobRoleCompliance[item.userId] ?? true,
@@ -65,6 +67,7 @@ export default function WorkerAccessRequestPage() {
   return <div className="space-y-6 p-4 sm:p-6">
     <header><Link href={`/projects/${params.id}`} className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-950"><ArrowLeft className="h-4 w-4" /> {request.projectName}</Link><div className="mt-4 flex flex-wrap items-center gap-3"><h1 className="text-3xl font-semibold">{request.passNumber}</h1><span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusPresentation.className}`}>{statusPresentation.label}</span></div><p className="mt-1 text-sm text-slate-500">{request.siteName} · {new Date(request.validFromUtc).toLocaleDateString()} – {new Date(request.validToUtc).toLocaleDateString()}</p></header>
     <section className="grid gap-3 md:grid-cols-3"><Info label="Submitting contractor" value={request.submittingContractorName || 'Operator'} /><Info label="Submitted by" value={request.submittedByName || 'Unknown'} /><Info label="Consulted by" value={request.approvedByName || 'Awaiting consultation'} /></section>
+    <WorkerTransferReview passId={request.id} status={request.status} projectName={request.projectName} siteName={request.siteName} workers={request.workers} onDecision={() => setDecisionRevision(revision => revision + 1)} />
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <div className="border-b border-slate-200 px-5 py-4"><h2 className="font-semibold">Workers</h2><p className="text-sm text-slate-500">Select a worker to review the submitted details.</p></div>
       <div className="grid gap-3 border-b border-slate-200 px-5 py-4 sm:grid-cols-[minmax(14rem,1fr)_repeat(3,minmax(9rem,auto))]">
@@ -79,7 +82,7 @@ export default function WorkerAccessRequestPage() {
           <tbody className="divide-y divide-slate-100">{filtered.map((item) => {
             const compliant = isWorkerCompliant(item);
             return <tr key={item.userId} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelectedWorkerId(item.userId)}>
-              <td className="px-5 py-4 font-medium">{item.name}</td>
+              <td className="px-5 py-4 font-medium">{item.name}{item.assignmentEndedAtUtc ? <p className="mt-1 text-xs font-normal text-muted-foreground">Transferred out {new Date(item.assignmentEndedAtUtc).toLocaleDateString()}</p> : null}</td>
               <td className="px-5 py-4">{item.contractorName || '—'}</td>
               <td className="px-5 py-4">{item.jobPositionName || '—'}</td>
               <td className="px-5 py-4 font-mono">{item.nationalId || '—'}</td>

@@ -6,6 +6,7 @@ import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useSession } from '@/providers/session-provider';
 import { useToast } from '@/hooks/use-toast';
 import { ScannerPreview } from '@/components/scan/scanner-preview';
+import { WorkerCertificationView } from '@/components/workers/worker-certification-view';
 import { createGateActivityRequest, createInspectionRequest, listSitesRequest, resolvePersonnelScanRequest, type PersonnelScanStatus } from '@/lib/api';
 import type { Site } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -133,7 +134,7 @@ export default function PersonnelScanPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="scan-site">Site</Label>
-              <Select value={siteId} onValueChange={setSiteId}>
+              <Select value={siteId} disabled={busy} onValueChange={(id) => { setSiteId(id); setResult(null); setInspectionOpen(false); }}>
                 <SelectTrigger id="scan-site"><SelectValue placeholder="Choose a site" /></SelectTrigger>
                 <SelectContent>{sites.map((site) => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}</SelectContent>
               </Select>
@@ -173,6 +174,8 @@ export default function PersonnelScanPage() {
 
               {result.failureReason ? <Alert variant="destructive"><ShieldAlert className="h-4 w-4" /><AlertTitle>Access blocked</AlertTitle><AlertDescription>{result.failureReason}</AlertDescription></Alert> : null}
               {result.missingCertificates.length > 0 ? <Alert variant="destructive"><ShieldAlert className="h-4 w-4" /><AlertDescription>Missing credentials: {result.missingCertificates.join(', ')}</AlertDescription></Alert> : null}
+
+              <WorkerCertificationView credentials={result.credentials ?? []} checkedAt={result.credentialsCheckedAtUtc} />
 
               {canRecordGateActivity ? <div className="space-y-3 rounded-lg border p-4">
                 <div className="flex items-center gap-2"><DoorOpen className="h-4 w-4" /><p className="font-medium">Gate movement</p></div>

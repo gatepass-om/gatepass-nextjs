@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+
+test('transfer requests are actionable only by the employing contractor administrator', () => {
+  const project = { id: 'p', operatorId: 'operator', supervisorUserId: 'consultant', consultantCompanyId: 'consultant-company' } as CommandCenterProject;
+  const pass = { id: 'transfer', projectId: 'p', status: 'PendingContractorApproval', submittedByUserId: 'requester',
+    workers: [{ userId: 'worker', contractorId: 'employer', transferStatus: 'Pending' }] } as CommandCenterWorkPass;
+  assert.deepEqual(getWorkPassActions(pass, project, { id: 'employer-admin', role: 'Contractor Admin', contractorId: 'employer' }), ['review-transfer']);
+  assert.deepEqual(getWorkPassActions(pass, project, { id: 'other-admin', role: 'Contractor Admin', contractorId: 'other' }), []);
+  assert.deepEqual(getWorkPassActions(pass, project, { id: 'operator-admin', role: 'Operator Admin', operatorId: 'operator' }), []);
+});
 // @ts-expect-error Node's built-in TypeScript runner requires the source extension.
 import { getProjectWorkflowStages, getWorkPassActions, getWorkPassQueueItems, getWorkPassStatusPresentation, isWorkerComplianceSatisfied, type CommandCenterProject, type CommandCenterWorkPass } from './project-command-center.ts';
 

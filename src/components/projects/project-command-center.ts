@@ -17,7 +17,7 @@ export type CommandCenterWorkPass = {
 };
 
 export type WorkflowActor = { id?: string; role?: string; operatorId?: string; contractorId?: string };
-export type WorkPassAction = 'submit' | 'approve' | 'second-approve' | 'reject';
+export type WorkPassAction = 'submit' | 'approve' | 'second-approve' | 'reject' | 'review-transfer';
 export type WorkflowStageState = 'completed' | 'current' | 'upcoming' | 'attention';
 
 export type WorkflowStage = {
@@ -32,6 +32,7 @@ export type WorkPassStatusPresentation = { label: string; className: string };
 
 const WORK_PASS_STATUS_PRESENTATION: Record<string, WorkPassStatusPresentation> = {
   Draft: { label: 'Draft', className: 'bg-slate-100 text-slate-700' },
+  PendingContractorApproval: { label: 'Pending contractor transfer approval', className: 'bg-amber-100 text-amber-800' },
   Submitted: { label: 'Pending consultant verification', className: 'bg-amber-100 text-amber-800' },
   PendingSecondApproval: { label: 'Pending operator approval', className: 'bg-violet-100 text-violet-800' },
   Approved: { label: 'Access granted', className: 'bg-emerald-100 text-emerald-800' },
@@ -45,11 +46,13 @@ export function getWorkPassStatusPresentation(status: string): WorkPassStatusPre
 }
 
 export function getWorkPassActions(
-  workPass: CommandCenterWorkPass,
+  workPass: CommandCenterWorkPass & { workers?: Array<{ userId: string; contractorId?: string | null; transferStatus?: string | null }> },
   project: CommandCenterProject,
   actor: WorkflowActor,
 ): WorkPassAction[] {
   if (!actor.id) return [];
+  if (workPass.status === 'PendingContractorApproval' && actor.role === 'Contractor Admin'
+    && workPass.workers?.some(worker => worker.transferStatus === 'Pending' && worker.contractorId === actor.contractorId)) return ['review-transfer'];
   if (workPass.status === 'Draft' && workPass.submittedByUserId === actor.id) return ['submit'];
   const isOperatorApprover = ['Operator Admin', 'Manager'].includes(actor.role ?? '')
     && actor.operatorId === project.operatorId;

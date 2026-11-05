@@ -3,6 +3,15 @@ import { normalizeUserProfile } from './user-profile';
 
 export const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4005').replace(/\/$/, '');
 
+export async function uploadOperatorLogoRequest(token: string, operatorId: string, file: File): Promise<{ logoUrl: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  const response = await fetch(`${BACKEND_URL}/companies/operators/${operatorId}/logo`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error ?? 'The operator logo could not be uploaded. Try a PNG, JPEG or WebP image up to 2 MB.');
+  return result;
+}
+
 // The session provider registers a refresh hook here so token-bearing requests can transparently recover from a
 // 401 (expired access token) without every caller wiring up its own refresh logic.
 type SessionBridge = { refresh: () => Promise<string | null> };
@@ -1056,6 +1065,8 @@ export type PersonnelScanStatus = {
   decisionReasonCode?: string | null;
   failureReason?: string | null;
   missingCertificates: string[];
+  credentialsCheckedAtUtc?: string;
+  credentials: ScanCredential[];
   workerProfile?: {
     employerName?: string | null;
     jobTitle?: string | null;
@@ -1068,6 +1079,19 @@ export type PersonnelScanStatus = {
     projectName: string;
     taskDescription?: string | null;
   } | null;
+};
+
+export type ScanCredential = {
+  id: string;
+  kind: 'Certificate' | 'Training';
+  name: string;
+  issuedAtUtc?: string | null;
+  expiresAtUtc?: string | null;
+  validityStatus: string;
+  verificationStatus: string;
+  requiredForSite: boolean;
+  requiredForRole: boolean;
+  workRestriction?: string | null;
 };
 
 export async function resolvePersonnelScanRequest(

@@ -179,6 +179,7 @@ export type CertificateType = {
 }
 
 export type Operator = {
+    logoUrl?: string | null;
     id: string;
     tenantId?: string | null;
     name: string;
@@ -382,6 +383,7 @@ export type AttachedOperatorSummary = {
 };
 
 export type OperatorDetail = {
+  logoUrl?: string | null;
   id: string;
   tenantId?: string | null;
   tenantName?: string | null;

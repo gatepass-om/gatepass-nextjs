@@ -103,6 +103,7 @@ export function ProjectWorkPassQueue({
                     {actions.includes('submit') ? <Button size="sm" disabled={isBusy} onClick={() => onAction(workPass, 'submit')}>Submit</Button> : null}
                     {actions.includes('approve') ? <Button size="sm" disabled={isBusy} onClick={() => onAction(workPass, 'approve')}><CheckCircle2 className="mr-1.5 h-4 w-4" /> Consultant approve</Button> : null}
                     {actions.includes('second-approve') ? <Button size="sm" disabled={isBusy} onClick={() => onAction(workPass, 'second-approve')}><ShieldCheck className="mr-1.5 h-4 w-4" /> Final approval</Button> : null}
+                    {actions.includes('review-transfer') ? <Button asChild size="sm"><Link href={`/projects/${workPass.projectId}/access-requests/${workPass.id}`}>Review transfer</Link></Button> : null}
                     {actions.includes('reject') ? <Button size="sm" variant="outline" disabled={isBusy} onClick={() => onReject(workPass)}><XCircle className="mr-1.5 h-4 w-4" /> Reject</Button> : null}
                   </div>
                 </div>

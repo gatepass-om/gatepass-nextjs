@@ -11,7 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from '@/providers/session-provider';
-import { getOperatorDetailRequest } from '@/lib/api';
+import { BACKEND_URL, getOperatorDetailRequest, uploadOperatorLogoRequest } from '@/lib/api';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import type { OperatorDetail } from '@/lib/types';
 
 function formatDate(value?: string | null) {
@@ -43,11 +45,24 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: number; 
 export default function OperatorDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin']);
+  const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin']);
   const { token } = useSession();
   const { toast } = useToast();
   const [detail, setDetail] = useState<OperatorDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  async function uploadLogo(file?: File) {
+    if (!token || !file) return;
+    if (file.size > 2 * 1024 * 1024) { toast({ variant: 'destructive', title: 'Logo is too large', description: 'Choose an image up to 2 MB.' }); return; }
+    setUploadingLogo(true);
+    try {
+      const result = await uploadOperatorLogoRequest(token, params.id, file);
+      setDetail(current => current ? { ...current, logoUrl: result.logoUrl } : current);
+      toast({ title: 'Operator logo updated' });
+    } catch (error) { toast({ variant: 'destructive', title: 'Logo upload failed', description: error instanceof Error ? error.message : 'Try again.' }); }
+    finally { setUploadingLogo(false); }
+  }
 
   const fetchDetail = useCallback(async () => {
     if (!token || !params.id) return;
@@ -92,6 +107,13 @@ export default function OperatorDetailPage() {
         </div>
         <Badge variant="outline" className="w-fit">{detail.tenantName ?? detail.tenantId ?? 'No tenant'}</Badge>
       </header>
+
+      <section aria-labelledby="operator-logo-heading" className="flex flex-col gap-4 rounded-lg border p-5 sm:flex-row sm:items-center">
+        {detail.logoUrl ? <img src={`${BACKEND_URL}${detail.logoUrl}`} alt={`${detail.name} logo`} className="h-20 w-40 object-contain" /> : <Building2 aria-hidden="true" className="h-12 w-12 text-muted-foreground" />}
+        <div className="flex-1 space-y-2"><h2 id="operator-logo-heading" className="font-semibold">Operator logo</h2><p className="text-sm text-muted-foreground">Upload the approved company logo for operator branding and demonstration materials. PNG, JPEG or WebP, up to 2 MB.</p>
+          {currentUser.role === 'Admin' || currentUser.role === 'Operator Admin' && currentUser.operatorId === detail.id ? <div className="max-w-md space-y-2"><Label htmlFor="operator-logo">{uploadingLogo ? 'Uploading logo…' : detail.logoUrl ? 'Replace logo' : 'Upload logo'}</Label><Input id="operator-logo" type="file" accept="image/png,image/jpeg,image/webp" disabled={uploadingLogo} onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void uploadLogo(file); }} /></div> : null}
+        </div>
+      </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Sites" value={detail.siteCount} icon={MapPin} />

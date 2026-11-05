@@ -222,7 +222,7 @@ export default function ProjectsPage() {
 
       <section aria-label="Project portfolio summary" className="grid gap-3 sm:grid-cols-3">
         <MetricCard label="Active projects" value={portfolio.active} detail={`${portfolio.total} total projects`} icon={CircleDot} tone="blue" loading={loading} />
-        <MetricCard label="Pending access decisions" value={projectWorkPasses.filter((pass) => ['PendingApproval', 'PendingSecondApproval'].includes(pass.status)).length} detail="Requests awaiting action" icon={CalendarClock} tone="amber" loading={loading} />
+        <MetricCard label="Pending access decisions" value={projectWorkPasses.filter((pass) => ['PendingContractorApproval', 'Submitted', 'PendingSecondApproval'].includes(pass.status)).length} detail="Requests awaiting action" icon={CalendarClock} tone="amber" loading={loading} />
         <MetricCard label="Active work passes" value={projectWorkPasses.filter((pass) => pass.status === 'Approved' && new Date(pass.validFromUtc) <= new Date() && new Date(pass.validToUtc) >= new Date()).length} detail="Currently valid project access" icon={FileCheck2} tone="emerald" loading={loading} />
       </section>
 
@@ -371,7 +371,7 @@ function ProjectRow({ project, onEdit, canEdit, actionablePasses, busyWorkPassId
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {singleActionable ? (
+        {singleActionable?.actions.includes('review-transfer') ? <Button asChild size="sm"><Link href={`/projects/${project.id}/access-requests/${singleActionable.pass.id}`}>Review transfer</Link></Button> : singleActionable ? (
           <>
             <Button
               size="sm"
