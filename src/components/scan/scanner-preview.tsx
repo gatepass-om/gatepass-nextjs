@@ -4,9 +4,8 @@
 import React from 'react';
 import { useScanner } from '@/hooks/use-scanner';
 import { Card } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { CameraOff, ScanLine, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface ScannerPreviewProps {
   onScanSuccess: (decodedText: string) => void;
@@ -14,37 +13,32 @@ interface ScannerPreviewProps {
 }
 
 export function ScannerPreview({ onScanSuccess, isPaused }: ScannerPreviewProps) {
-  const { hasPermission, isScanning } = useScanner({ onScanSuccess, isPaused });
+  const { scannerId, status, error, retry } = useScanner({ onScanSuccess, isPaused });
 
   return (
-    <Card className="relative aspect-video bg-muted rounded-md overflow-hidden border">
-      <div id="qr-scanner-container" className="w-full h-full" />
-      {hasPermission === null && (
+    <Card className={`relative aspect-video bg-muted rounded-md overflow-hidden border ${status === 'error' ? 'min-h-64' : ''}`}>
+      <div id={scannerId} data-testid="qr-scanner-container" className="w-full h-full" />
+      {status === 'starting' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground p-4 bg-background/90">
             <Loader2 className="h-10 w-10 animate-spin" />
-            <span className="font-semibold">Initializing Camera...</span>
+            <span className="font-semibold" role="status">Starting camera…</span>
+            <p className="text-sm text-center">Allow camera access if your browser asks.</p>
         </div>
       )}
 
-      {hasPermission === false && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-destructive p-4 bg-background/90">
+      {status === 'error' && (
+        <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-destructive p-4 bg-background/90 text-center">
           <CameraOff className="h-10 w-10" />
           <span className="font-semibold">Camera Not Available</span>
-          <p className="text-sm text-muted-foreground">Please grant camera permissions in your browser settings.</p>
+          <p className="w-full max-w-full whitespace-normal break-words text-sm text-muted-foreground">{error}</p>
+          <Button type="button" variant="outline" onClick={retry}>Retry camera</Button>
         </div>
       )}
 
-      {isScanning && hasPermission && (
+      {status === 'scanning' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-[250px] h-[250px] border-4 border-primary/50 rounded-lg" style={{ boxShadow: '0 0 0 9999px hsla(0, 0%, 0%, 0.5)' }} />
-          <ScanLine className="absolute h-16 w-64 text-primary/70 animate-pulse" />
-        </div>
-      )}
-
-       {hasPermission && !isScanning && !isPaused && (
-         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground p-4 bg-background/90">
-            <Loader2 className="h-10 w-10 animate-spin" />
-            <span className="font-semibold">Starting Scanner...</span>
+          <span className="sr-only" role="status">Camera ready</span>
+          <ScanLine className="h-16 w-16 text-primary/70 animate-pulse" />
         </div>
       )}
 

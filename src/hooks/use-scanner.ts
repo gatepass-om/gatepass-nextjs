@@ -1,120 +1,122 @@
-'use client'
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import type { Html5Qrcode } from 'html5-qrcode';
+import { scannerCamera, scannerOptions } from '@/components/scan/scanner-config';
 
 interface UseScannerProps {
   onScanSuccess: (decodedText: string) => void;
   isPaused: boolean;
 }
 
+type ScannerStatus = 'starting' | 'scanning' | 'paused' | 'error';
+
 export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const html5QrCodeRef = useRef<any | null>(null);
+  const scannerId = `qr-scanner-${useId().replace(/:/g, '')}`;
+  const [status, setStatus] = useState<ScannerStatus>('starting');
+  const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const controlRef = useRef<(() => void) | null>(null);
   const onScanSuccessRef = useRef(onScanSuccess);
+  const pausedRef = useRef(isPaused);
 
-  // The page supplies an inline callback. Keeping it in a ref prevents a render after
-  // detection from tearing down the camera while html5-qrcode is still processing it.
+  useEffect(() => { onScanSuccessRef.current = onScanSuccess; }, [onScanSuccess]);
   useEffect(() => {
-    onScanSuccessRef.current = onScanSuccess;
-  }, [onScanSuccess]);
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-        setHasPermission(true);
-      } catch (err) {
-        console.error('Camera error', err);
-        setHasPermission(false);
-      }
-    };
-    init();
-  }, []);
-
-  useEffect(() => () => {
-    const scanner = html5QrCodeRef.current;
-    if (!scanner) return;
-    // This is the only permanent teardown. Do not stop during a scan result render.
-    void scanner.stop?.().catch(() => undefined);
-  }, []);
+    pausedRef.current = isPaused;
+    controlRef.current?.();
+  }, [isPaused]);
 
   useEffect(() => {
-    if (hasPermission !== true) return;
     let cancelled = false;
+    let starting = false;
+    let scanner: Html5Qrcode | null = null;
+    let lastDecodedText = '';
+    let missingSince: number | null = null;
+    setStatus('starting');
+    setError('');
 
-    const runScanner = async () => {
-      const { Html5Qrcode, Html5QrcodeScannerState } = await import('html5-qrcode');
-      if (cancelled) return;
-
-      if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new Html5Qrcode('qr-scanner-container');
-      }
-
-      const qr = html5QrCodeRef.current;
-
-      const startScanner = async () => {
-        if (qr.getState() === Html5QrcodeScannerState.NOT_STARTED) {
-          try {
-            setIsScanning(true);
-            await qr.start(
-              {
-                facingMode: 'environment',
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-              },
-              {
-                // Whole-frame decoding at 5 fps is noticeably slow on iPhones. A
-                // focused centre window at 12 fps gives near-instant badge reads.
-                fps: 12,
-                qrbox: { width: 280, height: 280 },
-                disableFlip: true,
-              },
-              (decodedText: string) => {
-                console.log("QR code detected:", decodedText);
-                onScanSuccessRef.current(decodedText);
-              },
-              () => undefined
-            );
-          } catch (err) {
-            console.error('Scanner start error', err);
-            setIsScanning(false);
-          }
-        }
-      };
-
-      const stopScanner = async () => {
-        if (qr.getState() === Html5QrcodeScannerState.SCANNING) {
-          try {
-            await qr.stop();
-            setIsScanning(false);
-          } catch { /* The camera may already have been released by the browser. */ }
-        }
-      };
-
-      if (!isPaused) {
-        if (qr.getState() === Html5QrcodeScannerState.PAUSED) {
-          qr.resume();
-          setIsScanning(true);
-        } else {
-          startScanner();
-        }
-      } else {
-        // Pause retains the camera session and avoids the stop/start race after a QR
-        // detection. It also resumes much faster for the next scan.
-        if (qr.getState() === Html5QrcodeScannerState.SCANNING) {
-          qr.pause(true);
-          setIsScanning(false);
-        }
+    const release = async () => {
+      if (!scanner) return;
+      try {
+        if (scanner.isScanning) await scanner.stop();
+      } catch { /* The browser may already have released the camera. */ }
+      if (scannerRef.current === scanner) {
+        scannerRef.current = null;
+        controlRef.current = null;
+        try { scanner.clear(); } catch { /* The preview may have unmounted. */ }
       }
     };
 
-    void runScanner();
+    const start = async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error('Camera scanning requires HTTPS or localhost in a browser with camera support.');
+        }
+        const { Html5Qrcode, Html5QrcodeScannerState: State } = await import('html5-qrcode');
+        if (cancelled) return;
+        const qr = new Html5Qrcode(scannerId);
+        scanner = qr;
+        scannerRef.current = qr;
+        controlRef.current = () => {
+          if (cancelled) return;
+          if (pausedRef.current && qr.getState() === State.SCANNING) {
+            qr.pause(true);
+            setStatus('paused');
+          } else if (!pausedRef.current && qr.getState() === State.PAUSED) {
+            qr.resume();
+            setStatus('scanning');
+          }
+        };
+        starting = true;
+        // The QR reader owns the only camera stream. A separate permission
+        // probe leaks a stream and can prevent the rear camera from opening.
+        await qr.start(scannerCamera, scannerOptions, (decodedText) => {
+          if (cancelled || pausedRef.current) return;
+          missingSince = null;
+          if (decodedText === lastDecodedText) return;
+          lastDecodedText = decodedText;
+          onScanSuccessRef.current(decodedText);
+        }, () => {
+          // A held badge is one scan. Removing it for a second permits a new
+          // read of that badge; a different badge is recognized immediately.
+          missingSince ??= Date.now();
+          if (Date.now() - missingSince >= 1000) lastDecodedText = '';
+        });
+        if (!cancelled) {
+          setStatus('scanning');
+          controlRef.current?.();
+        }
+      } catch (failure) {
+        if (cancelled) return;
+        console.error('Scanner startup failed', failure);
+        // html5-qrcode wraps DOMException names in a string before rejecting.
+        const detail = `${failure instanceof Error ? failure.name : ''} ${String(failure)}`;
+        const message = /NotAllowedError|PermissionDeniedError/.test(detail)
+          ? 'Camera access is blocked. Allow camera access for this site in your browser, then retry.'
+          : /NotFoundError|DevicesNotFoundError/.test(detail)
+            ? 'No camera was found. Connect a camera or paste the badge credential below.'
+            : /NotReadableError|TrackStartError/.test(detail)
+              ? 'The camera is busy or could not be opened. Close other camera apps, then retry.'
+              : !navigator.mediaDevices?.getUserMedia
+                ? 'Camera scanning requires HTTPS or localhost in a browser with camera support.'
+                : 'The scanner could not start. Retry the camera, or paste the badge credential below.';
+        setError(message);
+        setStatus('error');
+        await release();
+      } finally {
+        starting = false;
+        // Startup may finish after navigation. Close that late camera stream.
+        if (cancelled) await release();
+      }
+    };
 
+    void start();
     return () => {
       cancelled = true;
+      if (!starting) void release();
     };
-  }, [isPaused, hasPermission]);
+  }, [attempt, scannerId]);
 
-  return { hasPermission, isScanning };
+  return { scannerId, status, error, retry: () => setAttempt(value => value + 1) };
 }
