@@ -2,11 +2,9 @@ export const scannerCamera = {
   facingMode: 'environment',
 };
 
+// No qrbox: the reader decodes the whole camera frame and draws no overlay of its own. Its shaded box is sized
+// from the raw video, which never matches the cropped preview on a phone, so the preview draws the viewfinder.
 export const scannerOptions = {
   fps: 12,
-  qrbox: (width: number, height: number) => {
-    const side = Math.floor(Math.min(280, Math.min(width, height) * 0.8));
-    return { width: side, height: side };
-  },
   disableFlip: true,
 };

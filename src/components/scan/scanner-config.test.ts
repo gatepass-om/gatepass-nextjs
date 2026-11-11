@@ -10,9 +10,6 @@ test('the installed QR reader accepts the camera selection used by the scanner',
   assert.doesNotThrow(() => Html5Qrcode.prototype.createVideoConstraints(scannerCamera));
 });
 
-test('the decoding window fits a narrow mobile camera preview', () => {
-  assert.equal(typeof scannerOptions.qrbox, 'function');
-  const size = scannerOptions.qrbox(300, 168);
-  assert.ok(size.width <= 300 && size.height < 168);
-  assert.equal(size.width, size.height);
+test('the reader decodes the full frame and leaves the viewfinder to the preview', () => {
+  assert.equal('qrbox' in scannerOptions, false);
 });
