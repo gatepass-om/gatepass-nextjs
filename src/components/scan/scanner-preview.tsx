@@ -10,10 +10,11 @@ import { CameraOff, ScanLine, Loader2 } from 'lucide-react';
 interface ScannerPreviewProps {
   onScanSuccess: (decodedText: string) => void;
   isPaused: boolean;
+  scanContext: string;
 }
 
-export function ScannerPreview({ onScanSuccess, isPaused }: ScannerPreviewProps) {
-  const { scannerId, status, error, retry } = useScanner({ onScanSuccess, isPaused });
+export function ScannerPreview({ onScanSuccess, isPaused, scanContext }: ScannerPreviewProps) {
+  const { scannerId, status, error, retry } = useScanner({ onScanSuccess, isPaused, scanContext });
 
   return (
     <Card className={`relative aspect-video bg-muted rounded-md overflow-hidden border ${status === 'error' ? 'min-h-64' : ''}`}>

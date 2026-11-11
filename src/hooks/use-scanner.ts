@@ -7,11 +7,12 @@ import { scannerCamera, scannerOptions } from '@/components/scan/scanner-config'
 interface UseScannerProps {
   onScanSuccess: (decodedText: string) => void;
   isPaused: boolean;
+  scanContext: string;
 }
 
 type ScannerStatus = 'starting' | 'scanning' | 'paused' | 'error';
 
-export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
+export function useScanner({ onScanSuccess, isPaused, scanContext }: UseScannerProps) {
   const scannerId = `qr-scanner-${useId().replace(/:/g, '')}`;
   const [status, setStatus] = useState<ScannerStatus>('starting');
   const [error, setError] = useState('');
@@ -20,8 +21,14 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
   const controlRef = useRef<(() => void) | null>(null);
   const onScanSuccessRef = useRef(onScanSuccess);
   const pausedRef = useRef(isPaused);
+  const lastDecodedRef = useRef('');
+  const missingSinceRef = useRef<number | null>(null);
 
   useEffect(() => { onScanSuccessRef.current = onScanSuccess; }, [onScanSuccess]);
+  useEffect(() => {
+    lastDecodedRef.current = '';
+    missingSinceRef.current = null;
+  }, [scanContext]);
   useEffect(() => {
     pausedRef.current = isPaused;
     controlRef.current?.();
@@ -31,8 +38,8 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
     let cancelled = false;
     let starting = false;
     let scanner: Html5Qrcode | null = null;
-    let lastDecodedText = '';
-    let missingSince: number | null = null;
+    lastDecodedRef.current = '';
+    missingSinceRef.current = null;
     setStatus('starting');
     setError('');
 
@@ -73,15 +80,15 @@ export function useScanner({ onScanSuccess, isPaused }: UseScannerProps) {
         // probe leaks a stream and can prevent the rear camera from opening.
         await qr.start(scannerCamera, scannerOptions, (decodedText) => {
           if (cancelled || pausedRef.current) return;
-          missingSince = null;
-          if (decodedText === lastDecodedText) return;
-          lastDecodedText = decodedText;
+          missingSinceRef.current = null;
+          if (decodedText === lastDecodedRef.current) return;
+          lastDecodedRef.current = decodedText;
           onScanSuccessRef.current(decodedText);
         }, () => {
           // A held badge is one scan. Removing it for a second permits a new
           // read of that badge; a different badge is recognized immediately.
-          missingSince ??= Date.now();
-          if (Date.now() - missingSince >= 1000) lastDecodedText = '';
+          missingSinceRef.current ??= Date.now();
+          if (Date.now() - missingSinceRef.current >= 1000) lastDecodedRef.current = '';
         });
         if (!cancelled) {
           setStatus('scanning');

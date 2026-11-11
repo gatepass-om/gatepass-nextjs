@@ -139,7 +139,7 @@ export default function PersonnelScanPage() {
                 <SelectContent>{sites.map((site) => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <ScannerPreview isPaused={busy || !siteId} onScanSuccess={(value) => void resolve(value)} />
+            <ScannerPreview scanContext={siteId} isPaused={busy || !siteId} onScanSuccess={(value) => void resolve(value)} />
             <form className="flex gap-2" onSubmit={submitScan}>
               <Input aria-label="Live QR or printed badge credential" value={credential} onChange={(event) => setCredential(event.target.value)} placeholder="Scan or paste credential" />
               <Button type="submit" disabled={busy || !siteId || !credential.trim()}>Resolve</Button>
