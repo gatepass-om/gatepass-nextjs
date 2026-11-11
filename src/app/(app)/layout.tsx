@@ -1,13 +1,9 @@
 
 'use client';
 import type { ReactNode } from 'react';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarInset,
-} from '@/components/ui/sidebar';
-import { SidebarNav } from '@/components/layout/sidebar-nav';
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { Header } from '@/components/layout/header';
+import { BottomNav } from '@/components/layout/bottom-nav';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,29 +12,20 @@ import { workspaceLandingForRole } from '@/lib/role-workspaces';
 
 function AppLoadingSkeleton() {
   return (
-    <div className="flex h-svh w-full">
-      {/* Sidebar Skeleton */}
-      <div className="hidden md:flex flex-col gap-4 h-full w-[16rem] bg-gray-900 p-4">
-        <Skeleton className="h-10 w-3/4" />
-        <div className="flex-1 space-y-2">
-          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+    <div className="min-h-svh bg-background">
+      <div className="flex h-14 items-center gap-6 border-b bg-card px-4 md:px-8">
+        <Skeleton className="h-6 w-24" />
+        <div className="hidden flex-1 gap-3 md:flex">
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-5 w-20" />)}
         </div>
-        <Skeleton className="h-12 w-full" />
+        <Skeleton className="ms-auto h-8 w-8 rounded-full" />
       </div>
-      {/* Main Content Skeleton */}
-      <div className="flex-1 flex flex-col">
-        <div className="h-16 border-b flex items-center justify-between px-6">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-8 w-8 rounded-full" />
-        </div>
-        <main className="flex-1 p-8">
-           <Skeleton className="h-8 w-1/4 mb-4" />
-           <Skeleton className="h-4 w-1/2 mb-8" />
-           <Skeleton className="h-64 w-full" />
-        </main>
-      </div>
+      <main className="mx-auto max-w-[1440px] px-4 py-6 md:px-8">
+        <Skeleton className="mb-4 h-8 w-1/4" />
+        <Skeleton className="h-64 w-full" />
+      </main>
     </div>
-  )
+  );
 }
 
 const publicRoutes = ['/login', '/activate-account'];
@@ -86,20 +73,13 @@ function LayoutContent({ children }: { children: ReactNode }) {
     return <AppLoadingSkeleton />;
   }
 
+  // The dashboard page still reads the sidebar context for its own trigger; the provider goes with that page.
   return (
     <SidebarProvider>
-      <div className="dashboard-reference-canvas">
-        <div className="dashboard-reference-frame">
-          <Sidebar className="dashboard-sidebar dashboard-reference-sidebar">
-            <SidebarNav />
-          </Sidebar>
-          <SidebarInset className="dashboard-reference-inset">
-            <div className="flex min-h-full flex-col">
-              {pathname === '/dashboard' ? null : <Header />}
-              <main className={pathname === '/dashboard' ? 'flex-1 p-0' : 'flex-1 p-4 md:p-6 lg:p-8'}>{children}</main>
-            </div>
-          </SidebarInset>
-        </div>
+      <div className="min-w-0 flex-1 bg-background">
+        <Header />
+        <main className={pathname === '/dashboard' ? 'w-full' : 'mx-auto w-full max-w-[1440px] px-4 pb-28 pt-5 md:px-8 md:pb-10 md:pt-7'}>{children}</main>
+        <BottomNav />
       </div>
     </SidebarProvider>
   );
