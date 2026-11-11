@@ -64,7 +64,7 @@ export default function AlertsPage() {
   };
 
   const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!token || !currentUser) return;
+    if (!token || !currentUser || !isAuthorized) return;
     if (!opts?.silent) setLoadingData(true);
     try {
       const sitesInput = currentUser.role === 'Operator Admin' && currentUser.operatorId
@@ -85,7 +85,7 @@ export default function AlertsPage() {
     } finally {
       if (!opts?.silent) setLoadingData(false);
     }
-  }, [currentUser, siteFilter, t, toast, token]);
+  }, [currentUser, isAuthorized, siteFilter, t, toast, token]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
   // Live: an alert raised or acknowledged anywhere in scope refreshes the table instantly (silent so the Refresh

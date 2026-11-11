@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { QrCode } from '@/components/qr-code';
 import { WorkerBadge } from '@/components/worker-badge';
 import { WorkerDocuments } from '@/components/workers/worker-documents';
-import { WorkerPositionCompliancePanel } from '@/components/compliance/worker-position-compliance';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { CertificateType, User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -218,7 +217,6 @@ export default function ProfilePage() {
         </Card>
       </div>
 
-       {user.role === 'Worker' && <WorkerPositionCompliancePanel workerId={user.id} />}
 
        <WorkerDocuments workerId={user.id} certificateTypes={certificateTypes} canManage />
 
