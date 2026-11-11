@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { Html5Qrcode } from 'html5-qrcode';
 import { scannerCamera, scannerOptions } from '@/components/scan/scanner-config';
+import { waitForScannerVideo } from '@/components/scan/scanner-video';
 
 interface UseScannerProps {
   onScanSuccess: (decodedText: string) => void;
@@ -38,6 +39,10 @@ export function useScanner({ onScanSuccess, isPaused, scanContext }: UseScannerP
     let cancelled = false;
     let starting = false;
     let scanner: Html5Qrcode | null = null;
+    let container: HTMLElement | null = null;
+    let cameraStream: MediaStream | null = null;
+    let stopScanner: (() => Promise<void>) | null = null;
+    const startup = new AbortController();
     lastDecodedRef.current = '';
     missingSinceRef.current = null;
     setStatus('starting');
@@ -46,8 +51,12 @@ export function useScanner({ onScanSuccess, isPaused, scanContext }: UseScannerP
     const release = async () => {
       if (!scanner) return;
       try {
-        if (scanner.isScanning) await scanner.stop();
+        await stopScanner?.();
       } catch { /* The browser may already have released the camera. */ }
+      // The reader can fail before its playing handler initializes the UI.
+      // Release its video stream even if its own stop/clear path throws.
+      const stream = cameraStream ?? container?.querySelector('video')?.srcObject;
+      if (stream instanceof MediaStream) stream.getTracks().forEach(track => track.stop());
       if (scannerRef.current === scanner) {
         scannerRef.current = null;
         controlRef.current = null;
@@ -62,11 +71,15 @@ export function useScanner({ onScanSuccess, isPaused, scanContext }: UseScannerP
         }
         const { Html5Qrcode, Html5QrcodeScannerState: State } = await import('html5-qrcode');
         if (cancelled) return;
+        container = document.getElementById(scannerId);
         const qr = new Html5Qrcode(scannerId);
         scanner = qr;
         scannerRef.current = qr;
+        stopScanner = async () => {
+          if (qr.getState() === State.SCANNING || qr.getState() === State.PAUSED) await qr.stop();
+        };
         controlRef.current = () => {
-          if (cancelled) return;
+          if (cancelled || !qr.isScanning) return;
           if (pausedRef.current && qr.getState() === State.SCANNING) {
             qr.pause(true);
             setStatus('paused');
@@ -90,6 +103,13 @@ export function useScanner({ onScanSuccess, isPaused, scanContext }: UseScannerP
           missingSinceRef.current ??= Date.now();
           if (Date.now() - missingSinceRef.current >= 1000) lastDecodedRef.current = '';
         });
+        const video = container?.querySelector('video');
+        if (video?.srcObject instanceof MediaStream) cameraStream = video.srcObject;
+        if (cancelled) return;
+        if (!video) throw new Error('The camera video was not created.');
+        // start() resolves before the library's playing listener builds its UI.
+        // Calling pause before that point throws and leaves the camera open.
+        await waitForScannerVideo(video, () => qr.isScanning, startup.signal);
         if (!cancelled) {
           setStatus('scanning');
           controlRef.current?.();
@@ -121,6 +141,7 @@ export function useScanner({ onScanSuccess, isPaused, scanContext }: UseScannerP
     void start();
     return () => {
       cancelled = true;
+      startup.abort();
       if (!starting) void release();
     };
   }, [attempt, scannerId]);
