@@ -15,13 +15,16 @@ const workerDocuments = readFileSync(new URL('../workers/worker-documents.tsx', 
 const requestPageUrl = new URL('../../app/(app)/projects/[id]/access-requests/[workPassId]/page.tsx', import.meta.url);
 const personnelPageUrl = new URL('../../app/(app)/projects/[id]/personnel/page.tsx', import.meta.url);
 
-test('projects are the primary workspace and deferred modules stay out of navigation', () => {
+test('projects stay the landing page, Today leads the navigation, and deferred modules stay out of it', () => {
   for (const role of ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin'] as const) {
     assert.equal(workspaceLandingForRole(role), '/projects');
-    assert.equal(getNavigationForRole(role)[0]?.href, '/projects');
+    const routes = getNavigationForRole(role).map((item) => item.href);
+    assert.equal(routes[0], '/dashboard');
+    assert.equal(routes.includes('/projects'), true);
   }
+  assert.equal(getNavigationForRole('Security').some((item) => item.href === '/dashboard'), false);
 
-  const hidden = ['/dashboard', '/access-requests', '/location-governance', '/compliance', '/sites'];
+  const hidden = ['/access-requests', '/location-governance', '/compliance', '/sites'];
   for (const role of ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin', 'Security'] as const) {
     const routes = getNavigationForRole(role).map((item) => item.href);
     for (const route of hidden) assert.equal(routes.includes(route), false);

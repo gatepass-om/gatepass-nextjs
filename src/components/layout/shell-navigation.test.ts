@@ -32,8 +32,9 @@ test('the phone bar and More drop nothing a role can reach', () => {
 
 test('an admin keeps the main work pages in the bar and folds the rest into More', () => {
   const { primary, more } = splitForDesktop(getNavigationForRole('Admin'));
-  assert.deepEqual(primary.map((item: { href: string }) => item.href), ['/projects', '/users', '/companies', '/reports', '/card-verification']);
+  assert.deepEqual(primary.map((item: { href: string }) => item.href), ['/dashboard', '/projects', '/users', '/companies', '/reports']);
   assert.ok(more.some((item: { href: string }) => item.href === '/alerts'));
+  assert.ok(more.some((item: { href: string }) => item.href === '/card-verification'));
 });
 
 test('a security officer sees every work page without a More menu, with the scan first on a phone', () => {

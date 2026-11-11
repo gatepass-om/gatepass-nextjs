@@ -64,6 +64,7 @@ export const arabicLabels: Record<string, string> = {
   'My Account': 'حسابي',
   Notifications: 'الإشعارات',
   'Workflow Studio': 'استوديو سير العمل',
+  Today: 'اليوم',
   Scan: 'مسح',
   Alerts: 'التنبيهات',
   Approvals: 'الاعتمادات',

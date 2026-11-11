@@ -1,7 +1,6 @@
 
 'use client';
 import type { ReactNode } from 'react';
-import { SidebarProvider } from '@/components/ui/sidebar';
 import { Header } from '@/components/layout/header';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { useRouter, usePathname } from 'next/navigation';
@@ -73,15 +72,12 @@ function LayoutContent({ children }: { children: ReactNode }) {
     return <AppLoadingSkeleton />;
   }
 
-  // The dashboard page still reads the sidebar context for its own trigger; the provider goes with that page.
   return (
-    <SidebarProvider>
-      <div className="min-w-0 flex-1 bg-background">
-        <Header />
-        <main className={pathname === '/dashboard' ? 'w-full' : 'mx-auto w-full max-w-[1440px] px-4 pb-28 pt-5 md:px-8 md:pb-10 md:pt-7'}>{children}</main>
-        <BottomNav />
-      </div>
-    </SidebarProvider>
+    <div className="min-h-svh bg-background">
+      <Header />
+      <main className="mx-auto w-full max-w-[1440px] px-4 pb-28 pt-5 md:px-8 md:pb-10 md:pt-7">{children}</main>
+      <BottomNav />
+    </div>
   );
 }
 
