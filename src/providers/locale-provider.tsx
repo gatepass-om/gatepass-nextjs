@@ -50,7 +50,10 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
           originalText.set(textNode, raw);
           const trimmed = raw.trim();
           const translated = translateToArabic(trimmed);
-          if (translated !== trimmed) textNode.data = raw.replace(trimmed, translated);
+          // Assigning even an identical value fires a characterData mutation, which would re-enter this
+          // translator forever and freeze the page — only write when the text actually changes.
+          const next = translated !== trimmed ? raw.replace(trimmed, translated) : raw;
+          if (textNode.data !== next) textNode.data = next;
           translatedText.set(textNode, textNode.data);
         }
         node = walker.nextNode();
@@ -75,6 +78,8 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
         for (const node of mutation.addedNodes) translateNode(node);
         if (mutation.type === 'characterData') translateNode(mutation.target);
       }
+      // Drop the records our own writes just queued so they are not processed as fresh changes.
+      observer.takeRecords();
     });
     observer.observe(document.body, { childList: true, characterData: true, subtree: true });
     return () => {
