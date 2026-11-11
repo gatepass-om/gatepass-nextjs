@@ -16,6 +16,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { StatStrip } from '@/components/ui/stat-strip';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   apiRequest,
@@ -213,11 +214,11 @@ export default function ProjectsPage() {
 
       {notice ? <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
 
-      <section aria-label="Project portfolio summary" className="grid gap-3 sm:grid-cols-3">
-        <MetricCard label="Active projects" value={portfolio.active} icon={CircleDot} tone="blue" loading={loading} />
-        <MetricCard label="Pending access decisions" value={projectWorkPasses.filter((pass) => ['PendingContractorApproval', 'Submitted', 'PendingSecondApproval'].includes(pass.status)).length} icon={CalendarClock} tone="amber" loading={loading} />
-        <MetricCard label="Active work passes" value={projectWorkPasses.filter((pass) => pass.status === 'Approved' && new Date(pass.validFromUtc) <= new Date() && new Date(pass.validToUtc) >= new Date()).length} icon={FileCheck2} tone="emerald" loading={loading} />
-      </section>
+      <StatStrip items={[
+        { label: 'active', value: portfolio.active },
+        { label: 'awaiting decision', value: projectWorkPasses.filter((pass) => ['PendingContractorApproval', 'Submitted', 'PendingSecondApproval'].includes(pass.status)).length, tone: 'warning' },
+        { label: 'work passes valid now', value: projectWorkPasses.filter((pass) => pass.status === 'Approved' && new Date(pass.validFromUtc) <= new Date() && new Date(pass.validToUtc) >= new Date()).length },
+      ]} />
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 p-4">
@@ -386,26 +387,6 @@ function ProjectRow({ project, onEdit, canEdit, actionablePasses, busyWorkPassId
         <Button asChild size="sm" variant={singleActionable ? 'ghost' : 'default'}><Link href={`/projects/${project.id}`}>Manage <ArrowUpRight className="ml-1.5 h-4 w-4" /></Link></Button>
       </div>
     </article>
-  );
-}
-
-function MetricCard({ label, value, detail, icon: Icon, tone, loading }: {
-  label: string; value: number | string; detail?: string; icon: typeof CircleDot; tone: string; loading: boolean;
-}) {
-  const toneClasses: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-700', amber: 'bg-amber-50 text-amber-700',
-    emerald: 'bg-emerald-50 text-emerald-700', violet: 'bg-violet-50 text-violet-700',
-    slate: 'bg-slate-100 text-slate-600',
-  };
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between">
-        <div><p className="text-sm font-medium text-slate-500">{label}</p>
-          {loading ? <Skeleton className="mt-3 h-8 w-16" /> : <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>}</div>
-        <span className={`rounded-xl p-2.5 ${toneClasses[tone]}`}><Icon className="h-5 w-5" /></span>
-      </div>
-      {detail ? <p className="mt-3 text-xs text-slate-500">{detail}</p> : null}
-    </div>
   );
 }
 

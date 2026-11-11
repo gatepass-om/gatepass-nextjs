@@ -44,8 +44,8 @@ test('project create and edit use a four-step wizard with back and next navigati
 });
 
 test('project portfolio keeps only selective operational statistics', () => {
-  for (const label of ['Active projects', 'Pending access decisions', 'Active work passes']) {
-    assert.match(projectPage, new RegExp(label));
+  for (const label of ['active', 'awaiting decision', 'work passes valid now']) {
+    assert.match(projectPage, new RegExp(`label: '${label}'`));
   }
   for (const removed of ['Project coverage', 'Ending in 30 days']) {
     assert.doesNotMatch(projectPage, new RegExp(removed));

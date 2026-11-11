@@ -1,5 +1,6 @@
 'use client';
 
+import { StatStrip } from '@/components/ui/stat-strip';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, BellRing, RefreshCw, ShieldAlert, Siren } from 'lucide-react';
 import Link from 'next/link';
@@ -150,11 +151,11 @@ export default function AlertsPage() {
       </header>
       {expiryCheckResult && <p role="status" className="rounded-md border p-3 text-sm">{expiryCheckResult}</p>}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <SummaryCard icon={ShieldAlert} label={t('Total alerts')} value={alerts.length} />
-        <SummaryCard icon={BellRing} label={t('Unacknowledged')} value={unacknowledgedCount} />
-        <SummaryCard icon={Siren} label={t('Critical unacknowledged')} value={criticalCount} />
-      </div>
+      <StatStrip items={[
+        { label: t('alerts'), value: alerts.length },
+        { label: t('unacknowledged'), value: unacknowledgedCount, tone: 'warning' },
+        { label: t('critical'), value: criticalCount, tone: 'danger' },
+      ]} />
 
       <Card className="p-0">
         <Table>

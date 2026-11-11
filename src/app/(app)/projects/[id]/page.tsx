@@ -1,5 +1,6 @@
 'use client';
 
+import { StatStrip } from '@/components/ui/stat-strip';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -172,12 +173,12 @@ export default function ProjectCommandCenterPage() {
         </section>
       ) : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Assigned sites" value={project.siteIds.length} icon={MapPin} />
-        <Link href={`/projects/${project.id}/personnel`}><Metric label="Project personnel" value={project.members.length} icon={UsersRound} /></Link>
-        <Metric label="Pending decisions" value={pending} icon={FileWarning} accent={pending ? 'amber' : 'slate'} />
-        <Metric label="Access granted" value={granted} icon={ShieldCheck} accent="emerald" />
-      </section>
+      <StatStrip items={[
+        { label: project.siteIds.length === 1 ? 'site' : 'sites', value: project.siteIds.length },
+        { label: project.members.length === 1 ? 'person' : 'people', value: project.members.length, href: `/projects/${project.id}/personnel` },
+        { label: 'pending decisions', value: pending, tone: 'warning' },
+        { label: 'access granted', value: granted, tone: 'success' },
+      ]} />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -347,7 +348,6 @@ function WorkerAccessDialog({ open, onOpenChange, token, project, sites, users, 
 }
 
 function PersonRow({ label, name }: { label: string; name?: string }) { return <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">{name?.slice(0, 2).toUpperCase() || '—'}</span><div className="min-w-0"><p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p><p className="truncate text-sm font-semibold text-slate-900">{name || 'Not assigned'}</p></div></div>; }
-function Metric({ label, value, icon: Icon, accent = 'blue' }: { label: string; value: number; icon: typeof BriefcaseBusiness; accent?: string }) { const colors: Record<string, string> = { blue: 'bg-blue-50 text-blue-700', amber: 'bg-amber-50 text-amber-700', emerald: 'bg-emerald-50 text-emerald-700', slate: 'bg-slate-100 text-slate-600' }; return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between"><div><p className="text-sm font-medium text-slate-500">{label}</p><p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p></div><span className={`rounded-xl p-2.5 ${colors[accent]}`}><Icon className="h-5 w-5" /></span></div></div>; }
 function ProjectLoading() { return <div className="space-y-6 p-6"><Skeleton className="h-20 w-2/3" /><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{[1,2,3,4].map((item) => <Skeleton key={item} className="h-28" />)}</div><Skeleton className="h-48" /><Skeleton className="h-80" /></div>; }
 function statusClass(tone: string) { return { amber: 'bg-amber-100 text-amber-800', emerald: 'bg-emerald-50 text-emerald-700', blue: 'bg-blue-50 text-blue-700', red: 'bg-red-50 text-red-700', slate: 'bg-slate-100 text-slate-600' }[tone] || 'bg-slate-100 text-slate-600'; }
 function formatDate(value: string) { return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)); }
