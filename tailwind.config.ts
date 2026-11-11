@@ -43,14 +43,24 @@ export default {
         success: {
           DEFAULT: 'hsl(var(--success))',
           foreground: 'hsl(var(--success-foreground))',
+          soft: 'hsl(var(--success-soft))',
+          ink: 'hsl(var(--success-ink))',
         },
         warning: {
           DEFAULT: 'hsl(var(--warning))',
           foreground: 'hsl(var(--warning-foreground))',
+          soft: 'hsl(var(--warning-soft))',
+          ink: 'hsl(var(--warning-ink))',
         },
         danger: {
           DEFAULT: 'hsl(var(--danger))',
           foreground: 'hsl(var(--danger-foreground))',
+          soft: 'hsl(var(--danger-soft))',
+          ink: 'hsl(var(--danger-ink))',
+        },
+        pending: {
+          soft: 'hsl(var(--pending-soft))',
+          ink: 'hsl(var(--pending-ink))',
         },
         info: {
           DEFAULT: 'hsl(var(--info))',

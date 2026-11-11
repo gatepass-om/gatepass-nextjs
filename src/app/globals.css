@@ -6,61 +6,69 @@
   :root {
     color-scheme: light;
 
-    /* GatePass — Apple HIG–style light theme */
-    --background: 240 20% 97%;
-    --foreground: 240 6% 12%;
+    /* GatePass "Sheets": soft grey page, white panels, hairlines, one blue. */
+    --background: 220 20% 97%;            /* #f6f7f9 */
+    --foreground: 220 6% 10%;             /* #17181a */
 
     --card: 0 0% 100%;
-    --card-foreground: 240 6% 12%;
+    --card-foreground: 220 6% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 6% 12%;
+    --popover-foreground: 220 6% 10%;
 
-    --primary: 211 100% 50%;
+    --primary: 218 74% 47%;               /* #1f5fd1 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 20% 94%;
-    --secondary-foreground: 240 6% 14%;
+    --secondary: 220 14% 96%;             /* #f3f4f6 */
+    --secondary-foreground: 220 6% 10%;
 
-    --muted: 240 15% 95%;
-    --muted-foreground: 240 4% 46%;
+    --muted: 220 14% 96%;                 /* soft fill */
+    --muted-foreground: 218 5% 44%;       /* #6b6f76 */
 
-    --accent: 211 100% 95%;
-    --accent-foreground: 211 100% 36%;
+    --accent: 217 84% 95%;                /* #e8f0fd, selected/pending wash */
+    --accent-foreground: 218 74% 47%;
 
-    --destructive: 4 90% 58%;
+    --destructive: 0 62% 39%;             /* #a32626 */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 10% 88%;
-    --input: 240 10% 85%;
-    --ring: 211 100% 50%;
+    --border: 225 9% 91%;                 /* #e6e7ea hairline */
+    --input: 225 9% 86%;
+    --ring: 218 74% 47%;
 
-    --radius: 0.875rem;
+    --radius: 0.5rem;                     /* 8px controls; panels use rounded-xl (12px) */
 
-    /* status palette for operations widgets */
-    --success: 142 69% 42%;
+    /* status: solid colour for dots and charts, plus a soft wash and an ink for pills */
+    --success: 149 72% 28%;
     --success-foreground: 0 0% 100%;
-    --warning: 36 100% 50%;
+    --success-soft: 141 46% 93%;          /* #e4f5ea */
+    --success-ink: 149 72% 25%;           /* #12703f */
+    --warning: 36 100% 45%;
     --warning-foreground: 0 0% 100%;
-    --danger: 4 90% 58%;
+    --warning-soft: 45 100% 93%;
+    --warning-ink: 33 90% 28%;
+    --danger: 0 62% 39%;
     --danger-foreground: 0 0% 100%;
-    --info: 211 100% 50%;
+    --danger-soft: 0 69% 95%;             /* #fbe9e9 */
+    --danger-ink: 0 62% 39%;              /* #a32626 */
+    --info: 218 74% 47%;
+    --pending-soft: 217 84% 95%;          /* #e8f0fd */
+    --pending-ink: 218 74% 47%;           /* #1f5fd1 */
 
-    --chart-1: 211 100% 50%;
-    --chart-2: 142 69% 42%;
-    --chart-3: 36 100% 50%;
-    --chart-4: 280 60% 58%;
-    --chart-5: 340 82% 58%;
+    --chart-1: 218 74% 47%;
+    --chart-2: 149 72% 28%;
+    --chart-3: 36 100% 45%;
+    --chart-4: 262 52% 52%;
+    --chart-5: 340 70% 48%;
 
-    /* sidebar — macOS-style light rail with a blue selected state */
-    --sidebar-background: 240 20% 96%;
-    --sidebar-foreground: 240 6% 27%;
-    --sidebar-primary: 211 100% 50%;
+    /* sidebar: only used by the old shell until the top bar replaces it */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 6% 10%;
+    --sidebar-primary: 218 74% 47%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 211 92% 93%;
-    --sidebar-accent-foreground: 211 100% 38%;
-    --sidebar-border: 240 10% 89%;
-    --sidebar-ring: 211 100% 50%;
+    --sidebar-accent: 217 84% 95%;
+    --sidebar-accent-foreground: 218 74% 47%;
+    --sidebar-border: 225 9% 91%;
+    --sidebar-ring: 218 74% 47%;
   }
 
   .dark {
@@ -78,20 +86,17 @@
 }
 
 @layer components {
-  /* Elevated operations panel */
+  /* Flat panel: white, hairline border, no shadow. */
   .ops-panel {
-    @apply rounded-2xl border border-border bg-card;
-    box-shadow:
-      0 1px 1px hsl(240 6% 12% / 0.03),
-      0 8px 20px -14px hsl(240 6% 12% / 0.14);
+    @apply rounded-xl border border-border bg-card;
   }
 
   .metric-value {
-    @apply text-3xl font-bold tracking-tight tabular-nums text-foreground;
+    @apply text-3xl font-semibold tracking-tight tabular-nums text-foreground;
   }
 
   .eyebrow {
-    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground;
+    @apply text-xs font-medium text-muted-foreground;
   }
 
   .status-dot {
@@ -104,23 +109,15 @@
   }
 
   .dashboard-panel {
-    @apply overflow-hidden rounded-2xl border border-slate-200/80 bg-white;
-    box-shadow: 0 6px 18px -16px rgb(0 0 0 / .18);
+    @apply overflow-hidden rounded-xl border border-border bg-card;
   }
 
   .dashboard-metric {
-    @apply rounded-2xl border border-slate-200/80 bg-white p-4;
-    box-shadow: 0 6px 18px -16px rgb(0 0 0 / .16);
-    transition: transform 160ms ease, box-shadow 160ms ease;
-  }
-
-  .dashboard-metric:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 22px -16px rgb(0 0 0 / .22);
+    @apply rounded-xl border border-border bg-card p-4;
   }
 
   .dashboard-eyebrow {
-    @apply text-[10px] font-semibold uppercase tracking-[.14em] text-slate-400;
+    @apply text-xs font-medium text-muted-foreground;
   }
 
   /* The home dashboard uses a compact command-centre rail, styled as a
