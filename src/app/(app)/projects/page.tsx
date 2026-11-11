@@ -218,7 +218,7 @@ export default function ProjectsPage() {
 
       {notice ? <div role="status" className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-ink">{notice}</div> : null}
 
-      <StatStrip items={[
+      <StatStrip label="Project portfolio summary" items={[
         { label: 'active', value: portfolio.active },
         { label: 'awaiting decision', value: projectWorkPasses.filter((pass) => ['PendingContractorApproval', 'Submitted', 'PendingSecondApproval'].includes(pass.status)).length, tone: 'warning' },
         { label: 'work passes valid now', value: projectWorkPasses.filter((pass) => pass.status === 'Approved' && new Date(pass.validFromUtc) <= new Date() && new Date(pass.validToUtc) >= new Date()).length },

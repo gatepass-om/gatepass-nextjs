@@ -20,13 +20,13 @@ const dot: Record<StatTone, string> = {
 
 /**
  * One quiet line of figures in place of a row of counter cards. Items whose value is zero are left out,
- * so an empty page shows nothing rather than a row of zeros; a page that wants a zero passes it as text.
+ * so an empty page shows nothing rather than a row of zeros; an analytics page can pass `showZero`.
  */
-export function StatStrip({ items, className }: { items: StatItem[]; className?: string }) {
-  const shown = items.filter((item) => item.value !== 0);
+export function StatStrip({ items, className, label, showZero = false }: { items: StatItem[]; className?: string; label?: string; showZero?: boolean }) {
+  const shown = showZero ? items : items.filter((item) => item.value !== 0);
   if (shown.length === 0) return null;
   return (
-    <ul className={cn('flex flex-wrap items-center gap-x-5 gap-y-1 text-sm', className)}>
+    <ul aria-label={label} className={cn('flex flex-wrap items-center gap-x-5 gap-y-1 text-sm', className)}>
       {shown.map((item) => {
         const tone = item.tone ?? 'default';
         const content = (

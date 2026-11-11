@@ -110,10 +110,10 @@ export default function InspectionsPage() {
       </header>
 
       {loading ? null : (
-        <StatStrip items={[
+        <StatStrip showZero items={[
           { label: 'inspections', value: analytics.totalInspections },
           { label: 'workers inspected', value: analytics.uniqueWorkersInspected },
-          { label: 'compliance', value: analytics.totalInspections > 0 ? `${analytics.complianceRate.toFixed(1)}%` : 0, tone: 'success' },
+          { label: 'compliance', value: analytics.totalInspections > 0 ? `${analytics.complianceRate.toFixed(1)}%` : '—', tone: 'success' },
           { label: 'wrongful conduct', value: analytics.nonCompliantInspections, tone: 'danger' },
         ]} />
       )}
