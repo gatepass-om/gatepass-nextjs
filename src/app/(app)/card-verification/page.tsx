@@ -1,7 +1,7 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
-import { BadgeCheck, ClipboardCheck, DoorOpen, ScanLine, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { useSession } from '@/providers/session-provider';
 import { useToast } from '@/hooks/use-toast';
@@ -9,10 +9,9 @@ import { ScannerPreview } from '@/components/scan/scanner-preview';
 import { WorkerCertificationView } from '@/components/workers/worker-certification-view';
 import { createGateActivityRequest, createInspectionRequest, listSitesRequest, resolvePersonnelScanRequest, type PersonnelScanStatus } from '@/lib/api';
 import type { Site } from '@/lib/types';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,6 +33,7 @@ export default function PersonnelScanPage() {
   const [inspectionReason, setInspectionReason] = useState('');
   const [inspectionNotes, setInspectionNotes] = useState('');
   const [gateName, setGateName] = useState('Main gate');
+  const resultRef = useRef<HTMLDivElement>(null);
 
   const canInspect = inspectionRoles.includes(user?.role ?? '');
   const canRecordGateActivity = user?.role === 'Admin' || user?.role === 'Security';
@@ -45,6 +45,13 @@ export default function PersonnelScanPage() {
       setSiteId((current) => current || rows[0]?.id || '');
     }).catch(() => undefined);
   }, [token]);
+
+  // On a phone the result sits below the camera; bring it into view when a scan lands.
+  useEffect(() => {
+    if (result && window.matchMedia('(max-width: 1279px)').matches) {
+      resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [result]);
 
   const resolve = async (value: string) => {
     if (!token || !siteId || !value.trim()) return;
@@ -111,78 +118,77 @@ export default function PersonnelScanPage() {
   if (loading) return <p>Loading…</p>;
   if (!isAuthorized) return <UnauthorizedComponent />;
   const permitted = Boolean(result && !result.failureReason);
+  const initials = result ? result.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase() : '';
+  const showGateActions = canRecordGateActivity && Boolean(result && (result.canCheckIn || result.canCheckOut));
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Personnel Scan</h1>
-      </header>
+    <div className="space-y-5">
+      <h1 className="text-2xl font-semibold tracking-tight">Personnel Scan</h1>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><ScanLine className="h-5 w-5" /> Scan credential</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="scan-site">Site</Label>
-              <Select value={siteId} disabled={busy} onValueChange={(id) => { setSiteId(id); setResult(null); setInspectionOpen(false); }}>
-                <SelectTrigger id="scan-site"><SelectValue placeholder="Choose a site" /></SelectTrigger>
-                <SelectContent>{sites.map((site) => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <ScannerPreview scanContext={siteId} isPaused={busy || !siteId} onScanSuccess={(value) => void resolve(value)} />
-            <form className="flex gap-2" onSubmit={submitScan}>
-              <Input aria-label="Live QR or printed badge credential" value={credential} onChange={(event) => setCredential(event.target.value)} placeholder="Scan or paste credential" />
-              <Button type="submit" disabled={busy || !siteId || !credential.trim()}>Resolve</Button>
-            </form>
-          </CardContent>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <Card className="space-y-4 p-4 sm:p-5">
+          <div>
+            <Label htmlFor="scan-site" className="sr-only">Site</Label>
+            <Select value={siteId} disabled={busy} onValueChange={(id) => { setSiteId(id); setResult(null); setInspectionOpen(false); }}>
+              <SelectTrigger id="scan-site"><SelectValue placeholder="Choose a site" /></SelectTrigger>
+              <SelectContent>{sites.map((site) => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <ScannerPreview scanContext={siteId} isPaused={busy || !siteId} onScanSuccess={(value) => void resolve(value)} />
+          <form className="flex gap-2" onSubmit={submitScan}>
+            <Input aria-label="Live QR or printed badge credential" value={credential} onChange={(event) => setCredential(event.target.value)} placeholder="Scan or paste credential" />
+            <Button type="submit" variant="outline" disabled={busy || !siteId || !credential.trim()}>Resolve</Button>
+          </form>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><BadgeCheck className="h-5 w-5" /> Live result</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {!result ? <p className="text-sm text-muted-foreground">Scan a worker credential to see their identity and live eligibility.</p> : <>
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
-                <div>
-                  <p className="font-semibold">{result.name}</p>
-                  <p className="text-sm text-muted-foreground">{[result.workerCode, result.workerProfile?.jobTitle, result.workerProfile?.employerName].filter(Boolean).join(' · ')}</p>
+        <div ref={resultRef} className="min-w-0 scroll-mt-20">
+          {!result ? (
+            <Card className="p-5"><p className="text-sm text-muted-foreground">Scan a badge to see the result.</p></Card>
+          ) : (
+            <Card className="space-y-4 p-4 sm:p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground" aria-hidden="true">{initials}</div>
+                <div className="min-w-0">
+                  <p className="truncate text-base font-semibold">{result.name}</p>
+                  <p className="truncate text-sm text-muted-foreground">{[result.workerCode, result.workerProfile?.jobTitle, result.workerProfile?.employerName].filter(Boolean).join(' · ')}</p>
                 </div>
-                <Badge variant={permitted ? 'default' : 'destructive'} className="gap-1">
-                  {permitted ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
-                  {permitted ? 'Eligible at this site' : 'Not eligible'}
+              </div>
+
+              <div>
+                <Badge variant={permitted ? 'success' : 'destructive'} className="gap-1.5 px-3 py-1 text-sm">
+                  {permitted ? <ShieldCheck className="h-4 w-4" aria-hidden="true" /> : <ShieldAlert className="h-4 w-4" aria-hidden="true" />}
+                  {permitted ? 'Cleared to enter' : 'Do not admit'}
                 </Badge>
               </div>
 
-              <dl className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
-                <div><dt className="text-muted-foreground">Site</dt><dd className="font-medium">{result.siteName}</dd></div>
-                <div><dt className="text-muted-foreground">Presence</dt><dd className="font-medium">{result.presenceStatus}</dd></div>
-                <div><dt className="text-muted-foreground">Access request</dt><dd className="font-medium">{result.hasApprovedAccess ? 'Approved' : 'Not approved'}</dd></div>
-                <div><dt className="text-muted-foreground">Work pass</dt><dd className="font-medium">{result.activeWorkPass?.passNumber ?? 'None active'}</dd></div>
-              </dl>
+              {result.failureReason || result.missingCertificates.length > 0 ? (
+                <div role="alert" className="space-y-1 rounded-lg bg-danger-soft p-3 text-sm text-danger-ink">
+                  {result.failureReason ? <p>{result.failureReason}</p> : null}
+                  {result.missingCertificates.length > 0 ? <p><span>Missing credentials:</span> {result.missingCertificates.join(', ')}</p> : null}
+                </div>
+              ) : null}
 
-              {result.failureReason ? <Alert variant="destructive"><ShieldAlert className="h-4 w-4" /><AlertTitle>Access blocked</AlertTitle><AlertDescription>{result.failureReason}</AlertDescription></Alert> : null}
-              {result.missingCertificates.length > 0 ? <Alert variant="destructive"><ShieldAlert className="h-4 w-4" /><AlertDescription>Missing credentials: {result.missingCertificates.join(', ')}</AlertDescription></Alert> : null}
+              <dl className="divide-y text-sm">
+                <div className="flex items-center justify-between gap-4 py-2.5"><dt className="text-muted-foreground">Presence</dt><dd className="font-medium">{result.presenceStatus}</dd></div>
+                <div className="flex items-center justify-between gap-4 py-2.5"><dt className="text-muted-foreground">Access request</dt><dd className="font-medium">{result.hasApprovedAccess ? 'Approved' : 'Not approved'}</dd></div>
+                <div className="flex items-center justify-between gap-4 py-2.5"><dt className="text-muted-foreground">Work pass</dt><dd className="font-medium">{result.activeWorkPass?.passNumber ?? 'None active'}</dd></div>
+              </dl>
 
               <WorkerCertificationView credentials={result.credentials ?? []} checkedAt={result.credentialsCheckedAtUtc} />
 
-              {canRecordGateActivity ? <div className="space-y-3 rounded-lg border p-4">
-                <div className="flex items-center gap-2"><DoorOpen className="h-4 w-4" /><p className="font-medium">Gate movement</p></div>
-                <Input value={gateName} onChange={(event) => setGateName(event.target.value)} aria-label="Checkpoint name" />
-                <div className="flex flex-wrap gap-2">
-                  <Button disabled={busy || !result.canCheckIn} onClick={() => void recordGateActivity('CheckIn')}>Record entry</Button>
-                  <Button variant="outline" disabled={busy || !result.canCheckOut} onClick={() => void recordGateActivity('CheckOut')}>Record exit</Button>
+              {showGateActions ? <div className="space-y-3 border-t pt-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="gate-name" className="text-xs font-normal text-muted-foreground">Gate</Label>
+                  <Input id="gate-name" value={gateName} onChange={(event) => setGateName(event.target.value)} aria-label="Checkpoint name" />
+                </div>
+                <div className="flex gap-2">
+                  {result.canCheckIn ? <Button className="flex-1" disabled={busy} onClick={() => void recordGateActivity('CheckIn')}>Record entry</Button> : null}
+                  {result.canCheckOut ? <Button className="flex-1" variant={result.canCheckIn ? 'outline' : 'default'} disabled={busy} onClick={() => void recordGateActivity('CheckOut')}>Record exit</Button> : null}
                 </div>
               </div> : null}
 
-              {canInspect ? <div className="space-y-3 rounded-lg border p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2"><ClipboardCheck className="h-4 w-4" /><p className="font-medium">Inspection</p></div>
-                  {!inspectionOpen ? <Button variant="outline" disabled={busy} onClick={() => { setInspectionOutcome(null); setInspectionOpen(true); }}>Start inspection</Button> : null}
-                </div>
-                {inspectionOpen ? <div className="space-y-3">
+              {canInspect ? <div className="border-t pt-4">
+                {!inspectionOpen ? <Button className="w-full sm:w-auto" variant={showGateActions ? 'outline' : 'default'} disabled={busy} onClick={() => { setInspectionOutcome(null); setInspectionOpen(true); }}>Start inspection</Button> : <div className="space-y-3">
                   <p className="text-sm text-muted-foreground">Inspection findings do not change access unless a configured policy says so.</p>
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" variant={inspectionOutcome === 'Compliant' ? 'default' : 'outline'} onClick={() => setInspectionOutcome('Compliant')}>Compliant</Button>
@@ -191,11 +197,11 @@ export default function PersonnelScanPage() {
                   {inspectionOutcome === 'NonCompliant' ? <Input value={inspectionReason} onChange={(event) => setInspectionReason(event.target.value)} placeholder="Finding, e.g. PPE violation" aria-label="Inspection finding" /> : null}
                   <Textarea value={inspectionNotes} onChange={(event) => setInspectionNotes(event.target.value)} placeholder="Notes (optional)" aria-label="Inspection notes" />
                   <div className="flex gap-2"><Button disabled={busy || !inspectionOutcome} onClick={() => void recordInspection()}>Submit inspection</Button><Button variant="ghost" disabled={busy} onClick={() => setInspectionOpen(false)}>Cancel</Button></div>
-                </div> : null}
+                </div>}
               </div> : null}
-            </>}
-          </CardContent>
-        </Card>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );

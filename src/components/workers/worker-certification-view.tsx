@@ -9,20 +9,33 @@ export function WorkerCertificationView({ credentials, checkedAt }: { credential
   const expired = credentials.filter(item => item.validityStatus === 'Expired').length;
   const missing = credentials.filter(item => item.validityStatus === 'Missing').length;
   const unverified = credentials.filter(item => item.verificationStatus !== 'Verified' && item.validityStatus !== 'Missing').length;
-  return <section aria-labelledby="certification-heading" className="space-y-4 border-t pt-5">
-    <div>
-      <h2 id="certification-heading" className="text-lg font-semibold">Training and certificates</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{credentials.length} records · {expired} expired · {missing} missing · {unverified} awaiting verification</p>
-      {checkedAt ? <p className="mt-1 text-xs text-muted-foreground">Checked {new Date(checkedAt).toLocaleString()}. Resolve the QR again to refresh.</p> : null}
+  const problems = [
+    expired > 0 ? `${expired} expired` : '',
+    missing > 0 ? `${missing} missing` : '',
+    unverified > 0 ? `${unverified} awaiting verification` : '',
+  ].filter(Boolean);
+  return <section aria-labelledby="certification-heading" className="border-t pt-4">
+    <div className="flex items-baseline justify-between gap-3">
+      <h2 id="certification-heading" className="text-base font-semibold">Training and certificates</h2>
+      {checkedAt ? <span className="text-xs text-muted-foreground">Checked {new Date(checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> : null}
     </div>
-    {credentials.length === 0 ? <p className="py-4 text-sm text-muted-foreground">No training or certificate records have been submitted.</p> : <ul className="divide-y">
-      {credentials.map(item => <li key={`${item.kind}:${item.id}`} className="space-y-3 py-4 first:pt-0">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0"><h3 className="break-words font-medium">{item.name}</h3><p className="mt-1 text-xs text-muted-foreground">{item.kind}{item.requiredForSite ? ' · Required at this site' : ''}{item.requiredForRole ? ' · Required for job role' : ''}</p></div>
-          <div className="flex flex-wrap gap-2"><Badge variant={item.validityStatus === 'Valid' ? 'secondary' : 'destructive'}>{item.validityStatus}</Badge><Badge variant="outline">{item.verificationStatus}</Badge></div>
+    {problems.length > 0 ? <p className="mt-1 text-sm text-danger-ink">{problems.join(' · ')}</p> : null}
+    {credentials.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No training or certificate records.</p> : <ul className="mt-2 divide-y">
+      {credentials.map(item => <li key={`${item.kind}:${item.id}`} className="py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="break-words text-sm font-medium">{item.name}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {item.expiresAtUtc ? `Expires ${displayDate(item.expiresAtUtc)}` : 'No expiry'}
+              {item.requiredForSite ? ' · Required here' : item.requiredForRole ? ' · Required for job role' : ''}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+            <Badge variant={item.validityStatus === 'Valid' ? 'success' : 'destructive'}>{item.validityStatus}</Badge>
+            {item.verificationStatus !== 'Verified' && item.validityStatus !== 'Missing' ? <Badge variant="outline">{item.verificationStatus}</Badge> : null}
+          </div>
         </div>
-        <dl className="grid grid-cols-2 gap-4 text-sm"><div><dt className="text-muted-foreground">Issued</dt><dd className="mt-1 tabular-nums">{displayDate(item.issuedAtUtc)}</dd></div><div><dt className="text-muted-foreground">Expires</dt><dd className="mt-1 tabular-nums">{displayDate(item.expiresAtUtc)}</dd></div></dl>
-        {item.workRestriction ? <p className="text-sm"><strong>Work restriction:</strong> {item.workRestriction}</p> : null}
+        {item.workRestriction ? <p className="mt-1.5 text-xs"><strong>Work restriction:</strong> {item.workRestriction}</p> : null}
       </li>)}
     </ul>}
   </section>;
