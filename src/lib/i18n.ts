@@ -266,6 +266,8 @@ export const arabicTranslations: Record<string, string> = {
   'OperatorAdmin': 'مسؤول المشغل',
   'General Technician': 'فني عام',
   'Electrical Technician': 'فني كهرباء',
+  'pending)': 'معلّقة)',
+  'Search by project, client, operator or contractor': 'ابحث بالمشروع أو العميل أو المشغل أو المقاول',
 };
 
 export function translateToArabic(value: string) {
@@ -273,5 +275,7 @@ export function translateToArabic(value: string) {
   if (exact) return exact;
   const pageMatch = /^Page (\d+) of (\d+)$/.exec(value);
   if (pageMatch) return `الصفحة ${pageMatch[1]} من ${pageMatch[2]}`;
+  const totalProjects = /^(\d+) total projects$/.exec(value);
+  if (totalProjects) return `${totalProjects[1]} مشروعاً إجمالاً`;
   return value;
 }
