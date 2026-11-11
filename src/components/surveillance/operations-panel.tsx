@@ -87,7 +87,7 @@ export function RegisterCameraDialog({
             <Camera className="h-4 w-4 text-primary" />
             Register camera
           </DialogTitle>
-          <DialogDescription>Add a site-scoped camera or thermal monitoring device.</DialogDescription>
+          <DialogDescription className="sr-only">Add a site-scoped camera or thermal monitoring device.</DialogDescription>
         </DialogHeader>
         <div className="grid max-h-[75vh] gap-3 overflow-y-auto md:grid-cols-2">
           <div className="space-y-1.5">
@@ -171,7 +171,7 @@ export function RequestEvidenceDialog({
             <FileVideo className="h-4 w-4 text-primary" />
             Request evidence
           </DialogTitle>
-          <DialogDescription>Queue a ten-minute evidence window from the selected VMS camera.</DialogDescription>
+          <DialogDescription className="sr-only">Queue a ten-minute evidence window from the selected VMS camera.</DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">
           <Label>Camera</Label>

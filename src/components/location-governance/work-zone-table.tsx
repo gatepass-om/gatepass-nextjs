@@ -11,7 +11,6 @@ export function WorkZoneAssignmentsTable({ assignments, loading }: { assignments
     <Card>
       <CardHeader>
         <CardTitle>Work-Zone Assignments</CardTitle>
-        <CardDescription>Who is allowed to work inside each monitored region.</CardDescription>
       </CardHeader>
       <CardContent>
         {loading ? <Skeleton className="h-48 w-full" /> : (

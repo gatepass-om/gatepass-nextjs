@@ -157,7 +157,6 @@ export default function SurveillancePage() {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Surveillance And Evidence</h1>
-          <p className="text-muted-foreground">VMS cameras, thermal monitoring, correlated events, and local-first evidence retrieval.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Select value={selectedSiteId} onValueChange={setSelectedSiteId}><SelectTrigger className="w-full sm:w-[240px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Sites</SelectItem>{sites.map((site) => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}</SelectContent></Select>

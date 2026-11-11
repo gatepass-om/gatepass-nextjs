@@ -199,11 +199,7 @@ export default function PermitsPage() {
             <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Permits to Work</h1>
-                    <p className="text-muted-foreground">
-                        {project
-                            ? `Manage permits for ${project.name}. Only sites assigned to this project are available.`
-                            : 'Manage Permit-to-Work authorisations required for site access.'}
-                    </p>
+                    {project ? <p className="text-muted-foreground">{project.name}</p> : null}
                 </div>
                 {canManage && (
                     <Dialog open={issueOpen} onOpenChange={setIssueOpen}>
@@ -216,7 +212,7 @@ export default function PermitsPage() {
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle>Issue Permit to Work</DialogTitle>
-                                <DialogDescription>
+                                <DialogDescription className="sr-only">
                                     Complete all fields. The permit authorises the worker to access the specified site
                                     only within the stated time window.
                                 </DialogDescription>

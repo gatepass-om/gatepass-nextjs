@@ -189,7 +189,6 @@ export default function MusterPage() {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Muster / Roll-Call</h1>
-          <p className="text-muted-foreground">Emergency evacuation accounting — snapshot on-site personnel and confirm everyone is safe.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           {musters.length > 0 && (

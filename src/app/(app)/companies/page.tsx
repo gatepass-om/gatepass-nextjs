@@ -210,11 +210,6 @@ export default function CompaniesPage() {
        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Company Management</h1>
-          <p className="text-muted-foreground">
-            {canManageCompanies
-              ? 'Overview of operators and all connected contractor companies.'
-              : 'Request subcontractor registration and track operator approval before company activation.'}
-          </p>
         </div>
         {canRegisterExternalCompany && (
           <div className="flex flex-wrap items-center gap-2">

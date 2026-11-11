@@ -73,7 +73,6 @@ export function SitesTable({
       <Card>
         <CardHeader>
           <CardTitle>All Sites</CardTitle>
-          <CardDescription>A list of all registered sites in the system.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -205,7 +204,7 @@ export function SitesTable({
           <DialogContent className="sm:max-w-4xl">
               <DialogHeader>
                   <DialogTitle>Edit Site</DialogTitle>
-                  <DialogDescription>Update the details for {selectedSite?.name}.</DialogDescription>
+                  <DialogDescription className="sr-only">Update the details for {selectedSite?.name}.</DialogDescription>
               </DialogHeader>
               {selectedSite && (
                   <EditSiteForm

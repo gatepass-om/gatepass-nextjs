@@ -183,9 +183,6 @@ export function WorkerCards({ workerId }: { workerId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5" /> Personnel cards</CardTitle>
-        <CardDescription>
-          Issue CR80-size photo ID cards with revocable QR credentials. Printing works with standard card printers or Save as PDF.
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -305,7 +302,7 @@ export function WorkerCards({ workerId }: { workerId: string }) {
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Worker card print preview</DialogTitle>
-            <DialogDescription>CR80 output using the configured customer branding and saved crop.</DialogDescription>
+            <DialogDescription className="sr-only">CR80 output using the configured customer branding and saved crop.</DialogDescription>
           </DialogHeader>
           <iframe
             title="Worker card print preview"

@@ -199,14 +199,7 @@ export default function ProjectsPage() {
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm font-semibold text-blue-600">
-            <BriefcaseBusiness className="h-4 w-4" />
-            Project portfolio
-          </div>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Projects</h1>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-            Plan project periods, assign delivery partners and keep work-pass activity connected to the right operation.
-          </p>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-950">Projects</h1>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => void loadWorkspace()} disabled={loading} aria-label="Refresh projects">
@@ -221,9 +214,9 @@ export default function ProjectsPage() {
       {notice ? <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
 
       <section aria-label="Project portfolio summary" className="grid gap-3 sm:grid-cols-3">
-        <MetricCard label="Active projects" value={portfolio.active} detail={`${portfolio.total} total projects`} icon={CircleDot} tone="blue" loading={loading} />
-        <MetricCard label="Pending access decisions" value={projectWorkPasses.filter((pass) => ['PendingContractorApproval', 'Submitted', 'PendingSecondApproval'].includes(pass.status)).length} detail="Requests awaiting action" icon={CalendarClock} tone="amber" loading={loading} />
-        <MetricCard label="Active work passes" value={projectWorkPasses.filter((pass) => pass.status === 'Approved' && new Date(pass.validFromUtc) <= new Date() && new Date(pass.validToUtc) >= new Date()).length} detail="Currently valid project access" icon={FileCheck2} tone="emerald" loading={loading} />
+        <MetricCard label="Active projects" value={portfolio.active} icon={CircleDot} tone="blue" loading={loading} />
+        <MetricCard label="Pending access decisions" value={projectWorkPasses.filter((pass) => ['PendingContractorApproval', 'Submitted', 'PendingSecondApproval'].includes(pass.status)).length} icon={CalendarClock} tone="amber" loading={loading} />
+        <MetricCard label="Active work passes" value={projectWorkPasses.filter((pass) => pass.status === 'Approved' && new Date(pass.validFromUtc) <= new Date() && new Date(pass.validToUtc) >= new Date()).length} icon={FileCheck2} tone="emerald" loading={loading} />
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -302,7 +295,7 @@ export default function ProjectsPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Reject project work pass</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="sr-only">
               Record what the contractor must correct. The reason remains on the work-pass audit trail.
             </DialogDescription>
           </DialogHeader>
@@ -364,8 +357,7 @@ function ProjectRow({ project, onEdit, canEdit, actionablePasses, busyWorkPassId
         ) : null}
       </div>
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Work-pass activity</p>
-        <div className="mt-1 flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <span className="text-2xl font-semibold tabular-nums text-slate-950">{project.workPassCount}</span>
           <span className="text-sm text-slate-500">passes</span>
         </div>
@@ -398,7 +390,7 @@ function ProjectRow({ project, onEdit, canEdit, actionablePasses, busyWorkPassId
 }
 
 function MetricCard({ label, value, detail, icon: Icon, tone, loading }: {
-  label: string; value: number | string; detail: string; icon: typeof CircleDot; tone: string; loading: boolean;
+  label: string; value: number | string; detail?: string; icon: typeof CircleDot; tone: string; loading: boolean;
 }) {
   const toneClasses: Record<string, string> = {
     blue: 'bg-blue-50 text-blue-700', amber: 'bg-amber-50 text-amber-700',
@@ -412,7 +404,7 @@ function MetricCard({ label, value, detail, icon: Icon, tone, loading }: {
           {loading ? <Skeleton className="mt-3 h-8 w-16" /> : <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>}</div>
         <span className={`rounded-xl p-2.5 ${toneClasses[tone]}`}><Icon className="h-5 w-5" /></span>
       </div>
-      <p className="mt-3 text-xs text-slate-500">{detail}</p>
+      {detail ? <p className="mt-3 text-xs text-slate-500">{detail}</p> : null}
     </div>
   );
 }

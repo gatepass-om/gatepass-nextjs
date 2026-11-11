@@ -17,7 +17,6 @@ export function InspectionCharts({ analytics }: { analytics: InspectionAnalytics
       <section className="rounded-xl border bg-card p-5" aria-label="Inspection outcomes">
         <div>
           <h2 className="font-semibold">Inspection outcomes</h2>
-          <p className="text-sm text-muted-foreground">Compliant versus non-compliant findings.</p>
         </div>
         <div className="h-72">
           {analytics.totalInspections === 0 ? (
@@ -46,7 +45,6 @@ export function InspectionCharts({ analytics }: { analytics: InspectionAnalytics
       <section className="rounded-xl border bg-card p-5" aria-label="Common wrongful conduct reasons">
         <div>
           <h2 className="font-semibold">Common wrongful conduct</h2>
-          <p className="text-sm text-muted-foreground">Most frequent reasons recorded during non-compliant inspections.</p>
         </div>
         <div className="mt-4 h-80">
           {reasons.length === 0 ? (

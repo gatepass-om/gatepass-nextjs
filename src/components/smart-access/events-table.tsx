@@ -10,7 +10,6 @@ export function EventsTable({ events }: { events: DeviceEvent[] }) {
     <Card>
       <CardHeader>
         <CardTitle>Device Events</CardTitle>
-        <CardDescription>Provider telemetry imported separately from gate activity.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>

@@ -11,7 +11,6 @@ export function GeofenceRegistryTable({ geofences, loading }: { geofences: GeoRe
     <Card>
       <CardHeader>
         <CardTitle>Geofence Registry</CardTitle>
-        <CardDescription>Operational regions used for access validation and subcontractor work-scope monitoring.</CardDescription>
       </CardHeader>
       <CardContent>
         {loading ? <Skeleton className="h-56 w-full" /> : (

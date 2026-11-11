@@ -96,7 +96,6 @@ export default function InspectionsPage() {
       <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Inspection Analytics</h1>
-          <p className="mt-1 text-muted-foreground">Workforce conduct, compliance outcomes, and inspector activity from mobile QR inspections.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Select value={days} onValueChange={setDays}>
@@ -122,7 +121,7 @@ export default function InspectionsPage() {
               <CardTitle className="text-sm font-medium text-muted-foreground">{metric.label}</CardTitle>
               <metric.icon className="h-4 w-4 text-primary" />
             </CardHeader>
-            <CardContent><div className="text-3xl font-bold">{loading ? '—' : metric.value}</div><p className="mt-1 text-xs text-muted-foreground">{metric.detail}</p></CardContent>
+            <CardContent><div className="text-3xl font-bold">{loading ? '—' : metric.value}</div></CardContent>
           </Card>
         ))}
       </section>

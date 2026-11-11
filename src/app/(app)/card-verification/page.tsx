@@ -116,20 +116,12 @@ export default function PersonnelScanPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Personnel Scan</h1>
-        <p className="text-muted-foreground">Scan a live QR or printed badge to check identity, access eligibility, and inspection history at the selected site.</p>
       </header>
-
-      <Alert>
-        <ShieldAlert className="h-4 w-4" />
-        <AlertTitle>One scan, role-appropriate action</AlertTitle>
-        <AlertDescription>Managers can review the live result and start an inspection. Only Security and Admin can record entry or exit.</AlertDescription>
-      </Alert>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><ScanLine className="h-5 w-5" /> Scan credential</CardTitle>
-            <CardDescription>Use a current phone QR or the QR printed on an issued badge.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -150,7 +142,6 @@ export default function PersonnelScanPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><BadgeCheck className="h-5 w-5" /> Live result</CardTitle>
-            <CardDescription>The decision is evaluated when the credential is scanned, not when the badge is printed.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             {!result ? <p className="text-sm text-muted-foreground">Scan a worker credential to see their identity and live eligibility.</p> : <>

@@ -206,7 +206,6 @@ export default function DecisionRulesPage() {
       <header>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Decision Rules</h1>
-          <p className="text-muted-foreground">Configure tenant-level access decision tolerances and test the effective outcome.</p>
         </div>
       </header>
 
@@ -257,7 +256,6 @@ export default function DecisionRulesPage() {
                       <SlidersHorizontal className="h-5 w-5" />
                       Access Rule Configuration
                     </CardTitle>
-                    <CardDescription>Hard guards stay enforced. Only tenant-tolerable reasons can be relaxed.</CardDescription>
                   </div>
                   <Badge variant={isDirty ? 'default' : 'outline'}>{isDirty ? 'Unsaved changes' : 'Saved'}</Badge>
                 </div>
@@ -319,7 +317,6 @@ export default function DecisionRulesPage() {
                   <ShieldCheck className="h-5 w-5" />
                   Effective Enforcement
                 </CardTitle>
-                <CardDescription>Current rule behavior for {selectedTenant?.name ?? 'this tenant'}.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -359,7 +356,6 @@ export default function DecisionRulesPage() {
                   <TestTube2 className="h-5 w-5" />
                   Test Decision
                 </CardTitle>
-                <CardDescription>Run the live access decision engine for a user and site.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">

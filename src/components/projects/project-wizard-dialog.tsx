@@ -280,7 +280,7 @@ export function ProjectWizardDialog({
       <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden p-0 sm:max-w-4xl">
         <DialogHeader className="shrink-0 border-b border-slate-200 px-6 py-5">
           <DialogTitle>{project ? `Edit ${project.name}` : 'Create a new project'}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             {project
               ? 'Update the project configuration and participating organisations.'
               : 'Set up the project, assign participants and review everything before creation.'}
@@ -301,7 +301,7 @@ export function ProjectWizardDialog({
                 <input autoFocus value={draft.name} onChange={(event) => updateField('name', event.target.value)}
                   className={inputClass(errors.name)} placeholder="e.g. Harbour expansion phase 2" />
               </Field>
-              <Field label="Client reference" hint="Optional contract, PO or tender number">
+              <Field label="Client reference" hint="Optional">
                 <input value={draft.clientReference} onChange={(event) => updateField('clientReference', event.target.value)}
                   className={inputClass()} placeholder="e.g. PO-2044" />
               </Field>
@@ -323,7 +323,7 @@ export function ProjectWizardDialog({
                   onChange={(event) => updateField('validToUtc', event.target.value)}
                   className={inputClass(errors.validToUtc)} />
               </Field>
-              <Field label="Description" hint="A short operational summary for project stakeholders" className="sm:col-span-2">
+              <Field label="Description" hint="Optional" className="sm:col-span-2">
                 <textarea value={draft.description} onChange={(event) => updateField('description', event.target.value)}
                   className={`${inputClass()} min-h-24 resize-y`} placeholder="What is this project responsible for?" />
               </Field>
@@ -349,7 +349,7 @@ export function ProjectWizardDialog({
 
           {step === 'participants' ? <div className="space-y-6">
             <StepHeading title="Participants" description="Choose the organisations and people responsible for delivery." />
-            <Field label="Consultant company" error={errors.consultantCompanyId} hint="The consultant is an external company, not an operator user role.">
+            <Field label="Consultant company" error={errors.consultantCompanyId}>
               <select value={draft.consultantCompanyId} onChange={(event) => {
                 updateField('consultantCompanyId', event.target.value);
                 updateField('supervisorUserId', '');
@@ -359,7 +359,7 @@ export function ProjectWizardDialog({
                 {consultantCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
               </select>
             </Field>
-            <Field label="Consultant verifier" hint="Optional. If you leave this unassigned, the consultant administrator is notified to choose one of their supervisors. The operator makes the final decision and can override the verification.">
+            <Field label="Consultant verifier" hint="Optional. Left empty, the consultant administrator chooses.">
               <select value={draft.supervisorUserId} onChange={(event) => updateField('supervisorUserId', event.target.value)} className={inputClass()} disabled={!draft.consultantCompanyId}>
                 <option value="">Delegate to consultant administrator</option>
                 {consultantSupervisorOptions.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.email ? ` · ${supervisor.email}` : ''}</option>)}
@@ -437,8 +437,8 @@ export function ProjectWizardDialog({
   );
 }
 
-function StepHeading({ title, description }: { title: string; description: string }) {
-  return <div><h2 className="text-lg font-semibold text-slate-950">{title}</h2><p className="mt-1 text-sm text-slate-500">{description}</p></div>;
+function StepHeading({ title }: { title: string; description?: string }) {
+  return <div><h2 className="text-lg font-semibold text-slate-950">{title}</h2></div>;
 }
 
 function ReviewItem({ label, value }: { label: string; value: string }) {

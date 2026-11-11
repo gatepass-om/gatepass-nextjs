@@ -212,7 +212,6 @@ export default function AccessRequestsPage() {
       <header className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">Site Access</h1>
-          <p className="text-sm text-muted-foreground">Review, approve, and track site access.</p>
         </div>
         {isSupervisor && (
           <Dialog open={isNewRequestOpen} onOpenChange={setIsNewRequestOpen}>
@@ -223,7 +222,7 @@ export default function AccessRequestsPage() {
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Submit Group Site Access Request</DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="sr-only">
                   Fill out the contract details and provide the list of workers requiring access.
                 </DialogDescription>
               </DialogHeader>

@@ -72,9 +72,6 @@ export function WorkerTimeline({ workerId }: { workerId: string }) {
               <Clock3 className="h-5 w-5" />
               Worker timeline
             </CardTitle>
-            <CardDescription>
-              Unified compliance, document, card, access, presence, and audit history.
-            </CardDescription>
           </div>
           <div className="flex gap-2">
             <Button type="button" size="sm" variant="outline" onClick={() => void load()} disabled={loading}>

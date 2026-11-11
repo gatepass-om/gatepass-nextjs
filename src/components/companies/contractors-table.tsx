@@ -68,7 +68,6 @@ export function ContractorsTable({ title = 'External Companies', description = '
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">

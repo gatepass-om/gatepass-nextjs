@@ -123,7 +123,6 @@ export default function AlertsPage() {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t('Alerts & Muster')}</h1>
-          <p className="text-muted-foreground">{t('Monitor site alerts and open the emergency roll-call workspace from one place.')}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           {currentUser?.role === 'Admin' && <Button variant="outline" disabled={expiryCheckBusy} onClick={() => void runExpiryCheck()}>{expiryCheckBusy ? 'Checking expiry…' : 'Run expiry check'}</Button>}

@@ -94,7 +94,6 @@ export function CamerasTable({ cameras, canManage, onDeactivate }: {
     <Card>
       <CardHeader>
         <CardTitle>Camera Inventory</CardTitle>
-        <CardDescription>Site-scoped camera, thermal sensor, and VMS inventory.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>

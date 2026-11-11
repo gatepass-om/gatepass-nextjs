@@ -89,7 +89,6 @@ export default function LoginPage() {
             </div>
           </div>
           <CardTitle className="text-2xl">Welcome to GatePass</CardTitle>
-          <CardDescription>Sign in to access the dashboard</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>

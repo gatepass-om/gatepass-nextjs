@@ -170,7 +170,6 @@ export default function LocationGovernancePage() {
         <div>
           <p className="eyebrow">Location governance</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Geofencing &amp; Work Zones</h1>
-          <p className="text-sm text-muted-foreground">Monitored work regions, subcontractor scopes, and live compliance exceptions.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
@@ -292,7 +291,7 @@ export default function LocationGovernancePage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Crosshair className="h-4 w-4 text-accent" />Location Check</DialogTitle>
-            <DialogDescription>Validate a coordinate against a geofence boundary.</DialogDescription>
+            <DialogDescription className="sr-only">Validate a coordinate against a geofence boundary.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Select value={selectedRegionId} onValueChange={setSelectedRegionId}>

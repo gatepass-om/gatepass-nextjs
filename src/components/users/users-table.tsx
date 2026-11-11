@@ -99,7 +99,6 @@ export function UsersTable({
         <CardHeader className="border-b px-4 py-3 sm:px-6 sm:py-4">
           <div>
             <CardTitle>Personnel register</CardTitle>
-            <CardDescription className="mt-1">Add and manage personnel directly in the register.</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="p-0">

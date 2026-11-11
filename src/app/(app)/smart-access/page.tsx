@@ -219,7 +219,6 @@ export default function SmartAccessPage() {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Smart Access</h1>
-          <p className="text-muted-foreground">Physical access providers, devices, assignments, sync jobs, and device events.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>

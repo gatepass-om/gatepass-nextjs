@@ -110,7 +110,6 @@ export function RequestsTable({
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">

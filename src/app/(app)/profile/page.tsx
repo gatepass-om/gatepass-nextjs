@@ -142,7 +142,6 @@ export default function ProfilePage() {
              <div className="space-y-4 md:space-y-6">
                 <header>
                     <h1 className="text-3xl font-bold tracking-tight">My Profile & QR Code</h1>
-                    <p className="text-muted-foreground">Present this QR code at any gate for scanning.</p>
                 </header>
                 <Card>
                     <CardContent className="p-8 text-center">
@@ -158,7 +157,6 @@ export default function ProfilePage() {
       <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
             <h1 className="text-3xl font-bold tracking-tight">My Profile & QR Code</h1>
-            <p className="text-muted-foreground">Present this QR code at any gate for scanning.</p>
         </div>
         <Button onClick={() => router.push('/activate-account')}>
             <KeyRound className="mr-2 h-4 w-4"/>
@@ -228,7 +226,6 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
                 <CardTitle>My Certificates</CardTitle>
-                <CardDescription>These are the certificate records associated with your profile.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {user.certificates.map((cert, index) => {

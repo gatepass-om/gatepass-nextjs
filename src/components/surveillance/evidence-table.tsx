@@ -11,7 +11,6 @@ export function EvidenceTable({ clips, cameras }: { clips: EvidenceClipRequest[]
     <Card>
       <CardHeader>
         <CardTitle>Evidence Clip Requests</CardTitle>
-        <CardDescription>Local-first VMS footage retrieval status and evidence references.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>

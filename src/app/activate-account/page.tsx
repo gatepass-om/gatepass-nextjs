@@ -79,7 +79,6 @@ function ActivateAccountForm() {
             </div>
           </div>
           <CardTitle className="text-2xl">Activate Your Account</CardTitle>
-          <CardDescription>To secure your account, please create a new password.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
