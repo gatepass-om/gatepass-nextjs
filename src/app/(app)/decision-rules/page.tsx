@@ -205,7 +205,7 @@ export default function DecisionRulesPage() {
     <div className="space-y-6">
       <header>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Decision Rules</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Decision Rules</h1>
         </div>
       </header>
 
@@ -389,7 +389,7 @@ export default function DecisionRulesPage() {
                   Evaluate
                 </Button>
                 {evaluation && (
-                  <div className={`rounded-md border p-4 ${evaluation.allowed ? 'border-green-200 bg-green-50 text-green-900' : 'border-red-200 bg-red-50 text-red-900'}`}>
+                  <div className={`rounded-md border p-4 ${evaluation.allowed ? 'border-border bg-success-soft text-green-900' : 'border-danger/30 bg-danger-soft text-red-900'}`}>
                     <div className="flex items-center gap-2 font-semibold">
                       {evaluation.allowed ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
                       {evaluation.allowed ? 'Allowed' : 'Denied'}
@@ -437,7 +437,7 @@ export default function DecisionRulesPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              <AlertTriangle className="h-5 w-5 text-warning-ink" />
               Confirm relaxed access rules
             </AlertDialogTitle>
             <AlertDialogDescription>

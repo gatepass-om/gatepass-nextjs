@@ -57,36 +57,36 @@ export default function WorkerAccessRequestPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [company, compliance, jobRole, jobRoleCompliance, request, search]);
 
-  if (error) return <div className="p-6 text-sm text-red-700" role="alert">{error}</div>;
-  if (!request) return <div className="p-6 text-sm text-slate-500">Loading request…</div>;
+  if (error) return <div className="p-6 text-sm text-danger-ink" role="alert">{error}</div>;
+  if (!request) return <div className="p-6 text-sm text-muted-foreground">Loading request…</div>;
 
   const companies = [...new Set(request.workers.map((item) => item.contractorName).filter(Boolean))] as string[];
   const jobRoles = [...new Set(request.workers.map((item) => item.jobPositionName).filter(Boolean))] as string[];
   const statusPresentation = getWorkPassStatusPresentation(request.status);
 
-  return <div className="space-y-6 p-4 sm:p-6">
-    <header><Link href={`/projects/${params.id}`} className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-950"><ArrowLeft className="h-4 w-4" /> {request.projectName}</Link><div className="mt-4 flex flex-wrap items-center gap-3"><h1 className="text-3xl font-semibold">{request.passNumber}</h1><span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusPresentation.className}`}>{statusPresentation.label}</span></div><p className="mt-1 text-sm text-slate-500">{request.siteName} · {new Date(request.validFromUtc).toLocaleDateString()} – {new Date(request.validToUtc).toLocaleDateString()}</p></header>
+  return <div className="space-y-5">
+    <header><Link href={`/projects/${params.id}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> {request.projectName}</Link><div className="mt-4 flex flex-wrap items-center gap-3"><h1 className="text-3xl font-semibold">{request.passNumber}</h1><span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusPresentation.className}`}>{statusPresentation.label}</span></div><p className="mt-1 text-sm text-muted-foreground">{request.siteName} · {new Date(request.validFromUtc).toLocaleDateString()} – {new Date(request.validToUtc).toLocaleDateString()}</p></header>
     <section className="grid gap-3 md:grid-cols-3"><Info label="Submitting contractor" value={request.submittingContractorName || 'Operator'} /><Info label="Submitted by" value={request.submittedByName || 'Unknown'} /><Info label="Consulted by" value={request.approvedByName || 'Awaiting consultation'} /></section>
     <WorkerTransferReview passId={request.id} status={request.status} projectName={request.projectName} siteName={request.siteName} workers={request.workers} onDecision={() => setDecisionRevision(revision => revision + 1)} />
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-5 py-4"><h2 className="font-semibold">Workers</h2><p className="text-sm text-slate-500">Select a worker to review the submitted details.</p></div>
-      <div className="grid gap-3 border-b border-slate-200 px-5 py-4 sm:grid-cols-[minmax(14rem,1fr)_repeat(3,minmax(9rem,auto))]">
-        <label className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" /><input aria-label="Search workers" className="h-9 w-full rounded-md border border-slate-300 pl-9 pr-3 text-sm" placeholder="Search workers" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+    <section className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="border-b border-border px-5 py-4"><h2 className="font-semibold">Workers</h2><p className="text-sm text-muted-foreground">Select a worker to review the submitted details.</p></div>
+      <div className="grid gap-3 border-b border-border px-5 py-4 sm:grid-cols-[minmax(14rem,1fr)_repeat(3,minmax(9rem,auto))]">
+        <label className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><input aria-label="Search workers" className="h-9 w-full rounded-md border border-border pl-9 pr-3 text-sm" placeholder="Search workers" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         <select aria-label="Company" className="h-9 rounded-md border px-3 text-sm" value={company} onChange={(event) => setCompany(event.target.value)}><option value="all">All companies</option>{companies.map((item) => <option key={item}>{item}</option>)}</select>
         <select aria-label="Job role" className="h-9 rounded-md border px-3 text-sm" value={jobRole} onChange={(event) => setJobRole(event.target.value)}><option value="all">All job roles</option>{jobRoles.map((item) => <option key={item}>{item}</option>)}</select>
         <select aria-label="Compliance" className="h-9 rounded-md border px-3 text-sm" value={compliance} onChange={(event) => setCompliance(event.target.value)}><option value="all">All compliance</option><option value="compliant">Compliant</option><option value="inactive">Non-compliant</option></select>
       </div>
       <div className="max-h-[60vh] overflow-auto">
         <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500"><tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Company</th><th className="px-5 py-3">Job role</th><th className="px-5 py-3">National ID</th><th className="px-5 py-3">Compliance</th></tr></thead>
-          <tbody className="divide-y divide-slate-100">{filtered.map((item) => {
+          <thead className="sticky top-0 z-10 bg-muted text-muted-foreground"><tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Company</th><th className="px-5 py-3">Job role</th><th className="px-5 py-3">National ID</th><th className="px-5 py-3">Compliance</th></tr></thead>
+          <tbody className="divide-y divide-border">{filtered.map((item) => {
             const compliant = isWorkerCompliant(item);
-            return <tr key={item.userId} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelectedWorkerId(item.userId)}>
+            return <tr key={item.userId} className="cursor-pointer hover:bg-muted" onClick={() => setSelectedWorkerId(item.userId)}>
               <td className="px-5 py-4 font-medium">{item.name}{item.assignmentEndedAtUtc ? <p className="mt-1 text-xs font-normal text-muted-foreground">Transferred out {new Date(item.assignmentEndedAtUtc).toLocaleDateString()}</p> : null}</td>
               <td className="px-5 py-4">{item.contractorName || '—'}</td>
               <td className="px-5 py-4">{item.jobPositionName || '—'}</td>
               <td className="px-5 py-4 font-mono">{item.nationalId || '—'}</td>
-              <td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${compliant ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{compliant ? 'Compliant' : 'Non-compliant'}</span></td>
+              <td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${compliant ? 'bg-success-soft text-success-ink' : 'bg-danger-soft text-danger-ink'}`}>{compliant ? 'Compliant' : 'Non-compliant'}</span></td>
             </tr>;
           })}</tbody>
         </table>
@@ -102,4 +102,4 @@ export default function WorkerAccessRequestPage() {
   </div>;
 }
 
-function Info({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-slate-200 bg-white p-4"><dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</dt><dd className="mt-1 font-medium text-slate-950">{value}</dd></div>; }
+function Info({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-border bg-card p-4"><dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt><dd className="mt-1 font-medium text-foreground">{value}</dd></div>; }

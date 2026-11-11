@@ -150,7 +150,7 @@ export default function PersonnelProfilePage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Personnel
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight">Personnel profile</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Personnel profile</h1>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">

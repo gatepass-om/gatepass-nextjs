@@ -90,9 +90,9 @@ export default function InspectionsPage() {
     <div className="space-y-5">
       <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Inspection Analytics</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Inspection Analytics</h1>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={days} onValueChange={setDays}>
             <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="7">Last 7 days</SelectItem><SelectItem value="30">Last 30 days</SelectItem><SelectItem value="90">Last 90 days</SelectItem></SelectContent>

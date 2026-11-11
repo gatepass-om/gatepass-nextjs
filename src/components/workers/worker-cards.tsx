@@ -307,7 +307,7 @@ export function WorkerCards({ workerId }: { workerId: string }) {
           <iframe
             title="Worker card print preview"
             srcDoc={previewHtml}
-            className="h-[360px] w-full rounded-md border bg-white"
+            className="h-[360px] w-full rounded-md border bg-card"
           />
         </DialogContent>
       </Dialog>

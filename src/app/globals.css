@@ -89,6 +89,46 @@
     @apply text-xs font-medium text-muted-foreground;
   }
 
+
+  /* Phones: a table row becomes a card of labelled lines; the first cell is its title. */
+  @media (max-width: 767px) {
+    .stack-table { min-width: 0 !important; table-layout: auto !important; }
+    .stack-table colgroup, .stack-table thead { display: none; }
+    .stack-table tbody td {
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      border-width: 0 !important;
+      overflow-wrap: anywhere;
+    }
+    .stack-table, .stack-table tbody { display: block; width: 100%; }
+    .stack-table tbody tr {
+      display: block;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid hsl(var(--border));
+    }
+    .stack-table tbody tr:last-child { border-bottom: 0; }
+    .stack-table tbody td {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.2rem 0;
+      text-align: end;
+    }
+    .stack-table tbody td::before {
+      content: attr(data-label);
+      flex-shrink: 0;
+      font-size: 0.75rem;
+      color: hsl(var(--muted-foreground));
+      text-align: start;
+    }
+    .stack-table tbody td[data-label=""]::before,
+    .stack-table tbody td:first-child::before { display: none; }
+    .stack-table tbody td:first-child { justify-content: flex-start; padding-bottom: 0.35rem; font-weight: 600; text-align: start; }
+    .stack-table tbody td[data-label=""]:not(:first-child) { justify-content: flex-end; }
+  }
+
   .status-dot {
     @apply inline-block h-2 w-2 rounded-full;
   }

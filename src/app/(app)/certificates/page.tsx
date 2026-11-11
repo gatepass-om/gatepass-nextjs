@@ -118,7 +118,7 @@ export default function CertificatesPage() {
         <div className="space-y-4 md:space-y-6">
             <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Certificate Management</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight">Certificate Management</h1>
                 </div>
                 <Dialog
                     open={isAddOpen}

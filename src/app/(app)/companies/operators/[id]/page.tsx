@@ -100,7 +100,7 @@ export default function OperatorDetailPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Companies
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">{detail.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{detail.name}</h1>
         </div>
         <Badge variant="outline" className="w-fit">{detail.tenantName ?? detail.tenantId ?? 'No tenant'}</Badge>
       </header>

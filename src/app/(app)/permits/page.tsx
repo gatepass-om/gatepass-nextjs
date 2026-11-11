@@ -198,7 +198,7 @@ export default function PermitsPage() {
         <div className="space-y-4 md:space-y-6">
             <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Permits to Work</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight">Permits to Work</h1>
                     {project ? <p className="text-muted-foreground">{project.name}</p> : null}
                 </div>
                 {canManage && (

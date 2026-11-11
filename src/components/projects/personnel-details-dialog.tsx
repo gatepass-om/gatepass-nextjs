@@ -28,10 +28,10 @@ function formatDate(value: string) {
 function InfoRow({ icon: Icon, label, value }: { icon: typeof Mail; label: string; value: string }) {
   return (
     <div className="flex items-start gap-3">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-        <p className="truncate text-sm font-medium text-slate-900">{value}</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="truncate text-sm font-medium text-foreground">{value}</p>
       </div>
     </div>
   );
@@ -83,16 +83,16 @@ export function PersonnelDetailsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[min(700px,88vh)] flex-col overflow-hidden p-0 sm:max-w-2xl">
-        <DialogHeader className="shrink-0 border-b border-slate-200 px-6 py-5">
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-5">
           {loadingPerson || !person ? (
             <>
               <DialogTitle className="sr-only">Personnel details</DialogTitle>
               <DialogDescription className="sr-only">Loading personnel details.</DialogDescription>
-              <div className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading personnel details…</div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading personnel details…</div>
             </>
           ) : (
             <div className="flex items-center gap-4">
-              <Avatar className="h-14 w-14 border border-slate-200">
+              <Avatar className="h-14 w-14 border border-border">
                 <AvatarImage src={person.avatarUrl ?? undefined} alt={person.name} className="object-cover" />
                 <AvatarFallback className="text-lg font-semibold">{initials}</AvatarFallback>
               </Avatar>
@@ -120,7 +120,7 @@ export function PersonnelDetailsDialog({
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             <TabsContent value="info" className="mt-0 grid gap-4 sm:grid-cols-2">
               {loadingPerson || !person ? (
-                <div className="col-span-2 flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+                <div className="col-span-2 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
               ) : (
                 <>
                   <InfoRow icon={Mail} label="Email" value={person.email || 'Not provided'} />
@@ -135,23 +135,23 @@ export function PersonnelDetailsDialog({
 
             <TabsContent value="certificates" className="mt-0 space-y-4">
               <WorkerPositionCompliancePanel workerId={personId} />
-              <div className="rounded-xl border border-slate-200 p-4">
-                <h3 className="text-sm font-semibold text-slate-900">All certificates on file</h3>
+              <div className="rounded-xl border border-border p-4">
+                <h3 className="text-sm font-semibold text-foreground">All certificates on file</h3>
                 {loadingPerson || !person ? (
-                  <div className="mt-2 flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+                  <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
                 ) : person.certificates?.length ? (
-                  <ul className="mt-3 divide-y divide-slate-100">
+                  <ul className="mt-3 divide-y divide-border">
                     {person.certificates.map((cert) => (
                       <li key={cert.certificateTypeId} className="flex items-center justify-between gap-3 py-2 text-sm">
-                        <span className="font-medium text-slate-800">{cert.name || 'Certificate'}</span>
-                        <span className="text-xs text-slate-500">
+                        <span className="font-medium text-foreground">{cert.name || 'Certificate'}</span>
+                        <span className="text-xs text-muted-foreground">
                           {cert.expiresAtUtc ? `Expires ${formatDate(cert.expiresAtUtc)}` : 'No expiry'}
                         </span>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-2 text-sm text-slate-500">No certificates on file.</p>
+                  <p className="mt-2 text-sm text-muted-foreground">No certificates on file.</p>
                 )}
               </div>
               <WorkerDocuments
@@ -166,55 +166,55 @@ export function PersonnelDetailsDialog({
 
             <TabsContent value="history" className="mt-0 space-y-5">
               {loadingHistory ? (
-                <div className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading history…</div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading history…</div>
               ) : (
                 <>
                   <section>
-                    <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900"><Briefcase className="h-4 w-4" /> Projects</h3>
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground"><Briefcase className="h-4 w-4" /> Projects</h3>
                     {projects.length ? (
                       <ul className="mt-3 space-y-2">
                         {projects.map((project) => (
-                          <li key={project.id} className="rounded-xl border border-slate-200 p-3">
+                          <li key={project.id} className="rounded-xl border border-border p-3">
                             <div className="flex items-center justify-between gap-3">
-                              <span className="text-sm font-medium text-slate-900">{project.name}</span>
+                              <span className="text-sm font-medium text-foreground">{project.name}</span>
                               <Badge variant="outline">{project.status}</Badge>
                             </div>
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {project.operatorName} · {formatDate(project.validFromUtc)} – {formatDate(project.validToUtc)}
                             </p>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-2 text-sm text-slate-500">{operatorId ? 'No other projects found for this operator.' : 'No projects found.'}</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{operatorId ? 'No other projects found for this operator.' : 'No projects found.'}</p>
                     )}
                   </section>
 
                   <section>
-                    <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900"><ClipboardCheck className="h-4 w-4" /> Inspection history</h3>
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground"><ClipboardCheck className="h-4 w-4" /> Inspection history</h3>
                     {inspections.length ? (
                       <ul className="mt-3 space-y-2">
                         {inspections.map((inspection) => (
-                          <li key={inspection.id} className="rounded-xl border border-slate-200 p-3">
+                          <li key={inspection.id} className="rounded-xl border border-border p-3">
                             <div className="flex items-center justify-between gap-3">
-                              <span className="text-sm font-medium text-slate-900">{inspection.siteName}</span>
+                              <span className="text-sm font-medium text-foreground">{inspection.siteName}</span>
                               <Badge variant={inspection.outcome === 'Compliant' ? 'secondary' : 'destructive'} className="gap-1">
                                 {inspection.outcome === 'Compliant' ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
                                 {inspection.outcome === 'Compliant' ? 'Compliant' : 'Non-compliant'}
                               </Badge>
                             </div>
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {formatDate(inspection.inspectedAtUtc)} · Inspected by {inspection.inspectorName}
                             </p>
                             {inspection.wrongfulConductReason ? (
-                              <p className="mt-1 flex items-center gap-1.5 text-xs text-red-700"><FileWarning className="h-3.5 w-3.5" /> {inspection.wrongfulConductReason}</p>
+                              <p className="mt-1 flex items-center gap-1.5 text-xs text-danger-ink"><FileWarning className="h-3.5 w-3.5" /> {inspection.wrongfulConductReason}</p>
                             ) : null}
-                            {inspection.notes ? <p className="mt-1 text-xs text-slate-500">{inspection.notes}</p> : null}
+                            {inspection.notes ? <p className="mt-1 text-xs text-muted-foreground">{inspection.notes}</p> : null}
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-2 text-sm text-slate-500">No inspection records.</p>
+                      <p className="mt-2 text-sm text-muted-foreground">No inspection records.</p>
                     )}
                   </section>
                 </>

@@ -141,7 +141,7 @@ export default function ProfilePage() {
         return (
              <div className="space-y-4 md:space-y-6">
                 <header>
-                    <h1 className="text-3xl font-bold tracking-tight">My Profile & QR Code</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight">My Profile & QR Code</h1>
                 </header>
                 <Card>
                     <CardContent className="p-8 text-center">
@@ -156,7 +156,7 @@ export default function ProfilePage() {
     <div className="space-y-4 md:space-y-6">
       <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-            <h1 className="text-3xl font-bold tracking-tight">My Profile & QR Code</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">My Profile & QR Code</h1>
         </div>
         <Button onClick={() => router.push('/activate-account')}>
             <KeyRound className="mr-2 h-4 w-4"/>
@@ -176,7 +176,7 @@ export default function ProfilePage() {
 
         <Card className="md:col-span-2">
             <CardHeader>
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <CardTitle>Your Access QR Code</CardTitle>
                         <CardDescription>
@@ -203,7 +203,7 @@ export default function ProfilePage() {
                     <Skeleton className="w-48 h-48 sm:w-64 sm:h-64" />
                 ) : qrToken ? (
                     <>
-                        <div className="w-48 h-48 sm:w-64 sm:h-64 p-4 border rounded-lg bg-white">
+                        <div className="w-48 h-48 sm:w-64 sm:h-64 p-4 border rounded-lg bg-card">
                             <QrCode value={qrToken} />
                         </div>
                         <div className={`flex items-center gap-1.5 text-sm font-medium ${secondsLeft < 60 ? 'text-destructive' : 'text-muted-foreground'}`}>

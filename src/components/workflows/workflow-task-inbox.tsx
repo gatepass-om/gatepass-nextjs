@@ -44,7 +44,7 @@ export function WorkflowTaskInbox({ token, tenantId }: { token: string; tenantId
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-background shadow-sm">
+    <section className="overflow-hidden rounded-xl border bg-background ">
       <div className="flex items-center justify-between gap-4 border-b p-5">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold"><ClipboardCheck className="size-5" />Human task inbox</h2>
@@ -54,7 +54,7 @@ export function WorkflowTaskInbox({ token, tenantId }: { token: string; tenantId
           <RefreshCw className={loading ? 'animate-spin' : ''} />Refresh
         </Button>
       </div>
-      {error && <div className="border-b bg-red-50 px-5 py-3 text-sm text-red-900" role="alert">{error}</div>}
+      {error && <div className="border-b bg-danger-soft px-5 py-3 text-sm text-red-900" role="alert">{error}</div>}
       {!tenantId ? (
         <div className="p-8 text-center text-sm text-muted-foreground">Select a client to see its tasks.</div>
       ) : loading && tasks.length === 0 ? (

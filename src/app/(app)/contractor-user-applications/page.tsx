@@ -227,10 +227,10 @@ export default function ContractorUserApplicationsPage() {
   if (authLoading) return <div className="p-6">{t('Loading…', 'جارٍ التحميل…')}</div>;
   if (!isAuthorized) return <UnauthorizedComponent />;
 
-  return <div className="space-y-6 p-4 md:p-6">
+  return <div className="space-y-5">
     <div><h1 className="text-2xl font-semibold">{t('Contractor user approvals', 'اعتمادات مستخدمي المقاولين')}</h1></div>
 
-    <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="link" asChild><Link href="/companies">Companies & subcontractor approvals</Link></Button><div className="flex gap-2">{canConfigure && <Button variant="outline" onClick={() => setSettingsOpen((value) => !value)}>Application settings</Button>}{canCreate && <Button disabled={loadingData || !!loadError || !operators.length} onClick={() => { setEditingId(null); setForm({ ...emptyForm, operatorId: operators[0]?.id ?? '', contractorId: currentUser?.contractorId || contractors[0]?.id || '' }); setCivilIdFile(null); setCertificateFile(null); setStep(0); setFormOpen(true); }}>New user application</Button>}</div></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="link" asChild><Link href="/companies">Companies & subcontractor approvals</Link></Button><div className="flex flex-wrap gap-2">{canConfigure && <Button variant="outline" onClick={() => setSettingsOpen((value) => !value)}>Application settings</Button>}{canCreate && <Button disabled={loadingData || !!loadError || !operators.length} onClick={() => { setEditingId(null); setForm({ ...emptyForm, operatorId: operators[0]?.id ?? '', contractorId: currentUser?.contractorId || contractors[0]?.id || '' }); setCivilIdFile(null); setCertificateFile(null); setStep(0); setFormOpen(true); }}>New user application</Button>}</div></div>
     {loadError && <div role="alert" className="rounded-md border border-destructive p-4 text-sm">{loadError}<Button className="ml-3" variant="outline" onClick={() => void reload().catch(() => undefined)}>Retry</Button></div>}
     {!loadingData && !loadError && canCreate && !operators.length && <p role="status" className="rounded-md border p-4 text-sm">No approved operator is available for this account. Check your company relationship in Companies.</p>}
     {canConfigure && settingsOpen && form.operatorId && <Card>

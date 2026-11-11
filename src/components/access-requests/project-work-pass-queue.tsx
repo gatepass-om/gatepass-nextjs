@@ -45,7 +45,7 @@ export function ProjectWorkPassQueue({
   const actionCount = queue.filter((item) => item.actions.some((action) => action !== 'submit')).length;
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm">
+    <section className="overflow-hidden rounded-xl border bg-card text-card-foreground ">
       <div className="flex flex-col gap-2 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-semibold">Project work-pass pipeline</h2>
@@ -53,7 +53,7 @@ export function ProjectWorkPassQueue({
             Contractor submissions appear here before the final access authorization is created.
           </p>
         </div>
-        <span className="w-fit rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+        <span className="w-fit rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning-ink">
           {actionCount} action{actionCount === 1 ? '' : 's'} required
         </span>
       </div>
@@ -91,9 +91,9 @@ export function ProjectWorkPassQueue({
                       {formatDate(workPass.validFromUtc)} – {formatDate(workPass.validToUtc)}
                       {workPass.taskDescription ? ` · ${workPass.taskDescription}` : ''}
                     </p>
-                    {workPass.rejectionReason ? <p className="mt-2 text-sm font-medium text-red-700">Reason: {workPass.rejectionReason}</p> : null}
+                    {workPass.rejectionReason ? <p className="mt-2 text-sm font-medium text-danger-ink">Reason: {workPass.rejectionReason}</p> : null}
                     {workPass.generatedAccessRequestIds.length > 0 ? (
-                      <p className="mt-2 text-xs font-medium text-emerald-700">
+                      <p className="mt-2 text-xs font-medium text-success-ink">
                         {workPass.generatedAccessRequestIds.length} access authorization{workPass.generatedAccessRequestIds.length === 1 ? '' : 's'} created
                       </p>
                     ) : null}

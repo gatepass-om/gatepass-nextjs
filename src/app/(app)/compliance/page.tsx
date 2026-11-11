@@ -67,7 +67,7 @@ export default function CompliancePage() {
     <div className="space-y-6">
       <header>
         <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">Governance</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">Compliance setup</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">Compliance setup</h1>
       </header>
 
       {loading ? <div className="flex min-h-48 items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-muted-foreground" /></div> : (

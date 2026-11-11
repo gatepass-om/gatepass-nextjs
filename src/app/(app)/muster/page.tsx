@@ -188,9 +188,9 @@ export default function MusterPage() {
     <div className="space-y-4 md:space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Muster / Roll-Call</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Muster / Roll-Call</h1>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex flex-wrap items-center gap-2">
           {musters.length > 0 && (
             <Select value={selectedMusterId ?? undefined} onValueChange={setSelectedMusterId}>
               <SelectTrigger className="w-full sm:w-[280px]"><SelectValue placeholder="Select a muster" /></SelectTrigger>

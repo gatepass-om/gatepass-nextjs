@@ -92,7 +92,7 @@ export function BulkRegistration({ token, onComplete }: { token: string; onCompl
 
       {csv ? <div className="grid gap-3 rounded-lg border p-3 text-sm sm:grid-cols-3">
         <div><p className="text-muted-foreground">Rows found</p><p className="font-semibold">{roster.sourceRowCount}</p></div>
-        <div><p className="text-muted-foreground">Ready to import</p><p className="font-semibold text-emerald-700">{roster.rows.length}</p></div>
+        <div><p className="text-muted-foreground">Ready to import</p><p className="font-semibold text-success-ink">{roster.rows.length}</p></div>
         <div><p className="text-muted-foreground">Needs attention</p><p className="font-semibold text-destructive">{roster.errors.length}</p></div>
       </div> : null}
 
@@ -106,7 +106,7 @@ export function BulkRegistration({ token, onComplete }: { token: string; onCompl
 
       {error ? <p className="flex items-center gap-2 text-sm text-destructive"><AlertCircle className="h-4 w-4" />{error}</p> : null}
       {preview ? <div className="rounded-lg border p-3 text-sm">
-        <p className="flex items-center gap-2 font-medium">{preview.invalid === 0 ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-destructive" />} Preview result</p>
+        <p className="flex items-center gap-2 font-medium">{preview.invalid === 0 ? <CheckCircle2 className="h-4 w-4 text-success-ink" /> : <AlertCircle className="h-4 w-4 text-destructive" />} Preview result</p>
         <p className="mt-1 text-muted-foreground">{preview.created} ready to create · {preview.invalid} rejected by server validation.</p>
       </div> : null}
 

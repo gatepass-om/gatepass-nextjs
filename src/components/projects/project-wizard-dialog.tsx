@@ -278,7 +278,7 @@ export function ProjectWizardDialog({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !saving && onOpenChange(nextOpen)}>
       <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden p-0 sm:max-w-4xl">
-        <DialogHeader className="shrink-0 border-b border-slate-200 px-6 py-5">
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-5">
           <DialogTitle>{project ? `Edit ${project.name}` : 'Create a new project'}</DialogTitle>
           <DialogDescription className="sr-only">
             {project
@@ -287,9 +287,9 @@ export function ProjectWizardDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid shrink-0 grid-cols-4 border-b border-slate-200 bg-slate-50 px-6 py-3 text-xs font-medium text-slate-500">
+        <div className="grid shrink-0 grid-cols-4 border-b border-border bg-muted px-6 py-3 text-xs font-medium text-muted-foreground">
           {steps.map((item, index) => (
-            <div key={item} className={item === step ? 'text-slate-950' : ''}>{index + 1}. {item === 'details' ? 'Details' : item === 'sites' ? 'Sites' : item === 'participants' ? 'Participants' : 'Review'}</div>
+            <div key={item} className={item === step ? 'text-foreground' : ''}>{index + 1}. {item === 'details' ? 'Details' : item === 'sites' ? 'Sites' : item === 'participants' ? 'Participants' : 'Review'}</div>
           ))}
         </div>
 
@@ -344,7 +344,7 @@ export function ProjectWizardDialog({
               searchPlaceholder="Search sites by name or location"
               filterLabel="Location"
             />
-            {errors.siteIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.siteIds}</p> : null}
+            {errors.siteIds ? <p role="alert" className="text-sm font-medium text-danger-ink">{errors.siteIds}</p> : null}
           </div> : null}
 
           {step === 'participants' ? <div className="space-y-6">
@@ -374,11 +374,11 @@ export function ProjectWizardDialog({
               onToggle={(id) => toggleSelection('contractorIds', id)}
               searchPlaceholder="Search contractors"
             />
-            {errors.contractorIds ? <p role="alert" className="text-sm font-medium text-red-600">{errors.contractorIds}</p> : null}
+            {errors.contractorIds ? <p role="alert" className="text-sm font-medium text-danger-ink">{errors.contractorIds}</p> : null}
             {draft.contractorIds.length > 0 ? <div className="space-y-4">
               <div>
                 <h3 className="font-semibold">Contract numbers for this project</h3>
-                <p className="mt-1 text-sm text-slate-600">Each contractor can have a different contract on every project. These contracts apply to the sites selected for this project.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Each contractor can have a different contract on every project. These contracts apply to the sites selected for this project.</p>
               </div>
               {draft.contractorIds.map((id) => <div key={id} className="space-y-2">
                 <label htmlFor={`contract-${id}`} className="text-sm font-medium">{contractors.find((company) => company.id === id)?.name ?? 'Contractor'} contract number</label>
@@ -405,7 +405,7 @@ export function ProjectWizardDialog({
 
           {step === 'review' ? <div className="space-y-5">
             <StepHeading title="Review project" description="Confirm the scope and participants before saving." />
-            <dl className="grid gap-4 rounded-xl border border-slate-200 p-5 sm:grid-cols-2">
+            <dl className="grid gap-4 rounded-xl border border-border p-5 sm:grid-cols-2">
               <ReviewItem label="Project" value={draft.name} />
               <ReviewItem label="Consultant verifier" value={consultantSupervisorOptions.find((item) => item.id === draft.supervisorUserId)?.name ?? 'Delegated to consultant administrator'} />
               <ReviewItem label="Operating period" value={`${draft.validFromUtc} – ${draft.validToUtc}`} />
@@ -418,10 +418,10 @@ export function ProjectWizardDialog({
             </dl>
           </div> : null}
 
-          {saveError ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</p> : null}
+          {saveError ? <p role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger-ink">{saveError}</p> : null}
         </div>
 
-        <DialogFooter className="shrink-0 border-t border-slate-200 bg-white px-6 py-4">
+        <DialogFooter className="shrink-0 border-t border-border bg-card px-6 py-4">
           <div className="flex w-full items-center justify-between">
             {step === 'details' ? <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
               : <Button type="button" variant="ghost" onClick={() => setStep(steps[steps.indexOf(step) - 1])} disabled={saving}>Back</Button>}
@@ -438,22 +438,22 @@ export function ProjectWizardDialog({
 }
 
 function StepHeading({ title }: { title: string; description?: string }) {
-  return <div><h2 className="text-lg font-semibold text-slate-950">{title}</h2></div>;
+  return <div><h2 className="text-lg font-semibold text-foreground">{title}</h2></div>;
 }
 
 function ReviewItem({ label, value }: { label: string; value: string }) {
-  return <div><dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt><dd className="mt-1 font-medium text-slate-950">{value || '—'}</dd></div>;
+  return <div><dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt><dd className="mt-1 font-medium text-foreground">{value || '—'}</dd></div>;
 }
 
 function Field({ label, hint, error, className, children }: {
   label: string; hint?: string; error?: string; className?: string; children: React.ReactNode;
 }) {
   return (
-    <label className={`block text-sm font-medium text-slate-700 ${className ?? ''}`}>
+    <label className={`block text-sm font-medium text-muted-foreground ${className ?? ''}`}>
       {label}
-      {hint ? <span className="ml-2 font-normal text-slate-400">{hint}</span> : null}
+      {hint ? <span className="ml-2 font-normal text-muted-foreground">{hint}</span> : null}
       <span className="mt-1.5 block">{children}</span>
-      {error ? <span className="mt-1 block text-xs font-medium text-red-600">{error}</span> : null}
+      {error ? <span className="mt-1 block text-xs font-medium text-danger-ink">{error}</span> : null}
     </label>
   );
 }
@@ -491,13 +491,13 @@ function SelectionGroup({
   return (
     <section>
       <div className="flex items-end justify-between gap-4">
-        <div><h3 className="font-semibold text-slate-900">{title}</h3><p className="text-sm text-slate-500">{description}</p></div>
-        <span className="text-xs font-medium text-slate-500">{selectedIds.length} selected</span>
+        <div><h3 className="font-semibold text-foreground">{title}</h3><p className="text-sm text-muted-foreground">{description}</p></div>
+        <span className="text-xs font-medium text-muted-foreground">{selectedIds.length} selected</span>
       </div>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">{searchPlaceholder}</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
             value={search}
@@ -520,29 +520,29 @@ function SelectionGroup({
           </label>
         ) : null}
       </div>
-      <div className="mt-3 grid max-h-48 gap-2 overflow-y-auto rounded-xl border border-slate-200 p-2 sm:grid-cols-2">
+      <div className="mt-3 grid max-h-48 gap-2 overflow-y-auto rounded-xl border border-border p-2 sm:grid-cols-2">
         {visibleOptions.length ? visibleOptions.map((option) => {
           const selected = selectedIds.includes(option.id);
           return (
             <button type="button" key={option.id} onClick={() => onToggle(option.id)}
               className={`flex items-center gap-3 rounded-lg border p-3 text-left transition ${
-                selected ? 'border-blue-300 bg-blue-50' : 'border-transparent hover:bg-slate-50'
+                selected ? 'border-border bg-pending-soft' : 'border-transparent hover:bg-muted'
               }`}>
               <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                selected ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'
+                selected ? 'border-blue-600 bg-blue-600 text-white' : 'border-border bg-card'
               }`}>{selected ? <Check className="h-3.5 w-3.5" /> : null}</span>
-              <span className="min-w-0"><span className="block truncate text-sm font-medium text-slate-800">{option.name}</span>
-                {option.subtitle ? <span className="block truncate text-xs text-slate-500">{option.subtitle}</span> : null}</span>
+              <span className="min-w-0"><span className="block truncate text-sm font-medium text-foreground">{option.name}</span>
+                {option.subtitle ? <span className="block truncate text-xs text-muted-foreground">{option.subtitle}</span> : null}</span>
             </button>
           );
-        }) : <p className="p-5 text-sm text-slate-500">{options.length ? 'No matching results.' : emptyText}</p>}
+        }) : <p className="p-5 text-sm text-muted-foreground">{options.length ? 'No matching results.' : emptyText}</p>}
       </div>
     </section>
   );
 }
 
 function inputClass(error?: string) {
-  return `w-full rounded-lg border bg-white px-3 py-2.5 text-sm outline-none transition focus:ring-2 ${
-    error ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
+  return `w-full rounded-lg border bg-card px-3 py-2.5 text-sm outline-none transition focus:ring-2 ${
+    error ? 'border-danger/30 focus:border-red-500 focus:ring-red-100' : 'border-border focus:border-blue-500 focus:ring-blue-100'
   }`;
 }

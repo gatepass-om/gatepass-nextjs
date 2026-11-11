@@ -129,7 +129,7 @@ export function SitesTable({
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {(site.requiredCertificates || []).map((cert, index) => (
-                            <Badge key={index} variant="secondary">{cert}</Badge>
+                            <Badge key={index} variant="secondary">{certificateTypes.find((type) => type.id === cert)?.name ?? cert}</Badge>
                           ))}
                         </div>
                       </TableCell>

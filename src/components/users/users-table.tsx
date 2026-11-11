@@ -233,7 +233,7 @@ export function UsersTable({
                                         </AlertDialogTitle>
                                         <AlertDialogDescription>
                                           This action cannot be undone. This will
-                                          permanently delete the user account for{" "}
+                                          permanently delete the user account for{""}
                                           {user.name} and remove all associated
                                           data.
                                         </AlertDialogDescription>

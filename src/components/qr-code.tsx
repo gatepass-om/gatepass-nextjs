@@ -27,6 +27,6 @@ export function QrCode({ value, className }: { value: string, className?: string
   if (!value) return null;
 
   return (
-    <canvas ref={canvasRef} className={cn("w-full h-full", className)} />
+    <canvas ref={canvasRef} className={cn("!h-full !w-full", className)} />
   );
 }
