@@ -335,6 +335,7 @@ export const arabicTranslations: Record<string, string> = {
   'Camera Not Available': 'الكاميرا غير متاحة',
   'Retry camera': 'إعادة تشغيل الكاميرا',
   'Scan or paste credential': 'امسح أو الصق الاعتماد',
+  'My Profile & QR Code': 'ملفي ورمز QR',
 };
 
 export function translateToArabic(value: string) {

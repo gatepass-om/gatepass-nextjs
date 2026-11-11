@@ -15,6 +15,7 @@ import {
   Search,
   UsersRound,
 } from 'lucide-react';
+import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { Button } from '@/components/ui/button';
 import { StatStrip } from '@/components/ui/stat-strip';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -49,6 +50,7 @@ const statusFilters: StatusFilter[] = ['All', 'Active', 'Upcoming', 'Completed',
 
 export default function ProjectsPage() {
   const { token, user } = useSession();
+  const { isAuthorized, loading: authLoading, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin']);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [operators, setOperators] = useState<NamedOption[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
@@ -195,6 +197,8 @@ export default function ProjectsPage() {
       setBusyWorkPassId(null);
     }
   }
+
+  if (!authLoading && user && !isAuthorized) return <UnauthorizedComponent />;
 
   return (
     <div className="space-y-5">

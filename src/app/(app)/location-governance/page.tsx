@@ -196,7 +196,7 @@ export default function LocationGovernancePage() {
         <StatTile icon={Radar} label="Active Regions" value={data.geofences.filter((r) => r.isActive).length} helper="Currently enforced" tone="bg-success/15 text-success" />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         {/* Map */}
         <div className="ops-panel overflow-hidden">
           <div className="flex items-center justify-between border-b border-border px-5 py-3">
@@ -258,7 +258,7 @@ export default function LocationGovernancePage() {
       </div>
 
       {/* Assignments + Violations */}
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-2">
         <div className="ops-panel">
           <div className="flex items-center justify-between border-b border-border px-5 py-3"><h2 className="text-sm font-semibold">Work-Zone Assignments</h2><span className="text-xs text-muted-foreground">{filteredAssignments.length}</span></div>
           <div className="max-h-[280px] divide-y divide-border/70 overflow-y-auto">

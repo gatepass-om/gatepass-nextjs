@@ -173,6 +173,13 @@ export function ProjectWizardDialog({
   }
 
   function toggleSelection(field: 'contractorIds' | 'memberIds' | 'siteIds' | 'consultantReviewerUserIds', id: string) {
+    // Picking something answers that field's validation message, so clear it right away.
+    setErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
     if (field === 'siteIds' && currentUserRole === 'Supervisor') {
       const selectedSite = sites.find((site) => site.id === id);
       setDraft((current) => {
