@@ -1,8 +1,9 @@
 
 'use client'
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useScanner } from '@/hooks/use-scanner';
+import { scannerVideoLayout } from './scanner-config';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CameraOff, Loader2 } from 'lucide-react';
@@ -16,10 +17,37 @@ interface ScannerPreviewProps {
 export function ScannerPreview({ onScanSuccess, isPaused, scanContext }: ScannerPreviewProps) {
   const { scannerId, status, error, retry } = useScanner({ onScanSuccess, isPaused, scanContext });
 
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Keep the reader's container at the sampling size (so it decodes real camera pixels) and scale it to the card.
+  useEffect(() => {
+    const card = cardRef.current;
+    const container = document.getElementById(scannerId);
+    if (!card || !container) return;
+    const layout = () => {
+      const video = container.querySelector('video');
+      const next = scannerVideoLayout(card.clientWidth, card.clientHeight, video?.videoWidth ?? 0, video?.videoHeight ?? 0);
+      container.style.width = `${next.width}px`;
+      container.style.height = `${next.height}px`;
+      container.style.transform = `translate(${next.left}px, ${next.top}px) scale(${next.scale})`;
+    };
+    layout();
+    // Media events do not bubble; capture them so the size is right before the reader measures the video.
+    container.addEventListener('loadedmetadata', layout, true);
+    container.addEventListener('resize', layout, true);
+    const observer = new ResizeObserver(layout);
+    observer.observe(card);
+    return () => {
+      container.removeEventListener('loadedmetadata', layout, true);
+      container.removeEventListener('resize', layout, true);
+      observer.disconnect();
+    };
+  }, [scannerId]);
+
   return (
-    <Card className={`relative aspect-[4/3] sm:aspect-video bg-black rounded-md overflow-hidden border ${status === 'error' ? 'min-h-64' : ''}`}>
-      {/* The reader sizes its video inline from the camera's own shape; fill and crop it to the frame instead. */}
-      <div id={scannerId} data-testid="qr-scanner-container" className="!absolute inset-0 [&_video]:!h-full [&_video]:!w-full [&_video]:object-cover" />
+    <Card ref={cardRef} className={`relative aspect-[4/3] sm:aspect-video bg-black rounded-md overflow-hidden border ${status === 'error' ? 'min-h-64' : ''}`}>
+      {/* The reader forces position:relative and its own video size inline; override both. */}
+      <div id={scannerId} data-testid="qr-scanner-container" className="!absolute left-0 top-0 origin-top-left [&_video]:!h-full [&_video]:!w-full" />
       {status === 'starting' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground p-4 bg-background/90">
             <Loader2 className="h-10 w-10 animate-spin" />
