@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { User, Site, Contractor, Operator, JobPosition } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { UsersTable } from "@/components/users/users-table";
+import { AddPersonDialog } from "@/components/users/add-person-dialog";
 import { BulkRegistration } from "@/components/users/bulk-registration";
 import {
   canLoadPersonnelData,
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileUp } from "lucide-react";
+import { FileUp, UserPlus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthProtection } from "@/hooks/use-auth-protection";
 import { useSession } from "@/providers/session-provider";
@@ -53,9 +54,9 @@ export default function UsersPage() {
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(searchParams.get('new') === 'worker');
   const [personnelSearch, setPersonnelSearch] = useState('');
   const { toast } = useToast();
-  const createFromRequest = searchParams.get('new') === 'worker';
   const requestedReturnTo = searchParams.get('returnTo');
   const returnTo = requestedReturnTo?.startsWith('/') && !requestedReturnTo.startsWith('//')
     ? requestedReturnTo
@@ -273,7 +274,11 @@ export default function UsersPage() {
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Personnel</h1>
         </div>
         {canCreateUser && (
-          <div className="flex w-full gap-2 sm:w-auto">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          <Button className="w-full sm:w-auto" onClick={() => setIsAddOpen(true)}>
+            <UserPlus className="mr-2 h-4 w-4" />
+            Add person
+          </Button>
           <Dialog open={isBulkFormOpen} onOpenChange={setIsBulkFormOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="w-full sm:w-auto">
@@ -300,7 +305,7 @@ export default function UsersPage() {
         )}
       </header>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Input value={personnelSearch} onChange={(event) => setPersonnelSearch(event.target.value)} placeholder="Search name, national ID, email or job position" className="max-w-md" />
+        <div className="w-full sm:max-w-md sm:flex-1"><Input value={personnelSearch} onChange={(event) => setPersonnelSearch(event.target.value)} placeholder="Search name, ID, email or position" className="w-full" /></div>
         <p className="text-sm text-muted-foreground">{displayedUsers.length} personnel</p>
       </div>
       <UsersTable
@@ -315,9 +320,19 @@ export default function UsersPage() {
         canMutateUsers={canMutateUsers}
         onImpersonateUser={handleImpersonateUser}
         onResendActivation={handleResendActivation}
-        onCreateUser={handleAddUser}
-        startWithInlineRow={createFromRequest && canCreateUser}
       />
+      {canCreateUser && (
+        <AddPersonDialog
+          open={isAddOpen}
+          onOpenChange={setIsAddOpen}
+          currentUser={currentUser}
+          contractors={contractors}
+          operators={operators}
+          sites={sites}
+          jobPositions={jobPositions}
+          onCreateUser={handleAddUser}
+        />
+      )}
     </div>
   );
 }

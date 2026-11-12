@@ -36,7 +36,7 @@ test('adding a worker certificate requires certificate evidence before save', ()
 
 test('company assignment is viewer-scoped and only shown for company administrator roles', () => {
   assert.match(editSource, /currentUser:\s*User/);
-  assert.match(tableSource, /currentUser=\{currentUser\}/);
+  assert.match(readFileSync(new URL('../../app/(app)/users/page.tsx', import.meta.url), 'utf8'), /currentUser=\{currentUser\}/);
   assert.match(
     editSource,
     /selectedRole === ['"]Contractor Admin['"]\s*&&\s*currentUser\.role === ['"]Admin['"]/,
