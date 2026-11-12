@@ -125,7 +125,19 @@ export default function ContractorUserApplicationsPage() {
   const update = (key: keyof FormState, value: string | boolean) => setForm((current) => ({ ...current, [key]: value }));
   const nextStep = () => {
     const fields: (keyof FormState)[][] = [['operatorId', 'contractorId', 'location'], ['firstName', 'lastName', 'email', 'phone', 'civilId', 'position', 'contractorRepresentativeName'], ['assetType', 'assetSubClass', 'directorate', 'department', 'contractorType', 'employeeType', 'civilIdExpiresAtUtc']];
-    if (fields[step]?.some((key) => !String(form[key]).trim())) { toast({ variant: 'destructive', title: 'Complete this step', description: 'Fill in the required fields before continuing.' }); return; }
+    const missing = (fields[step] ?? []).filter((key) => !String(form[key]).trim());
+    if (missing.length) {
+      const friendly: Partial<Record<keyof FormState, string>> = { civilIdExpiresAtUtc: 'Civil ID expiry', civilId: 'Civil ID', operatorId: 'Operator', contractorId: 'Contractor company' };
+      const names = missing.map((key) => friendly[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase()));
+      toast({ variant: 'destructive', title: 'Complete this step', description: `Missing: ${names.join(', ')}.` });
+      // Focus and flag the first empty control in the visible step so the gap is obvious without hunting.
+      const empty = Array.from(document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[role="dialog"] fieldset:not([hidden]) input:not([type="file"]):not([type="checkbox"]), [role="dialog"] fieldset:not([hidden]) select'))
+        .find((control) => !control.value.trim());
+      empty?.setAttribute('aria-invalid', 'true');
+      empty?.addEventListener('input', () => empty.removeAttribute('aria-invalid'), { once: true });
+      empty?.focus();
+      return;
+    }
     if (step === 1 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { toast({ variant: 'destructive', title: 'Enter a valid email address' }); return; }
     if (step === 2 && new Date(form.civilIdExpiresAtUtc).getTime() <= Date.now()) { toast({ variant: 'destructive', title: 'Civil ID must have a future expiry date' }); return; }
     setStep((value) => Math.min(3, value + 1));

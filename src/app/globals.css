@@ -199,3 +199,10 @@
 .leaflet-tooltip-bottom::before { border-bottom-color: hsl(214 32% 88%) !important; }
 .leaflet-tooltip-left::before { border-left-color: hsl(214 32% 88%) !important; }
 .leaflet-tooltip-right::before { border-right-color: hsl(214 32% 88%) !important; }
+
+/* Controls flagged by a failed wizard step get a clear danger outline. */
+input[aria-invalid='true'],
+select[aria-invalid='true'] {
+  border-color: hsl(var(--danger));
+  box-shadow: 0 0 0 1px hsl(var(--danger));
+}
