@@ -36,7 +36,7 @@ const Table = React.forwardRef<
   }, [])
 
   return (
-    <div className="relative w-full overflow-auto">
+    <div className="relative w-full max-w-full min-w-0 overflow-x-auto overscroll-x-contain">
       <table
         ref={inner}
         className={cn("stack-table w-full caption-bottom text-sm", className)}
