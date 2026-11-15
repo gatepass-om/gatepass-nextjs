@@ -769,6 +769,8 @@ No person documents are created. A reset database starts with no one holding any
 
 Update the seeder so a database created from scratch — a developer's local one, or production after a reset — produces the document catalog and the `DocumentRequirement` rows directly, rather than depending on the conversion having run over legacy configuration. Without this, a reset production comes up requiring nothing.
 
+**It also refreshes the legacy identity column.** `WorkerProfile.IdentityExpiresAtUtc` is still read by work-pass issuance (`WorkPassService.cs:638,692`) and by the flag-off scan branch, and verifying an identity document only started writing it part-way through this phase. So for any worker verified before that, those two paths still see an old lapsed date and refuse. Set the column from each worker's newest verified `Identity`-category document where one exists, and leave it alone where none does. `[Fact] public async Task Conversion_RefreshesTheLegacyIdentityColumn_FromTheNewestVerifiedDocument()`.
+
 **This includes one rule that exists today only in code.** The old `WorkerClearanceService` hard-required a verified identity document for every worker, regardless of configuration. Task 10 replaces that with whatever `DocumentRequirement` rows say, so unless a `Tenant`-scoped `Blocking` requirement for `CIVIL_ID` is seeded per tenant, clearance silently stops requiring identity at all. Seed it in both the conversion and the fresh-database path, and assert it: `[Fact] public async Task Conversion_SeedsABlockingIdentityRequirementPerTenant_ReplacingTheOldHardCodedRule()`.
 
 Verify by creating an empty database and running the API against it: the catalog is present, and a seeded site's requirements appear as `DocumentRequirement` rows.
@@ -819,6 +821,38 @@ The second is the one that matters most: it is the regression this task exists t
 
 Each takes its missing-document list from `IPersonDocumentQueryService.GetComplianceAsync`, counting a `Blocking` requirement whose state is not `Valid`, `ExpiringSoon` or `Waived`. Report the document type's name, as the legacy code reported the certificate type's name, so the messages a guard reads do not change shape. Keep `GateDecisionReason.MissingCertificates` as the reason code — renaming it would ripple into the clients, and this phase deliberately leaves their contracts alone.
 
+- [ ] **Step 4: Run the whole suite, then commit**
+
+---
+
+### Task 13b: The remaining `WorkerDocuments` readers
+
+A second gap of the same kind as Task 13a, found during Task 11. Four services still read the legacy `WorkerDocuments` table and therefore no longer see anything uploaded through the new model:
+
+- `WorkerCardService` — reads the `Photo` document to issue a personnel card. A worker whose photo is now a `PersonDocument` cannot be issued a card.
+- `DashboardService` — compliance counts, which will silently under-report.
+- `WorkerTimelineService` — the document events on a worker's history, which will stop appearing.
+- `WorkPassService` — its own document checks.
+
+None of these is a wrong-allow at a gate, which is why they are a separate, lower-risk task; but card issuance failing for every new worker is as visible a break as the gate one, so it is still phase 1 work.
+
+**Files:**
+- Modify: `WorkerCardService.cs`, `DashboardService.cs`, `WorkerTimelineService.cs`, `WorkPassService.cs`
+- Test: the existing test classes for each
+
+- [ ] **Step 1: Write the failing tests**
+
+```csharp
+[Fact] public async Task WorkerCard_IsIssuedFromAPersonDocumentPhoto_WithNoLegacyRow()
+[Fact] public async Task Dashboard_CountsDocumentsFromTheNewModel()
+[Fact] public async Task WorkerTimeline_ShowsPersonDocumentEvents()
+[Fact] public async Task WorkPass_ReadsDocumentsFromTheNewModel()
+```
+
+The card one is the regression that matters: it must fail before the change.
+
+- [ ] **Step 2: Run to verify they fail**
+- [ ] **Step 3: Rewire each reader**, through `IPersonDocumentQueryService` where it needs compliance, or a direct `PersonDocuments` query where it needs a specific document such as the photo. Keep each service's existing response shape.
 - [ ] **Step 4: Run the whole suite, then commit**
 
 ---
