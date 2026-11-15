@@ -718,57 +718,58 @@ git commit -m "feat: add person document endpoints and keep the legacy shape wor
 
 ---
 
-### Task 12: Migration and backfill
+### Task 12: Migration and configuration conversion
 
-Last, so the model has stopped moving. Production is live, so this is the task that must be reversible.
+Last, so the model has stopped moving.
+
+**The owner has authorised resetting the production database — the data there is still insignificant — so there is no person-data backfill.** No identity merge, no `UserCertificate` conversion, no `WorkerDocument` conversion, no medical-files report, no rehearsal against a production copy. That was the riskiest work in the plan and it now buys nothing.
+
+What must still be converted is **configuration**, because it is what makes the system require anything at all. `SiteCertificateRequirement` and `JobPositionCredentialRequirement` are the only record of which certificates a site or a job demands, and Task 10 rewires the gate and clearance to read `DocumentRequirement` instead. Convert nothing and those requirements silently become "nothing is required" — a fail-open on the exact path this phase exists to tighten. Configuration conversion is also cheap and safe: a handful of rows, no files, no person data.
 
 **Files:**
-- Create: `GatePass.Infrastructure/Persistence/Migrations/20261115120000_AddPersonDocuments.cs`, `GatePass.Infrastructure/Persistence/Migrations/PersonDocumentBackfill.cs`
-- Modify: `GatePass.Infrastructure/Persistence/Migrations/GatePassDbContextModelSnapshot.cs`
-- Test: `GatePass.Tests/PersonDocumentBackfillTests.cs`
+- Create: `GatePass.Infrastructure/Persistence/Migrations/20261115120000_AddPersonDocuments.cs`, `GatePass.Infrastructure/Persistence/Migrations/DocumentConfigurationConversion.cs`
+- Modify: `GatePass.Infrastructure/Persistence/Migrations/GatePassDbContextModelSnapshot.cs`, and the seeder so a freshly created database produces the new catalog and requirements directly
+- Test: `GatePass.Tests/DocumentConfigurationConversionTests.cs`
 
 **Interfaces:**
-- Produces: `PersonDocumentBackfill.RunAsync(GatePassDbContext db, CancellationToken ct)` returning `BackfillReport(int Identity, int Competency, int Other, int MedicalWithFiles, IReadOnlyList<string> Unmapped)`.
+- Produces: `DocumentConfigurationConversion.RunAsync(GatePassDbContext db, CancellationToken ct)` returning `ConversionReport(int DocumentTypes, int Requirements, IReadOnlyList<string> Skipped)`.
 
 - [ ] **Step 1: Write the failing tests**
 
-Build one fixture database holding every awkward case the spec names, then assert:
-
 ```csharp
-[Fact] public async Task Backfill_MergesIdentityFromAllThreePlacesIntoOneDocument()
-[Fact] public async Task Backfill_KeepsTheStorageKey_SoNoBytesMove()
-[Fact] public async Task Backfill_CreatesOneCompetencyDocumentTypePerCertificateType_ReusingItsId()
-[Fact] public async Task Backfill_MapsUserCertificatesToCompetencyDocumentsOfTheMatchingType()
-[Fact] public async Task Backfill_CarriesReviewStatusAcross()
-[Fact] public async Task Backfill_SetsVerifiedForTenantFromThePersonsTenant()
-[Fact] public async Task Backfill_TurnsSiteAndJobPositionRequirementsIntoDocumentRequirements()
-[Fact] public async Task Backfill_RepointsWorkerCompetencyEvidence()
-[Fact] public async Task Backfill_ReportsMedicalDocumentsThatKeptTheirFiles()
-[Fact] public async Task Backfill_ReportsUnmappableDocumentsInsteadOfDroppingThem()
-[Fact] public async Task Backfill_IsIdempotent_RunningTwiceChangesNothing()
-[Fact] public async Task Backfill_LeavesTheOldTablesIntact()
+[Fact] public async Task Conversion_CreatesOneCompetencyDocumentTypePerCertificateType_ReusingItsId()
+[Fact] public async Task Conversion_CarriesTheCertificateTypeName()
+[Fact] public async Task Conversion_TurnsSiteRequirementsIntoBlockingDocumentRequirements()
+[Fact] public async Task Conversion_TurnsJobPositionRequirementsIntoRequirements_KeepingMinimumValidityDays()
+[Fact] public async Task Conversion_WritesTheTenantIdIntoScopeId_ForTenantScopedRules()
+[Fact] public async Task Conversion_SeedsTheCatalogForEveryExistingTenant()
+[Fact] public async Task Conversion_IsIdempotent_RunningTwiceChangesNothing()
+[Fact] public async Task Conversion_LeavesTheLegacyTablesIntact()
+[Fact] public async Task Conversion_ReportsWhatItSkipped_InsteadOfDroppingItSilently()
 ```
+
+Idempotency still matters — the migration may be re-run against a database that already has the tables — but it is now idempotency over a dozen configuration rows rather than over every person's documents.
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `dotnet test GatePass.sln --filter PersonDocumentBackfillTests`
+Run: `dotnet test GatePass.sln --filter DocumentConfigurationConversionTests`
 Expected: compile failure.
 
-- [ ] **Step 3: Write the backfill**
+- [ ] **Step 3: Write the conversion**
 
-Plain EF over the old tables in the order the spec lists. **First**, create one `Competency` `DocumentType` per existing `CertificateType`, reusing `CertificateType.Id` as the new `DocumentType.Id` so existing references survive, with `Expires = true`, `VerificationIsPortable = false`, `RetentionDays = 1095` and `Name` copied across — nothing else creates these, and the competency mapping below needs them. Then the identity merge, the `UserCertificate` mapping, the remaining `WorkerDocument` rows, the requirement rows and the competency repointing. Idempotent by skipping a person-and-type that already has a document. Nothing is deleted and the old tables are untouched.
+Plain EF, in this order. First, one `Competency` `DocumentType` per existing `CertificateType`, reusing `CertificateType.Id` as the new `DocumentType.Id` so existing references survive, with `Expires = true`, `VerificationIsPortable = false`, `RetentionDays = 1095` and `Name` copied across. Then one `DocumentRequirement` per `SiteCertificateRequirement` (`ScopeKind.Site`, `ScopeId` the site id, `Blocking`) and per `JobPositionCredentialRequirement` (`ScopeKind.JobPosition`, keeping `MinimumValidityDays`). Skip, and report, any row whose certificate type is missing. Nothing is deleted and the legacy tables stay readable.
+
+No person documents are created. A reset database starts with no one holding anything, which is the correct state: every worker reads as `Missing` until their documents are uploaded and reviewed, and that is the behaviour this phase is for.
 
 - [ ] **Step 4: Write the migration**
 
-`CreateTable` for the seven tables matching the Task 2 configuration, then seed the catalog for every existing tenant through `DocumentCatalogSeed`, then `PersonDocumentBackfill`. `Down` drops the seven tables only, which is why the old tables are left in place.
+`CreateTable` for the seven tables matching the Task 2 configuration, then seed the catalog for every existing tenant through `DocumentCatalogSeed`, then `DocumentConfigurationConversion`. `Down` drops the seven tables only, so the legacy tables and their data are untouched either way.
 
-- [ ] **Step 5: Verify against real data**
+- [ ] **Step 5: Make a fresh database correct too**
 
-```bash
-dotnet ef database update --project GatePass.Infrastructure --startup-project GatePass.Api
-```
+Update the seeder so a database created from scratch — a developer's local one, or production after a reset — produces the document catalog and the `DocumentRequirement` rows directly, rather than depending on the conversion having run over legacy configuration. Without this, a reset production comes up requiring nothing.
 
-Run it against a *copy* of the production database, never production, and compare: one `PersonDocument` per old `WorkerDocument` plus one per `UserCertificate` plus one per identity, and the report's `Unmapped` list empty.
+Verify by creating an empty database and running the API against it: the catalog is present, and a seeded site's requirements appear as `DocumentRequirement` rows.
 
 - [ ] **Step 6: Run the whole suite**
 
@@ -778,8 +779,8 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add GatePass.Infrastructure/Persistence/Migrations GatePass.Tests/PersonDocumentBackfillTests.cs
-git commit -m "feat: migrate identity, certificate and document data into person documents"
+git add GatePass.Infrastructure/Persistence/Migrations GatePass.Tests/DocumentConfigurationConversionTests.cs
+git commit -m "feat: add person document tables and convert certificate configuration"
 ```
 
 ---
@@ -832,6 +833,8 @@ git commit -m "feat: dispose of documents past their retention period"
 
 ## Done when
 
-`dotnet build GatePass.sln` and `dotnet test GatePass.sln` are clean, the backfill has been rehearsed against a copy of the production database with an empty `Unmapped` list, and a worker whose Civil ID expired yesterday is refused clearance — which is the defect phase 1 exists to fix.
+`dotnet build GatePass.sln` and `dotnet test GatePass.sln` are clean, an empty database comes up with the catalog and its site requirements seeded, and a worker whose Civil ID expired yesterday is refused clearance — which is the defect phase 1 exists to fix.
+
+Because production is being reset rather than migrated, the deploy has one extra step the plan cannot do for you: reseed the demo tenant afterwards. The Nama demo data (28 users across every role) was seeded through the API, so it has to be re-created the same way once the new schema is live.
 
 Phase 2 (the documents tab, the add/renew dialog and the review inbox) gets its own plan.
