@@ -769,6 +769,8 @@ No person documents are created. A reset database starts with no one holding any
 
 Update the seeder so a database created from scratch — a developer's local one, or production after a reset — produces the document catalog and the `DocumentRequirement` rows directly, rather than depending on the conversion having run over legacy configuration. Without this, a reset production comes up requiring nothing.
 
+**This includes one rule that exists today only in code.** The old `WorkerClearanceService` hard-required a verified identity document for every worker, regardless of configuration. Task 10 replaces that with whatever `DocumentRequirement` rows say, so unless a `Tenant`-scoped `Blocking` requirement for `CIVIL_ID` is seeded per tenant, clearance silently stops requiring identity at all. Seed it in both the conversion and the fresh-database path, and assert it: `[Fact] public async Task Conversion_SeedsABlockingIdentityRequirementPerTenant_ReplacingTheOldHardCodedRule()`.
+
 Verify by creating an empty database and running the API against it: the catalog is present, and a seeded site's requirements appear as `DocumentRequirement` rows.
 
 - [ ] **Step 6: Run the whole suite**
