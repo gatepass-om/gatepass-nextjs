@@ -864,8 +864,17 @@ A third gap of the same family, found during Task 12. The conversion copies the
 but the services an operator uses to edit that configuration still write only the
 legacy tables:
 
-- `SiteService` — adding or removing a site's certificate requirement.
-- `CertificateService.Create` — creating a certificate type.
+- `SiteService.cs:101`, `:213-214`, `:378-387` — site creation adds requirement rows;
+  site update `Clear()`s and re-adds them.
+- `JobPositionService.cs:81-85` — the same clear-and-re-add for credential requirements.
+- `CertificateService.cs:49` — creating a certificate type; `:112` — deleting one.
+
+**The divergence runs in both directions, and the second one is worse.** Additions
+that are not mirrored leave the gate under-enforcing, which at least fails open
+visibly. But the clear-and-re-add updates and `CertificateService.Delete` leave live
+`DocumentRequirement` rows enforcing requirements an operator has **deleted and can
+no longer see**, and no later conversion run repairs that, because the conversion
+only ever adds. So this task must mirror removals as well as creations.
 
 So from the moment this phase ships, an operator who adds a certificate requirement
 to a site sees it saved and has no effect on the gate or on clearance, because both
