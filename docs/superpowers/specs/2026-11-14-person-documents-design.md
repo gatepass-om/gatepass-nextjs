@@ -42,8 +42,9 @@ waiting on them.
    review state. No fact stored twice.
 2. Validity is derived from dates at read time, never stored as a status that a
    background job must flip.
-3. Medical outcome and restrictions are first-class and gate access; medical files are
-   restricted to a narrow set of roles and every access is logged.
+3. Medical outcome and restrictions are first-class and gate access. The clinical
+   report is not held at all unless a client requires it, and where it is held it is
+   restricted to a narrow set of roles with every access logged.
 4. Required-document rules live in one place and cover site, job position, project and
    work type, replacing `SiteCertificateRequirement` and
    `JobPositionCredentialRequirement`.
@@ -52,6 +53,13 @@ waiting on them.
 6. Clearance and gate decisions read this model and enforce expiry.
 7. The authenticity work (OCR, issuer QR, duplicate detection) plugs in later without
    a model change.
+8. A credential belongs to the person, not to the tenant that collected it, so a
+   worker moving between contractors does not re-upload and re-prove everything.
+9. Every document type carries a retention period, and expired-plus-elapsed documents
+   are disposed of rather than kept forever.
+10. An authorised person can grant a time-boxed, logged exception to a blocking
+    requirement, because sites need that at 6am and will otherwise work around the
+    system.
 
 ## Non-goals
 
@@ -86,6 +94,9 @@ What a document *is*. Seeded, then editable by an operator admin.
 | `RequiresNumber`, `RequiresIssuer`, `RequiresIssueDate` | which identity fields the form demands |
 | `RequiresBothSides` | front and back capture, as for a Civil ID card |
 | `UniqueNumberScope` | `None` or `Tenant`; `Tenant` rejects the same number on two people |
+| `EvidenceRequirement` | `None`, `Optional`, `Required`. `Health` types default to `None`: the outcome is recorded, the report is not stored |
+| `RetentionDays` | nullable; how long a superseded or expired document is kept before disposal |
+| `VerificationIsPortable` | whether one tenant's verification satisfies another's requirement. True for identity types, false for medical and competency |
 | `IsActive`, `SortOrder` | |
 
 Seeded types: Civil ID, Passport, Residence card, Labour card; Pre-employment
@@ -118,7 +129,9 @@ evaluates against the tenant, role and job position only.
 
 | Field | Notes |
 | --- | --- |
-| `UserId`, `DocumentTypeId`, `TenantId` | |
+| `UserId`, `DocumentTypeId` | **no `TenantId`**: the credential belongs to the person. See *Scoping* below |
+| `VerifiedForTenantId` | the tenant whose reviewer verified it; null while unreviewed |
+| `AttestedByUserId`, `AttestedAtUtc` | who declared the document genuine on submission |
 | `Number`, `NumberHash`, `IssuingCountry`, `IssuingAuthority` | `NumberHash` enforces `UniqueNumberScope` and later duplicate detection |
 | `IssueDate`, `ExpiryDate` | `DateOnly` |
 | `ReviewStatus` | `Draft`, `Submitted`, `Verified`, `Rejected` — **no `Expired`** |
@@ -133,6 +146,45 @@ evaluates against the tenant, role and job position only.
 Restriction codes are a fixed seeded list: `NoWorkAtHeight`, `NoConfinedSpace`,
 `NoDriving`, `NoNightShift`, `NoHeavyLifting`, `NoRespiratorUse`, `NoHotWork`,
 `OfficeDutiesOnly`.
+
+### Scoping: the credential belongs to the person
+
+A Civil ID is a fact about a person, not about a contractor. If the credential were
+tenant-scoped, a worker moving from one contractor to another would re-upload every
+document and be re-reviewed from scratch, and the same person would exist twice with
+two expiry dates. Every established platform in this space solved that with a
+person-owned profile assessed against each client's own requirements.
+
+So `PersonDocument` has no `TenantId`. What *is* tenant-scoped:
+
+- **Verification.** `VerifiedForTenantId` records who accepted it. A second tenant sees
+  the document and its dates but its own requirement is satisfied only by its own
+  verification, unless `DocumentType.VerificationIsPortable` is set, which the seeded
+  identity types use because a Civil ID either is or is not genuine.
+- **Requirements**, which are already scoped by their `ScopeKind`.
+- **Visibility.** A tenant's staff see a person's documents only while that person is
+  attached to them, through their contractor, project or site. Leaving a contractor
+  ends the visibility; it does not delete the credential.
+
+This costs one nullable column and one access rule now. Retrofitting it would mean
+migrating the same data a second time.
+
+### `DocumentRequirementException`
+
+A time-boxed, logged waiver of a blocking requirement.
+
+| Field | Notes |
+| --- | --- |
+| `UserId`, `DocumentTypeId`, `TenantId` | |
+| `ScopeKind`, `ScopeId` | may waive for one site only |
+| `Reason` | required, free text |
+| `ValidFromUtc`, `ValidToUtc` | `ValidToUtc` is mandatory and capped at 30 days |
+| `GrantedByUserId`, `GrantedAtUtc`, `RevokedByUserId`, `RevokedAtUtc` | |
+
+Only an admin, operator admin or manager may grant one. Requirement evaluation returns
+`Waived` rather than silently passing, so the gate screen, the clearance note and the
+review inbox all show that entry rests on a waiver and when it lapses. Granting and
+revoking raise audit events.
 
 ### `PersonDocumentFile`
 
@@ -174,10 +226,50 @@ Validity(document, now, minimumValidityDays):
   otherwise                    -> Valid
 ```
 
-A requirement is satisfied when its person has a `Verified` document of that type
-whose validity is `Valid` or `ExpiringSoon`, and, for `Medical` types, whose
-`MedicalOutcome` is not `Unfit`. Status is never stored, so a late background job can
-delay an *alert* but can never cause a wrong allow or deny.
+A requirement is satisfied when its person has a document of that type which is
+`Verified` — by this tenant, or by any tenant when `VerificationIsPortable` — whose
+validity is `Valid` or `ExpiringSoon`, and, for `Medical` types, whose
+`MedicalOutcome` is not `Unfit`. Failing that, an unrevoked
+`DocumentRequirementException` covering now makes it `Waived`, which satisfies the
+requirement while reporting itself as a waiver everywhere it is shown.
+
+Status is never stored, so a late background job can delay an *alert* but can never
+cause a wrong allow or deny.
+
+## Medical data: outcome, not report
+
+Occupational health practice, and data protection law in most jurisdictions, says the
+employer receives a *fitness certificate* — fit, fit with restrictions or unfit, with
+the restrictions, the expiry, the examiner and a certificate number — while the
+clinical findings stay with the examining provider. Oman's PDPL treats health data as
+a special category, as does GDPR Article 9.
+
+So `Health` document types ship with `EvidenceRequirement = None`. The reviewer enters
+the outcome, the restrictions and the dates from the certificate in front of them, and
+no file is stored. An operator admin may raise a given type to `Optional` where a
+client insists on holding the certificate, and the access rules below then apply to
+it. A type with `Sensitivity = Health` can never be set to `Required`.
+
+This is the cheapest liability reduction available here: data not held cannot leak.
+
+## Retention and disposal
+
+Keeping documents forever breaches the storage-limitation principle of both PDPL and
+GDPR, and the rest of the system already has a disposal seam in
+`StorageDeletionProcessor`.
+
+Each `DocumentType` carries `RetentionDays`. A nightly job finds documents that are
+superseded, or expired, by more than their retention period, deletes their files
+through the existing storage deletion queue, and clears the document's identifying
+fields — number, issuer, examiner — while keeping the row, its type, its dates and its
+review outcome so that compliance history survives. Audit events and the access log
+are kept under their own retention and are not touched by this job.
+
+Seeded defaults: identity 365 days after expiry, competency 1,095 days (a certificate
+lapse may need proving years later), medical 1,095 days for the outcome record,
+photos 90 days after supersession. These are a starting point for the client to set,
+not a legal determination; the figures sit in seed data so they can be changed without
+a release.
 
 ## Access control
 
@@ -186,7 +278,8 @@ Two levels per document, checked in the service, not the UI.
 **Metadata** — type, dates, status, and for medical the outcome and restriction codes.
 Visible to anyone who may already view the person: the person themselves, their
 contractor admin and supervisor, operator staff, managers, admins, and the gate
-screen for the site being entered.
+screen for the site being entered. Because the credential is person-owned, a tenant's
+staff see it only while the person is attached to that tenant.
 
 **Files** — the scans. Visible to the person themselves, admins, operator admins, and
 a new `MedicalReviewer` permission for `Health` types. A contractor admin can open
@@ -240,6 +333,9 @@ New, under `/api`:
 - `DELETE /documents/{id}`, `DELETE /documents/{id}/files/{fileId}`
 - `GET /document-reviews?status=&contractorId=&typeId=&page=` — the review inbox
 - `GET /documents/{id}/checks` — verification history
+- `POST /people/{userId}/document-exceptions` — grant a waiver with a reason and an
+  end date; `DELETE /document-exceptions/{id}` revokes it
+- `GET /document-exceptions?active=true` — what is currently running on a waiver
 
 The existing `workers/{id}/documents`, `documents/{id}/download`,
 `documents/{id}/review` and `documents/{id}` endpoints stay, reimplemented over the
@@ -294,7 +390,15 @@ one `Competency` type per existing `CertificateType`. Backfill in one migration:
   file, review status carried over;
 - `SiteCertificateRequirement` and `JobPositionCredentialRequirement` become
   `DocumentRequirement` rows, `Blocking`, keeping `MinimumValidityDays`;
-- `WorkerCompetency.EvidenceWorkerDocumentId` is repointed.
+- `WorkerCompetency.EvidenceWorkerDocumentId` is repointed;
+- existing `MedicalFitness` documents keep their files, since an outcome cannot be
+  invented for them. Their type is seeded as `Optional` rather than `None`, and a
+  report lists them so the client can decide whether to re-record the outcomes and
+  dispose of the scans. New medical records follow the outcome-only default.
+
+Verification is backfilled as `VerifiedForTenantId` = the tenant the person belonged
+to at migration time, so nothing becomes unverified. No `TenantId` is written on the
+document itself.
 
 Storage keys are reused, so no bytes move. The old tables are left in place and
 readable. Clearance, gate scan and the expiry sweep switch to the new model in this
@@ -333,6 +437,12 @@ review inbox has a place to show signals.
 - Unit: the access rules, one case per role per sensitivity, asserting that a
   contractor admin and a gate user cannot read a `Health` file and that the attempt is
   logged.
+- Unit: portability — a second tenant's requirement satisfied by another tenant's
+  verification for an identity type and not for a competency type.
+- Unit: waivers — expired, revoked, wrong scope and valid, asserting `Waived` is
+  reported rather than `Valid`, and that the 30-day cap is enforced.
+- Unit: the retention job selects only superseded or long-expired documents, clears
+  identifying fields, keeps the outcome, and leaves current documents untouched.
 - Unit: clearance refusal messages for missing, pending, rejected and expired.
 - Integration: upload, review, renew and supersede over the API; the old endpoints
   returning the same shape as before the migration.
