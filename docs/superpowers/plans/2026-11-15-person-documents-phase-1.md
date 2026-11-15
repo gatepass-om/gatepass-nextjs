@@ -787,6 +787,42 @@ git commit -m "feat: add person document tables and convert certificate configur
 
 ---
 
+### Task 13a: The remaining certificate-compliance consumers
+
+A gap in this plan, found during Task 10. Task 10 rewires clearance, the gate scan's credential *display* and the expiry sweep, but three other places still compute certificate compliance from the legacy tables:
+
+- `GatePass.Infrastructure/Services/ScanService.cs:110` builds `missingCertificates` from `site.CertificateRequirements` against `user.Certificates`, and line 306 turns a non-empty list into a `GateDecisionReason.MissingCertificates` **denial**.
+- `GatePass.Infrastructure/Services/AccessRequestService.cs:275` computes the same thing from `JobPosition.CredentialRequirements` for approval screening.
+- `GatePass.Infrastructure/Services/PermitToWorkService.cs:269` consumes `compliance.MissingCertificates`.
+
+These are not merely unimproved — they break. The write path now records competency evidence as a `PersonDocument`, so `UserCertificate` stops gaining rows. A worker registered after this phase has an empty `user.Certificates`, every site requirement reads as missing, and **the gate denies them entry**. It fails closed, which is the safe direction, but it fails closed for everyone new.
+
+**Files:**
+- Modify: `ScanService.cs`, `AccessRequestService.cs`, `PermitToWorkService.cs`
+- Test: the existing `ScanServiceTests.cs`, `AccessRequestServiceTests.cs`, `PermitToWorkServiceTests.cs`
+
+- [ ] **Step 1: Write the failing tests**
+
+```csharp
+[Fact] public async Task Scan_DeniesForAMissingRequiredDocument_FromTheNewModel()
+[Fact] public async Task Scan_AllowsAWorkerWhoseDocumentsAreValid_WithNoLegacyCertificateRows()
+[Fact] public async Task Scan_DeniesForAnExpiredRequiredDocument()
+[Fact] public async Task AccessRequest_FlagsMissingDocuments_FromTheNewModel()
+[Fact] public async Task PermitToWork_ReportsMissingDocuments_FromTheNewModel()
+```
+
+The second is the one that matters most: it is the regression this task exists to prevent, and it must fail before the change.
+
+- [ ] **Step 2: Run to verify they fail**
+
+- [ ] **Step 3: Rewire the three call sites**
+
+Each takes its missing-document list from `IPersonDocumentQueryService.GetComplianceAsync`, counting a `Blocking` requirement whose state is not `Valid`, `ExpiringSoon` or `Waived`. Report the document type's name, as the legacy code reported the certificate type's name, so the messages a guard reads do not change shape. Keep `GateDecisionReason.MissingCertificates` as the reason code — renaming it would ripple into the clients, and this phase deliberately leaves their contracts alone.
+
+- [ ] **Step 4: Run the whole suite, then commit**
+
+---
+
 ### Task 13: Retention disposal job
 
 **Files:**
