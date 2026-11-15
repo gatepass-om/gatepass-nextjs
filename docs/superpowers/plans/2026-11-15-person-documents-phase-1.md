@@ -857,6 +857,42 @@ The card one is the regression that matters: it must fail before the change.
 
 ---
 
+### Task 13c: Legacy configuration writers still bypass the new tables
+
+A third gap of the same family, found during Task 12. The conversion copies the
+*existing* certificate configuration into `DocumentType` and `DocumentRequirement`,
+but the services an operator uses to edit that configuration still write only the
+legacy tables:
+
+- `SiteService` — adding or removing a site's certificate requirement.
+- `CertificateService.Create` — creating a certificate type.
+
+So from the moment this phase ships, an operator who adds a certificate requirement
+to a site sees it saved and has no effect on the gate or on clearance, because both
+now read `DocumentRequirement`. Silent divergence between what an operator sees and
+what the system enforces is worse than either rule on its own.
+
+**Files:**
+- Modify: `SiteService.cs`, `CertificateService.cs`
+- Test: the existing test classes for each
+
+- [ ] **Step 1: Write the failing tests**
+
+```csharp
+[Fact] public async Task AddingASiteCertificateRequirement_AlsoCreatesADocumentRequirement()
+[Fact] public async Task RemovingASiteCertificateRequirement_AlsoRemovesTheDocumentRequirement()
+[Fact] public async Task CreatingACertificateType_AlsoCreatesTheCompetencyDocumentType_WithTheSameId()
+```
+
+- [ ] **Step 2: Run to verify they fail**
+- [ ] **Step 3: Mirror the writes**, reusing `DocumentConfigurationConversion`'s mapping
+      so the two paths cannot disagree: the same `Blocking` enforcement, the same
+      `ScopeId` rule, and the `CertificateType.Id` reused as the `DocumentType.Id`.
+      Keep the legacy write — other code still reads it until a later phase.
+- [ ] **Step 4: Run the whole suite, then commit**
+
+---
+
 ### Task 13: Retention disposal job
 
 **Files:**
