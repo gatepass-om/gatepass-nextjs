@@ -347,8 +347,11 @@ New, under `/api`:
 - `POST /documents/{id}/review` — `Verified` or `Rejected` with a note; a `Verified`
   renewal sets `SupersededByDocumentId` on the record it replaces
 - `DELETE /documents/{id}`, `DELETE /documents/{id}/files/{fileId}`
-- `GET /document-reviews?status=&contractorId=&typeId=&page=` — the review inbox
-- `GET /documents/{id}/checks` — verification history
+- `GET /document-reviews?status=&contractorId=&typeId=&page=` — the review inbox.
+  **Phase 2**, with the inbox UI it serves
+- `GET /documents/{id}/checks` — verification history. **Phase 5**, when the
+  authenticity checks that fill it exist; until then it would return an empty list
+  from a table nothing writes
 - `POST /people/{userId}/document-exceptions` — grant a waiver with a reason and an
   end date; `DELETE /document-exceptions/{id}` revokes it
 - `GET /document-exceptions?active=true` — what is currently running on a waiver
