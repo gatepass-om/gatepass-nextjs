@@ -200,12 +200,12 @@ Expected: compile failure, `DocumentValidity` does not exist.
 
 - [ ] **Step 3: Implement `Evaluate`**
 
-Order the branches as the spec lists them. `Expired` wins over `ExpiringSoon`; `ExpiringSoon` is `expiryDate <= today.AddDays(minimumValidityDays)` once not expired.
+Order the branches as the spec lists them. `Expired` wins over `ExpiringSoon`. `ExpiringSoon` applies only when `minimumValidityDays > 0`, and is then `expiryDate <= today.AddDays(minimumValidityDays)` once not expired. The `minimumValidityDays > 0` guard is what keeps a document expiring exactly today `Valid` under the default minimum of zero: a caller asking for no remaining validity has no soon-window, so a card stays valid through its last day.
 
 - [ ] **Step 4: Run to verify they pass**
 
 Run: `dotnet test GatePass.sln --filter DocumentValidityTests`
-Expected: PASS, 11 tests.
+Expected: PASS, 10 cases (3 theory rows plus 7 facts).
 
 - [ ] **Step 5: Commit**
 
@@ -284,7 +284,11 @@ public static class DocumentRequirementEvaluator
 [Fact] public void WaiverForAnotherSite_DoesNotApply()
 ```
 
-"Best" ordering, asserted by `BestOfSeveralDocumentsWins`: `Valid` > `ExpiringSoon` > `Waived` > `Pending` > `Expired` > `Rejected` > `Missing`.
+"Best" ordering, asserted by `BestOfSeveralDocumentsWins`: `Valid` > `ExpiringSoon` > `Waived` > `Pending` > `Expired` > `Barred` > `Rejected` > `Missing`.
+
+Ranking is not the whole rule. A verified, still-current medical document whose outcome is `Unfit` decides its type's outcome *before* ranking: the requirement is `Barred` and reports that document's id, whatever else the person holds. Otherwise a worker found unfit last week would be carried through the gate by a certificate issued last year that has not yet expired. `[Fact] public void UnfitMedical_DominatesAnotherValidDocumentOfTheSameType()`.
+
+Every `DocumentCandidate` carries the `UserId` it belongs to, and `Evaluate` throws `ArgumentException` naming the document when one does not match the person — at a gate a throw denies entry, so a loader that mixed two people fails closed and loudly instead of passing someone on another's papers. `[Fact] public void DocumentForAnotherPerson_Throws()`.
 
 - [ ] **Step 2: Run to verify they fail**
 

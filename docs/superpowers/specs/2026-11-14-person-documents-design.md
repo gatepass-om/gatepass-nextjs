@@ -229,7 +229,15 @@ Validity(document, now, minimumValidityDays):
 A requirement is satisfied when its person has a document of that type which is
 `Verified` — by this tenant, or by any tenant when `VerificationIsPortable` — whose
 validity is `Valid` or `ExpiringSoon`, and, for `Medical` types, whose
-`MedicalOutcome` is not `Unfit`. Failing that, an unrevoked
+`MedicalOutcome` is not `Unfit`.
+
+**An unfit finding dominates.** Where a person holds several documents of one type,
+the best one normally decides the outcome — but a verified, still-current medical
+document whose outcome is `Unfit` overrides every other document of that type, and
+the requirement reads `Barred`. Unfitness is a fact about the person, not about a
+piece of paper, and a worker re-examined and found unfit will routinely still hold
+last year's certificate, in date. Without this rule that stale certificate would
+carry them through the gate. Failing that, an unrevoked
 `DocumentRequirementException` covering now makes it `Waived`, which satisfies the
 requirement while reporting itself as a waiver everywhere it is shown.
 
