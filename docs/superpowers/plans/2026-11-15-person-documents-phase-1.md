@@ -54,7 +54,7 @@ public enum DocumentCategory { Identity = 1, Medical = 2, Competency = 3, Other 
 public enum DocumentSensitivity { Normal = 1, Health = 2 }
 public enum EvidenceRequirement { None = 1, Optional = 2, Required = 3 }
 public enum DocumentReviewStatus { Draft = 1, Submitted = 2, Verified = 3, Rejected = 4 }
-public enum DocumentValidityState { Pending = 1, Valid = 2, ExpiringSoon = 3, Expired = 4, Rejected = 5, Missing = 6, Waived = 7 }
+public enum DocumentValidityState { Pending = 1, Valid = 2, ExpiringSoon = 3, Expired = 4, Rejected = 5, Missing = 6, Waived = 7, Barred = 8 }
 public enum MedicalFitnessOutcome { Fit = 1, FitWithRestrictions = 2, Unfit = 3 }
 public enum RequirementScopeKind { Tenant = 1, Site = 2, Project = 3, JobPosition = 4, UserRole = 5, WorkType = 6 }
 public enum RequirementEnforcement { Blocking = 1, Warning = 2 }
@@ -274,7 +274,7 @@ public static class DocumentRequirementEvaluator
 [Fact] public void PersonWithNullTenant_EvaluatesWithoutThrowing()           // Review Focus 4
 [Fact] public void NoDocument_IsMissing()
 [Fact] public void BestOfSeveralDocumentsWins_ExpiredAndCurrent_IsValid()    // Review Focus 2
-[Fact] public void UnfitMedical_IsNotSatisfied_EvenWhenVerifiedAndCurrent()
+[Fact] public void UnfitMedical_IsBarred_NotRejected_EvenWhenVerifiedAndCurrent()
 [Fact] public void OtherTenantsVerification_SatisfiesPortableIdentityType()
 [Fact] public void OtherTenantsVerification_DoesNotSatisfyNonPortableType()
 [Fact] public void ActiveWaiver_ReportsWaived_NotValid()
@@ -292,7 +292,7 @@ Expected: compile failure.
 
 - [ ] **Step 3: Implement both methods**
 
-`Applicable` filters by scope match and `AppliesFromUtc <= now`. `Evaluate` walks the applicable requirements, picks each type's best document by the ordering above, downgrades a satisfied-but-`Unfit` medical to `Expired`-equivalent non-satisfaction (use `DocumentValidityState.Rejected` with `IsWaived = false`, so the caller's message says the outcome bars the work), then applies an active matching waiver to any unsatisfied outcome, setting `State = Waived` and `IsWaived = true`.
+`Applicable` filters by scope match and `AppliesFromUtc <= now`. `Evaluate` walks the applicable requirements, picks each type's best document by the ordering above, maps a verified and current medical document whose outcome is `Unfit` to `DocumentValidityState.Barred` so the caller can say the outcome bars the work rather than that the document was rejected, then applies an active matching waiver to any unsatisfied outcome, setting `State = Waived` and `IsWaived = true`. `Barred` sits between `Expired` and `Rejected` in the best-document ordering.
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -728,6 +728,7 @@ Build one fixture database holding every awkward case the spec names, then asser
 ```csharp
 [Fact] public async Task Backfill_MergesIdentityFromAllThreePlacesIntoOneDocument()
 [Fact] public async Task Backfill_KeepsTheStorageKey_SoNoBytesMove()
+[Fact] public async Task Backfill_CreatesOneCompetencyDocumentTypePerCertificateType_ReusingItsId()
 [Fact] public async Task Backfill_MapsUserCertificatesToCompetencyDocumentsOfTheMatchingType()
 [Fact] public async Task Backfill_CarriesReviewStatusAcross()
 [Fact] public async Task Backfill_SetsVerifiedForTenantFromThePersonsTenant()
@@ -746,7 +747,7 @@ Expected: compile failure.
 
 - [ ] **Step 3: Write the backfill**
 
-Plain EF over the old tables in the order the spec lists. Idempotent by skipping a person-and-type that already has a document. Nothing is deleted and the old tables are untouched.
+Plain EF over the old tables in the order the spec lists. **First**, create one `Competency` `DocumentType` per existing `CertificateType`, reusing `CertificateType.Id` as the new `DocumentType.Id` so existing references survive, with `Expires = true`, `VerificationIsPortable = false`, `RetentionDays = 1095` and `Name` copied across — nothing else creates these, and the competency mapping below needs them. Then the identity merge, the `UserCertificate` mapping, the remaining `WorkerDocument` rows, the requirement rows and the competency repointing. Idempotent by skipping a person-and-type that already has a document. Nothing is deleted and the old tables are untouched.
 
 - [ ] **Step 4: Write the migration**
 
