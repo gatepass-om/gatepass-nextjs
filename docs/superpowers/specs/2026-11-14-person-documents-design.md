@@ -237,7 +237,15 @@ document whose outcome is `Unfit` overrides every other document of that type, a
 the requirement reads `Barred`. Unfitness is a fact about the person, not about a
 piece of paper, and a worker re-examined and found unfit will routinely still hold
 last year's certificate, in date. Without this rule that stale certificate would
-carry them through the gate. Failing that, an unrevoked
+carry them through the gate.
+
+An unfit finding dominates across tenants too, whatever `VerificationIsPortable`
+says. Declining another tenant's verification declines their *compliance claim*,
+their assertion that the worker meets a requirement. An unfit finding is not a
+compliance claim; it is a safety fact about the person. A worker who later
+genuinely recovers is cleared by supersession, not by the finding lapsing: when the
+newer certificate is verified it supersedes the unfit one, and superseded documents
+are not considered at all. Failing that, an unrevoked
 `DocumentRequirementException` covering now makes it `Waived`, which satisfies the
 requirement while reporting itself as a waiver everywhere it is shown.
 

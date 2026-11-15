@@ -399,6 +399,10 @@ Expected: compile failure.
 
 - [ ] **Step 3: Implement the service**
 
+**Exclude superseded documents from the candidate list** — any `PersonDocument` whose `SupersededByDocumentId` is set. This is load-bearing, not tidiness: a verified, current medical document whose outcome is `Unfit` dominates its type, so without this exclusion a worker found unfit and later genuinely recovered stays barred until the old finding expires. Verifying the newer certificate supersedes the old one, and that is what clears them. `[Fact] public async Task Compliance_IgnoresSupersededDocuments()`, and one asserting a superseded unfit medical no longer bars.
+
+Also set role scope ids from the role *name*, never the numeric enum value, since the evaluator compares against `Role.ToString()`.
+
 Build `PersonScope` from the user, their `WorkerEmployment` job position and, when `againstSiteId` is given, that one site; otherwise every site visible through `IAccessScopeResolver`. Project the three candidate record types straight out of EF with `AsNoTracking`, call the evaluator, and map. `CanViewFiles` comes from Task 8's rules — until then set it from `Sensitivity != Health`, and Task 8 replaces that line.
 
 - [ ] **Step 4: Register and run**
