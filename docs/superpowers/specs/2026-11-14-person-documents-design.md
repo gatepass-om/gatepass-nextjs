@@ -115,7 +115,7 @@ Who needs what. One row per rule, replacing the two existing requirement tables.
 | --- | --- |
 | `DocumentTypeId` | |
 | `ScopeKind` | `Tenant`, `Site`, `Project`, `JobPosition`, `UserRole`, `WorkType` |
-| `ScopeId` | null for `Tenant`; the role or work-type code where applicable |
+| `ScopeId` | the tenant id when `ScopeKind` is `Tenant`, the site, project or job position id, or the role or work-type code. Never null: a rule that bound every tenant at once would let one client's policy block another's workers |
 | `Enforcement` | `Blocking` or `Warning` |
 | `MinimumValidityDays` | carried over from `JobPositionCredentialRequirement` |
 | `AppliesFromUtc` | lets a new rule take effect on a date rather than instantly |

@@ -267,7 +267,8 @@ public static class DocumentRequirementEvaluator
 - [ ] **Step 1: Write the failing tests**
 
 ```csharp
-[Fact] public void TenantScopedRequirement_AppliesToEveryone()
+[Fact] public void TenantScopedRequirement_AppliesToEveryoneInThatTenant()
+[Fact] public void TenantScopedRequirement_DoesNotApplyToAnotherTenantsPerson()
 [Fact] public void SiteRequirement_AppliesOnlyWhenPersonHasThatSite()
 [Fact] public void JobPositionRequirement_AppliesOnlyToThatPosition()
 [Fact] public void RequirementNotYetInForce_IsExcluded()                     // AppliesFromUtc in the future
@@ -292,7 +293,7 @@ Expected: compile failure.
 
 - [ ] **Step 3: Implement both methods**
 
-`Applicable` filters by scope match and `AppliesFromUtc <= now`. `Evaluate` walks the applicable requirements, picks each type's best document by the ordering above, maps a verified and current medical document whose outcome is `Unfit` to `DocumentValidityState.Barred` so the caller can say the outcome bars the work rather than that the document was rejected, then applies an active matching waiver to any unsatisfied outcome, setting `State = Waived` and `IsWaived = true`. `Barred` sits between `Expired` and `Rejected` in the best-document ordering.
+`Applicable` filters by scope match and `AppliesFromUtc <= now`. A `Tenant`-scoped rule matches when its `ScopeId` equals the person's `TenantId`; a person with a null `TenantId` matches no `Tenant`-scoped rule and must not throw. `Evaluate` walks the applicable requirements, picks each type's best document by the ordering above, maps a verified and current medical document whose outcome is `Unfit` to `DocumentValidityState.Barred` so the caller can say the outcome bars the work rather than that the document was rejected, then applies an active matching waiver to any unsatisfied outcome, setting `State = Waived` and `IsWaived = true`. `Barred` sits between `Expired` and `Rejected` in the best-document ordering.
 
 - [ ] **Step 4: Run to verify they pass**
 
