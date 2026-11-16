@@ -428,6 +428,20 @@ A verification script compares counts and spot-checks per person before and afte
 is run against a copy of the production database first. The migration is reversible in
 the sense that the old tables still hold the original rows.
 
+**Configure medical gating — an explicit deploy step, not an assumption.** Phase 1
+makes `MedicalFitness` *enforceable*, not enforced. An `Unfit` finding dominates its
+document type and the gate denies it, but only where a `DocumentRequirement` names
+that type: with no medical requirement configured, a verified `Unfit` document bars
+nothing. Seeding a `Blocking` medical requirement is deliberately **not** done,
+because on a reset database no worker holds a fitness certificate, so it would
+refuse clearance and deny entry to the entire workforce — the same failure mode as a
+Civil ID requirement no client can satisfy. So after deploy, for each tenant that
+wants medical gating, an operator admin adds a `DocumentRequirement` for the
+relevant medical type at the scope they want (`Tenant` for everyone, or per `Site` /
+`JobPosition`), choosing `Warning` first if the workforce's certificates are not yet
+recorded and raising it to `Blocking` once they are. Until that row exists, medical
+outcomes are recorded and displayed and nothing is gated on them.
+
 **Phase 2 — UI.** The documents tab, the add/renew dialog and the review inbox. Old
 panels and the certificate evidence block in `edit-user-form.tsx` are removed. New
 endpoints only.
