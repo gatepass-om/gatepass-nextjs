@@ -39,6 +39,16 @@ type SessionValues = {
 
 const SessionContext = createContext<SessionValues | null>(null);
 
+// A non-secret hint that this browser was signed in, so a first visit does not ask the server to refresh a session
+// that cannot exist (which the browser records as a failed request). The token itself is never stored.
+const SESSION_HINT_KEY = 'gp.signedIn';
+function readSessionHint(): boolean {
+  try { return window.localStorage.getItem(SESSION_HINT_KEY) === '1'; } catch { return false; }
+}
+function writeSessionHint(on: boolean) {
+  try { if (on) window.localStorage.setItem(SESSION_HINT_KEY, '1'); else window.localStorage.removeItem(SESSION_HINT_KEY); } catch { /* private mode */ }
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   // The access token lives only in memory — never localStorage — so XSS cannot exfiltrate it. The refresh
   // token rides in an httpOnly cookie the browser sends to /auth automatically.
@@ -64,6 +74,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearSession = useCallback(() => {
+    writeSessionHint(false);
     clearRefreshTimer();
     tokenRef.current = null;
     expiresAtRef.current = undefined;
@@ -84,6 +95,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [clearRefreshTimer]);
 
   const applySession = useCallback((nextToken: string, nextUser: User, expiresAt?: string) => {
+    writeSessionHint(true);
     tokenRef.current = nextToken;
     expiresAtRef.current = expiresAt;
     setToken(nextToken);
@@ -137,8 +149,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // when the in-memory access token is gone).
   useEffect(() => {
     mounted.current = true;
+    // Only a browser that was signed in asks for a session; a first visit goes straight to the sign-in page.
     const bootstrap = Promise.race([
-      silentRefresh(),
+      readSessionHint() ? silentRefresh() : Promise.resolve(null),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), SESSION_BOOTSTRAP_TIMEOUT_MS)),
     ]);
     void bootstrap.finally(() => {
