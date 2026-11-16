@@ -872,6 +872,140 @@ export async function updateJobPositionRequest(token: string, id: string, input:
   return apiRequest<import('./types').JobPosition>(`/compliance/job-positions/${id}`, { method: 'PUT', token, body: input });
 }
 
+/**
+ * One worker's compliance as the SERVER sees it: compliant only when their clearance is Cleared and every blocking
+ * document requirement is met right now. Screens that list many people ask here instead of working it out
+ * themselves, because they used to disagree with the profile and the gate.
+ */
+export type WorkerStanding = {
+  userId: string;
+  compliant: boolean;
+  effectiveClearanceStatus: string;
+  reasons: string[];
+};
+
+/** A worker missing from the answer is one the caller may not read, or who does not exist: treat that as not compliant. */
+export async function fetchWorkerStandingsRequest(token: string, userIds: string[]) {
+  if (userIds.length === 0) return [] as WorkerStanding[];
+  return apiRequest<WorkerStanding[]>('/users/standings', { method: 'POST', token, body: { userIds } });
+}
+
+// ---- person documents (medical outcomes and requirements) -------------------------------------------------------
+
+export type PersonRequirementStatus = {
+  documentTypeId: string;
+  documentTypeName: string;
+  category: number;
+  enforcement: number;
+  state: string;
+  documentId?: string | null;
+  expiryDate?: string | null;
+  isWaived: boolean;
+  medicalOutcome?: number | null;
+  restrictions: string[];
+  issueDate?: string | null;
+  isSatisfied: boolean;
+};
+
+export type PersonDocumentRecord = {
+  id: string;
+  userId: string;
+  documentTypeId: string;
+  typeName: string;
+  category: number;
+  sensitivity: number;
+  number?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  reviewStatus: number;
+  reviewNote?: string | null;
+  medicalOutcome?: number | null;
+  restrictions: string[];
+  /** Withheld (null) from anyone who may not read clinical detail. */
+  examinerName?: string | null;
+  examiningFacility?: string | null;
+  canViewFiles: boolean;
+};
+
+export type PersonCompliance = {
+  userId: string;
+  requirements: PersonRequirementStatus[];
+  otherDocuments: PersonDocumentRecord[];
+};
+
+export type DocumentTypeInfo = {
+  id: string;
+  code: string;
+  name: string;
+  category: number;
+  sensitivity: number;
+  expires: boolean;
+  requiresNumber: boolean;
+  requiresIssuer: boolean;
+  requiresIssueDate: boolean;
+  defaultValidityDays?: number | null;
+  isActive: boolean;
+};
+
+export type DocumentRequirementRecord = {
+  id: string;
+  documentTypeId: string;
+  documentTypeName?: string;
+  scopeKind: number;
+  scopeId: string;
+  enforcement: number;
+  minimumValidityDays?: number | null;
+};
+
+export type CreatePersonDocumentInput = {
+  documentTypeId: string;
+  number?: string | null;
+  issuingAuthority?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  medicalOutcome?: number | null;
+  medicalRestrictions?: string[];
+  examinerName?: string | null;
+  examiningFacility?: string | null;
+  /** The recorder confirms they have seen the original: medical stores no file, so this is the evidence. */
+  attest: boolean;
+};
+
+export async function getPersonComplianceRequest(token: string, userId: string) {
+  return apiRequest<PersonCompliance>(`/people/${userId}/documents`, { token });
+}
+
+export async function listDocumentTypesRequest(token: string) {
+  return apiRequest<DocumentTypeInfo[]>('/document-types', { token });
+}
+
+export async function listMedicalRestrictionCodesRequest(token: string) {
+  return apiRequest<string[]>('/document-types/medical-restrictions', { token });
+}
+
+export async function createPersonDocumentRequest(token: string, userId: string, input: CreatePersonDocumentInput) {
+  return apiRequest<PersonDocumentRecord>(`/people/${userId}/documents`, { method: 'POST', token, body: input });
+}
+
+export async function submitPersonDocumentRequest(token: string, documentId: string) {
+  return apiRequest<PersonDocumentRecord>(`/documents/${documentId}/submit`, { method: 'POST', token });
+}
+
+export async function listDocumentRequirementsRequest(token: string) {
+  return apiRequest<DocumentRequirementRecord[]>('/document-requirements', { token });
+}
+
+export async function createDocumentRequirementRequest(
+  token: string,
+  input: { documentTypeId: string; scopeKind: number; scopeId: string; enforcement: number; minimumValidityDays?: number | null },
+) {
+  return apiRequest<DocumentRequirementRecord>('/document-requirements', { method: 'POST', token, body: input });
+}
+
+export async function deleteDocumentRequirementRequest(token: string, requirementId: string) {
+  return apiRequest<void>(`/document-requirements/${requirementId}`, { method: 'DELETE', token });
+}
+
 export async function assessWorkerPositionRequest(token: string, userId: string) {
   return apiRequest<import('./types').WorkerPositionCompliance>(`/compliance/job-positions/workers/${userId}/assessment`, { token });
 }
