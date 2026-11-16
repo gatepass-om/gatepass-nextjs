@@ -20,6 +20,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { matchesCredentialFilter, personnelStatus } from "@/components/users/personnel-status";
+import { resolveUserCompanyName } from "@/components/users/user-company";
 import { FileUp, UserPlus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthProtection } from "@/hooks/use-auth-protection";
@@ -56,17 +59,72 @@ export default function UsersPage() {
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(searchParams.get('new') === 'worker');
   const [personnelSearch, setPersonnelSearch] = useState('');
+  // Today's "Expiring soon" rows link here with the band they counted, so the list that opens is the
+  // people behind the number rather than the whole register. One match or fifty, it is the same view.
+  const [credentialFilter, setCredentialFilter] = useState(searchParams.get('credentialStatus') ?? 'all');
+  const [withinDays, setWithinDays] = useState<number | null>(() => {
+    const raw = Number(searchParams.get('within'));
+    return Number.isFinite(raw) && raw > 0 ? raw : null;
+  });
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [companyFilter, setCompanyFilter] = useState('all');
+  const [accountFilter, setAccountFilter] = useState('all');
   const { toast } = useToast();
   const requestedReturnTo = searchParams.get('returnTo');
   const returnTo = requestedReturnTo?.startsWith('/') && !requestedReturnTo.startsWith('//')
     ? requestedReturnTo
     : null;
+  const today = useMemo(() => new Date(), []);
   const displayedUsers = useMemo(() => {
     const term = personnelSearch.trim().toLowerCase();
-    if (!term) return users;
-    return users.filter(person => [person.name, person.email, person.idNumber, person.nationality, person.employment?.jobPositionName]
-      .some(value => value?.toLowerCase().includes(term)));
-  }, [users, personnelSearch]);
+    return users.filter((person) => {
+      if (term && ![person.name, person.email, person.idNumber, person.nationality, person.employment?.jobPositionName]
+        .some(value => value?.toLowerCase().includes(term))) return false;
+      if (roleFilter !== 'all' && person.role !== roleFilter) return false;
+      if (accountFilter !== 'all' && (person.status ?? '') !== accountFilter) return false;
+      if (companyFilter !== 'all'
+        && resolveUserCompanyName(person, contractors, operators) !== companyFilter) return false;
+      if (credentialFilter !== 'all'
+        && !matchesCredentialFilter(personnelStatus(person, today), credentialFilter, withinDays)) return false;
+      return true;
+    });
+  }, [users, personnelSearch, roleFilter, accountFilter, companyFilter, credentialFilter, withinDays, contractors, operators, today]);
+
+  const companyOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const person of users) {
+      const name = resolveUserCompanyName(person, contractors, operators);
+      if (name && name !== '—') names.add(name);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [users, contractors, operators]);
+
+  const roleOptions = useMemo(
+    () => [...new Set(users.map((person) => person.role))].sort((a, b) => a.localeCompare(b)),
+    [users],
+  );
+
+  const filtersActive = roleFilter !== 'all' || companyFilter !== 'all' || accountFilter !== 'all'
+    || credentialFilter !== 'all' || personnelSearch.trim() !== '';
+
+  const clearFilters = () => {
+    setPersonnelSearch('');
+    setRoleFilter('all');
+    setCompanyFilter('all');
+    setAccountFilter('all');
+    setCredentialFilter('all');
+    setWithinDays(null);
+  };
+
+  const credentialSummary = credentialFilter === 'all'
+    ? null
+    : credentialFilter === 'Expired'
+      ? 'with an expired document'
+      : credentialFilter === 'Missing'
+        ? 'with no documents on file'
+        : withinDays
+          ? `with a document expiring within ${withinDays} days`
+          : 'with a document expiring soon';
 
   const canCreateUser = useMemo(() => {
     return ["Admin", "Operator Admin", "Contractor Admin", "Manager", "Supervisor"].includes(
@@ -304,9 +362,61 @@ export default function UsersPage() {
           </div>
         )}
       </header>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="w-full sm:max-w-md sm:flex-1"><Input value={personnelSearch} onChange={(event) => setPersonnelSearch(event.target.value)} placeholder="Search name, ID, email or position" className="w-full" /></div>
-        <p className="text-sm text-muted-foreground">{displayedUsers.length} personnel</p>
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="w-full sm:max-w-md sm:flex-1"><Input value={personnelSearch} onChange={(event) => setPersonnelSearch(event.target.value)} placeholder="Search name, ID, email or position" className="w-full" /></div>
+          <p className="text-sm text-muted-foreground">
+            {displayedUsers.length === users.length
+              ? `${users.length} personnel`
+              : `${displayedUsers.length} of ${users.length} personnel`}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={credentialFilter} onValueChange={(value) => { setCredentialFilter(value); if (value !== 'Expiring') setWithinDays(null); }}>
+            <SelectTrigger className="h-9 w-auto min-w-[10rem]" aria-label="Document status"><SelectValue placeholder="Documents" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All documents</SelectItem>
+              <SelectItem value="Expired">Expired</SelectItem>
+              <SelectItem value="Expiring">Expiring soon</SelectItem>
+              <SelectItem value="Missing">No documents</SelectItem>
+              <SelectItem value="Valid">In order</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="h-9 w-auto min-w-[9rem]" aria-label="Role"><SelectValue placeholder="Role" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All roles</SelectItem>
+              {roleOptions.map((role) => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {companyOptions.length > 1 ? (
+            <Select value={companyFilter} onValueChange={setCompanyFilter}>
+              <SelectTrigger className="h-9 w-auto min-w-[11rem] max-w-[16rem]" aria-label="Company"><SelectValue placeholder="Company" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All companies</SelectItem>
+                {companyOptions.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          ) : null}
+          <Select value={accountFilter} onValueChange={setAccountFilter}>
+            <SelectTrigger className="h-9 w-auto min-w-[9rem]" aria-label="Account status"><SelectValue placeholder="Account" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any account</SelectItem>
+              <SelectItem value="Active">Active</SelectItem>
+              <SelectItem value="Inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          {filtersActive ? (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>
+          ) : null}
+        </div>
+        {credentialSummary ? (
+          <p className="text-sm text-muted-foreground">
+            Showing <span className="font-medium text-foreground">{displayedUsers.length}</span>{' '}
+            {displayedUsers.length === 1 ? 'person' : 'people'} {credentialSummary}.
+            {displayedUsers.length === 0 ? ' Nothing matches right now.' : ''}
+          </p>
+        ) : null}
       </div>
       <UsersTable
         users={displayedUsers}

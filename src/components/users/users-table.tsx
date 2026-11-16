@@ -47,6 +47,7 @@ import {
 import { Badge } from "../ui/badge";
 import { canEditUserRecord, canImpersonateUser } from "./user-actions";
 import { resolveUserCompanyName } from './user-company';
+import { CREDENTIAL_BADGE, personnelStatus } from './personnel-status';
 
 interface UsersTableProps {
   users: User[];
@@ -127,6 +128,13 @@ export function UsersTable({
 
   const company = (user: User) => resolveUserCompanyName(user, contractors, operators);
 
+  // One clock for the whole render, so two rows can never disagree about what "today" is.
+  const today = new Date();
+  const standing = (user: User) => {
+    const status = personnelStatus(user, today);
+    return { status, badge: CREDENTIAL_BADGE[status.state] };
+  };
+
   return (
     <Card className="overflow-hidden">
       <CardHeader className="border-b px-4 py-3 sm:px-6 sm:py-4">
@@ -141,48 +149,71 @@ export function UsersTable({
           <>
             {/* Laptop: one compact table. National ID and nationality live on the profile (and stay searchable). */}
             <div className="hidden md:block">
-              <Table className="border-collapse text-sm">
-                <TableHeader>
-                  <TableRow className="bg-muted/60 hover:bg-muted/60">
+              <Table className="border-collapse text-sm" containerClassName="md:max-h-[min(65vh,40rem)] md:overflow-y-auto">
+                <TableHeader className="sticky top-0 z-10 [&_th]:sticky [&_th]:top-0 [&_th]:bg-muted">
+                  <TableRow className="bg-muted hover:bg-muted">
                     <TableHead>Name</TableHead>
                     <TableHead>Company</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Job position</TableHead>
+                    <TableHead>Documents</TableHead>
+                    <TableHead>Account</TableHead>
                     <TableHead aria-label="Row actions" className="w-14" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id} className="cursor-pointer hover:bg-muted/30" onClick={() => openProfile(user)}>
-                      <TableCell className="py-2.5">
-                        <button type="button" className="block text-left font-medium underline-offset-4 hover:underline" onClick={(event) => { event.stopPropagation(); openProfile(user); }}>{user.name}</button>
-                        <span className="block text-xs text-muted-foreground">{user.email}</span>
-                      </TableCell>
-                      <TableCell className="py-2.5">{company(user)}</TableCell>
-                      <TableCell className="py-2.5"><Badge variant="secondary">{user.role}</Badge></TableCell>
-                      <TableCell className="py-2.5">{user.employment?.jobPositionName || '—'}</TableCell>
-                      <TableCell className="py-2.5 text-right" onClick={(event) => event.stopPropagation()}>{actions(user)}</TableCell>
-                    </TableRow>
-                  ))}
+                  {users.map((user) => {
+                    const { status, badge } = standing(user);
+                    return (
+                      <TableRow key={user.id} className="cursor-pointer hover:bg-muted/30" onClick={() => openProfile(user)}>
+                        <TableCell className="py-2.5">
+                          <button type="button" className="block text-left font-medium underline-offset-4 hover:underline" onClick={(event) => { event.stopPropagation(); openProfile(user); }}>{user.name}</button>
+                          <span className="block text-xs text-muted-foreground">{user.email}</span>
+                        </TableCell>
+                        <TableCell className="py-2.5">{company(user)}</TableCell>
+                        <TableCell className="py-2.5"><Badge variant="secondary">{user.role}</Badge></TableCell>
+                        <TableCell className="py-2.5">{user.employment?.jobPositionName || '—'}</TableCell>
+                        <TableCell className="py-2.5">
+                          {status.state === 'None' ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <>
+                              <Badge variant={badge.variant}>{badge.label}</Badge>
+                              {status.detail ? <span className="mt-0.5 block text-xs text-muted-foreground">{status.detail}</span> : null}
+                            </>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-2.5">
+                          <Badge variant={user.status === 'Active' ? 'success' : 'secondary'}>{user.status ?? 'Unknown'}</Badge>
+                        </TableCell>
+                        <TableCell className="py-2.5 text-right" onClick={(event) => event.stopPropagation()}>{actions(user)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
 
             {/* Phone: one card per person — name, role, then a single line of context. */}
             <ul className="divide-y md:hidden">
-              {users.map((user) => (
-                <li key={user.id} className="flex items-start gap-2 px-4 py-3">
-                  <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openProfile(user)}>
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">{user.name}</span>
-                      <Badge variant="secondary">{user.role}</Badge>
-                    </span>
-                    <span className="mt-0.5 block truncate text-sm text-muted-foreground">{user.email}</span>
-                    <span className="block truncate text-sm text-muted-foreground">{[company(user), user.employment?.jobPositionName].filter(Boolean).join(' · ')}</span>
-                  </button>
-                  {actions(user)}
-                </li>
-              ))}
+              {users.map((user) => {
+                const { status, badge } = standing(user);
+                return (
+                  <li key={user.id} className="flex items-start gap-2 px-4 py-3">
+                    <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openProfile(user)}>
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold">{user.name}</span>
+                        <Badge variant="secondary">{user.role}</Badge>
+                        {status.state !== 'None' && status.state !== 'Valid' ? <Badge variant={badge.variant}>{badge.label}</Badge> : null}
+                      </span>
+                      <span className="mt-0.5 block truncate text-sm text-muted-foreground">{user.email}</span>
+                      <span className="block truncate text-sm text-muted-foreground">{[company(user), user.employment?.jobPositionName].filter(Boolean).join(' · ')}</span>
+                      {status.detail && status.state !== 'Valid' ? <span className="block truncate text-sm text-muted-foreground">{status.detail}</span> : null}
+                    </button>
+                    {actions(user)}
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}

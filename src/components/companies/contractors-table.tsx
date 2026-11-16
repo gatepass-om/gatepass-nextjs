@@ -70,10 +70,10 @@ export function ContractorsTable({ title = 'External Companies', description = '
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
+        <div>
+          <Table containerClassName="md:max-h-[min(60vh,34rem)] md:overflow-y-auto">
+            <TableHeader className="sticky top-0 z-10 [&_th]:sticky [&_th]:top-0 [&_th]:bg-muted">
+              <TableRow className="bg-muted hover:bg-muted">
                 <TableHead>Company Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
