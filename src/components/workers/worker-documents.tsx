@@ -25,7 +25,10 @@ const DOC_TYPES = [
   { value: 'IdDocument', label: 'ID document' },
   { value: 'Certificate', label: 'Certificate' },
   { value: 'TrainingRecord', label: 'Training record' },
-  { value: 'MedicalFitness', label: 'Medical fitness' },
+  // 'Medical fitness' is deliberately absent. Medical documents are outcome-only in the document model — the
+  // fitness result, its restrictions and its expiry are recorded, the clinical report is never stored — so the
+  // upload endpoint refuses a file for them ("Periodic medical fitness does not store a file"). Offering the
+  // option here could only ever fail. A control for recording the outcome belongs with the medical screens.
   { value: 'CompetencyEvidence', label: 'Competency evidence' },
   { value: 'Photo', label: 'Worker card photo' },
   { value: 'Other', label: 'Other' },
