@@ -3,7 +3,7 @@ import test from 'node:test';
 // @ts-expect-error Node's built-in TypeScript runner requires the source extension.
 import { getNavigationForRole } from './sidebar-navigation.ts';
 // @ts-expect-error Node's built-in TypeScript runner requires the source extension.
-import { ACCOUNT_ROUTES, DESKTOP_LINK_LIMIT, PHONE_TAB_LIMIT, isActiveRoute, splitForDesktop, splitForPhone, tabLabel } from './shell-navigation.ts';
+import { ACCOUNT_ROUTES, DESKTOP_LINK_LIMIT, PHONE_TAB_LIMIT, buildNavigationGroups, isActiveRoute, splitForDesktop, splitForPhone, tabLabel } from './shell-navigation.ts';
 
 const roles = ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Security', 'Inspector', 'Contractor Admin', 'Worker', 'Visitor'] as const;
 const hrefs = (items: { href: string }[]) => items.map((item) => item.href).sort();
@@ -47,6 +47,41 @@ test('roles with only account pages keep them as links', () => {
   for (const role of ['Worker', 'Visitor'] as const) {
     const { primary } = splitForDesktop(getNavigationForRole(role));
     assert.ok(primary.length > 0);
+  }
+});
+
+test('the grouped bar drops nothing a role can reach', () => {
+  for (const role of roles) {
+    const all = getNavigationForRole(role);
+    const grouped = buildNavigationGroups(all).flatMap((group: { items: { href: string }[] }) => group.items);
+    const shown = new Set(grouped.map((item: { href: string }) => item.href));
+    for (const item of all) {
+      assert.ok(shown.has(item.href) || ACCOUNT_ROUTES.includes(item.href), `${role} loses ${item.href} from the grouped bar`);
+    }
+    // No page may sit in two menus at once, or the active state lights up twice.
+    assert.equal(grouped.length, new Set(grouped.map((item: { href: string }) => item.href)).size, `${role} shows a page twice`);
+  }
+});
+
+test('an admin gets Today plus four named menus instead of one anonymous More', () => {
+  const groups = buildNavigationGroups(getNavigationForRole('Admin'));
+  assert.deepEqual(groups.map((group: { label: string }) => group.label), ['/dashboard', 'Work', 'People', 'Site', 'Admin']);
+  const site = groups.find((group: { label: string }) => group.label === 'Site')!;
+  assert.deepEqual(site.items.map((item: { href: string }) => item.href), ['/card-verification', '/inspections', '/alerts']);
+});
+
+test('a group keeps only the pages the role actually has, and empty ones disappear', () => {
+  const groups = buildNavigationGroups(getNavigationForRole('Security'));
+  const labels = groups.map((group: { label: string }) => group.label);
+  assert.ok(!labels.includes('People'), 'security has no personnel pages, so no People menu');
+  assert.ok(!labels.includes('Admin'));
+  const site = groups.find((group: { label: string }) => group.label === 'Site')!;
+  assert.deepEqual(site.items.map((item: { href: string }) => item.href), ['/card-verification', '/inspections', '/alerts']);
+});
+
+test('roles with only account pages still get links in the grouped bar', () => {
+  for (const role of ['Worker', 'Visitor'] as const) {
+    assert.ok(buildNavigationGroups(getNavigationForRole(role)).length > 0, `${role} has an empty bar`);
   }
 });
 
