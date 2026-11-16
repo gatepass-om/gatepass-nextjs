@@ -23,12 +23,18 @@ const actionLabels: Record<WorkerClearanceAction, string> = {
 interface WorkerClearanceProps {
   workerId: string;
   initialStatus?: User['clearanceStatus'];
+  /** The server's verdict on whether a stored Cleared still holds; 'Lapsed' means a blocking document is not in order. */
+  effectiveStatus?: User['effectiveClearanceStatus'];
+  lapsedReasons?: string[];
 }
 
-export function WorkerClearance({ workerId, initialStatus }: WorkerClearanceProps) {
+export function WorkerClearance({ workerId, initialStatus, effectiveStatus, lapsedReasons = [] }: WorkerClearanceProps) {
   const { token, user } = useSession();
   const { toast } = useToast();
   const [status, setStatus] = useState(initialStatus ?? 'Pending');
+  // A clearance action changes the stored status, so a verdict computed before it no longer describes it.
+  const [acted, setActed] = useState(false);
+  const lapsed = !acted && status === 'Cleared' && effectiveStatus === 'Lapsed';
   const [note, setNote] = useState('');
   const [busyAction, setBusyAction] = useState<WorkerClearanceAction | null>(null);
   const actions = useMemo(
@@ -50,6 +56,7 @@ export function WorkerClearance({ workerId, initialStatus }: WorkerClearanceProp
     try {
       const result = await transitionWorkerClearance(token, workerId, action, note.trim() || undefined);
       setStatus(result.status);
+      setActed(true);
       setNote('');
       toast({ title: 'Clearance updated', description: `Worker status is now ${result.status}.` });
     } catch (error) {
@@ -68,10 +75,21 @@ export function WorkerClearance({ workerId, initialStatus }: WorkerClearanceProp
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-3">
           Worker clearance
-          <Badge variant={status === 'Cleared' ? 'default' : 'secondary'}>{status}</Badge>
+          {lapsed
+            ? <Badge variant="warning">Lapsed</Badge>
+            : <Badge variant={status === 'Cleared' ? 'default' : 'secondary'}>{status}</Badge>}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {lapsed ? (
+          <div role="status" className="rounded-md border border-warning/40 bg-warning-soft p-3 text-sm text-warning-ink">
+            <p className="font-medium">Cleared by a reviewer, but the documents behind it are no longer in order.</p>
+            <ul className="mt-1 list-disc ps-5">
+              {lapsedReasons.map((reason) => <li key={reason}>{reason}</li>)}
+            </ul>
+            <p className="mt-1">It returns to Cleared by itself once these are put right. The gate already enforces them.</p>
+          </div>
+        ) : null}
         {actions.some(action => action === 'clear' || action === 'return') && (
           <Textarea
             value={note}
