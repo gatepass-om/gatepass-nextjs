@@ -21,7 +21,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { matchesCredentialFilter, personnelStatus } from "@/components/users/personnel-status";
+import {
+  describeUrlFilter,
+  matchesCredentialFilter,
+  matchesUrlFilter,
+  personnelStatus,
+  personnelUrlFilter,
+  type CredentialState,
+  type PersonnelUrlFilter,
+} from "@/components/users/personnel-status";
 import { resolveUserCompanyName } from "@/components/users/user-company";
 import { FileUp, UserPlus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -59,12 +67,20 @@ export default function UsersPage() {
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(searchParams.get('new') === 'worker');
   const [personnelSearch, setPersonnelSearch] = useState('');
-  // Today's "Expiring soon" rows link here with the band they counted, so the list that opens is the
-  // people behind the number rather than the whole register. One match or fifty, it is the same view.
-  const [credentialFilter, setCredentialFilter] = useState(searchParams.get('credentialStatus') ?? 'all');
+  // Every figure on Today links here with the filter it counted, so the list that opens is the people
+  // behind that number rather than the whole register. One match or fifty, it is the same view.
+  const [urlFilter, setUrlFilter] = useState<PersonnelUrlFilter>(
+    () => personnelUrlFilter((key) => searchParams.get(key)),
+  );
+  const [credentialFilter, setCredentialFilter] = useState(
+    () => {
+      const parsed = personnelUrlFilter((key) => searchParams.get(key));
+      return parsed.kind === 'credential' ? parsed.value : 'all';
+    },
+  );
   const [withinDays, setWithinDays] = useState<number | null>(() => {
-    const raw = Number(searchParams.get('within'));
-    return Number.isFinite(raw) && raw > 0 ? raw : null;
+    const parsed = personnelUrlFilter((key) => searchParams.get(key));
+    return parsed.kind === 'credential' ? parsed.withinDays : null;
   });
   const [roleFilter, setRoleFilter] = useState('all');
   const [companyFilter, setCompanyFilter] = useState('all');
@@ -84,11 +100,13 @@ export default function UsersPage() {
       if (accountFilter !== 'all' && (person.status ?? '') !== accountFilter) return false;
       if (companyFilter !== 'all'
         && resolveUserCompanyName(person, contractors, operators) !== companyFilter) return false;
-      if (credentialFilter !== 'all'
-        && !matchesCredentialFilter(personnelStatus(person, today), credentialFilter, withinDays)) return false;
+      const status = personnelStatus(person, today);
+      if (credentialFilter !== 'all' && !matchesCredentialFilter(status, credentialFilter, withinDays)) return false;
+      // A credential link is already represented by the dropdown above; the other kinds filter on top.
+      if (urlFilter.kind !== 'credential' && !matchesUrlFilter(person, status, urlFilter, today)) return false;
       return true;
     });
-  }, [users, personnelSearch, roleFilter, accountFilter, companyFilter, credentialFilter, withinDays, contractors, operators, today]);
+  }, [users, personnelSearch, roleFilter, accountFilter, companyFilter, credentialFilter, withinDays, urlFilter, contractors, operators, today]);
 
   const companyOptions = useMemo(() => {
     const names = new Set<string>();
@@ -105,7 +123,7 @@ export default function UsersPage() {
   );
 
   const filtersActive = roleFilter !== 'all' || companyFilter !== 'all' || accountFilter !== 'all'
-    || credentialFilter !== 'all' || personnelSearch.trim() !== '';
+    || credentialFilter !== 'all' || personnelSearch.trim() !== '' || urlFilter.kind !== 'none';
 
   const clearFilters = () => {
     setPersonnelSearch('');
@@ -114,17 +132,16 @@ export default function UsersPage() {
     setAccountFilter('all');
     setCredentialFilter('all');
     setWithinDays(null);
+    setUrlFilter({ kind: 'none' });
   };
 
-  const credentialSummary = credentialFilter === 'all'
-    ? null
-    : credentialFilter === 'Expired'
-      ? 'with an expired document'
-      : credentialFilter === 'Missing'
-        ? 'with no documents on file'
-        : withinDays
-          ? `with a document expiring within ${withinDays} days`
-          : 'with a document expiring soon';
+  const credentialSummary = urlFilter.kind === 'credential' || credentialFilter !== 'all'
+    ? describeUrlFilter(
+        urlFilter.kind === 'credential'
+          ? urlFilter
+          : { kind: 'credential', value: credentialFilter as CredentialState, withinDays },
+      )
+    : describeUrlFilter(urlFilter);
 
   const canCreateUser = useMemo(() => {
     return ["Admin", "Operator Admin", "Contractor Admin", "Manager", "Supervisor"].includes(
@@ -415,6 +432,11 @@ export default function UsersPage() {
             Showing <span className="font-medium text-foreground">{displayedUsers.length}</span>{' '}
             {displayedUsers.length === 1 ? 'person' : 'people'} {credentialSummary}.
             {displayedUsers.length === 0 ? ' Nothing matches right now.' : ''}
+          </p>
+        ) : null}
+        {urlFilter.kind === 'unsupported' ? (
+          <p className="text-sm text-warning-ink">
+            Showing everyone: this page cannot yet narrow to {urlFilter.what}. Open a person to see theirs.
           </p>
         ) : null}
       </div>

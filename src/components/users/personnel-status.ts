@@ -47,11 +47,14 @@ export function personnelStatus(user: User, today: Date, expiringWithinDays = 30
     }
   }
 
-  if (dated.length === 0) {
-    return user.role === 'Worker'
-      ? { state: 'Missing', detail: 'No identity document on file', daysRemaining: null }
-      : { state: 'None', detail: '', daysRemaining: null };
+  // A worker with no verified identity document is refused at the gate however good their certificates
+  // are, so the register must not call them "in order" on the strength of a training card. Identity
+  // missing outranks everything else a worker holds.
+  if (user.role === 'Worker' && !user.idExpiresAtUtc) {
+    return { state: 'Missing', detail: 'No identity document on file', daysRemaining: null };
   }
+
+  if (dated.length === 0) return { state: 'None', detail: '', daysRemaining: null };
 
   const worst = dated.reduce((lowest, row) => (row.days < lowest.days ? row : lowest));
   const state: CredentialState = worst.days < 0 ? 'Expired' : worst.days <= expiringWithinDays ? 'Expiring' : 'Valid';
@@ -73,6 +76,91 @@ export function matchesCredentialFilter(
   if (filter === 'Missing') return status.state === 'Missing';
   if (filter === 'Valid') return status.state === 'Valid';
   return true;
+}
+
+/**
+ * Today's action queue sends the register a handful of different filters, each one a different column
+ * of the dashboard. They were all being ignored, so every figure on Today opened the same unfiltered
+ * list. This maps each one to what the register can actually narrow by, and says plainly when it
+ * cannot — a page that admits it cannot narrow is better than one that silently shows everybody.
+ *
+ * `documentStatus` and `cardStatus` are the two it cannot serve: whether a person has a document
+ * awaiting review, or a card waiting to be printed, is not in the personnel list the page loads.
+ */
+export type PersonnelUrlFilter =
+  | { kind: 'none' }
+  | { kind: 'credential'; value: CredentialState; withinDays: number | null }
+  | { kind: 'clearance'; value: string }
+  | { kind: 'identity' }
+  | { kind: 'competency'; withinDays: number }
+  | { kind: 'unsupported'; what: string };
+
+const CREDENTIAL_VALUES: CredentialState[] = ['Expired', 'Expiring', 'Missing', 'Valid'];
+
+export function personnelUrlFilter(get: (key: string) => string | null): PersonnelUrlFilter {
+  const within = (fallback: number | null) => {
+    const raw = Number(get('within'));
+    return Number.isFinite(raw) && raw > 0 ? raw : fallback;
+  };
+
+  const credential = get('credentialStatus');
+  if (credential && (CREDENTIAL_VALUES as string[]).includes(credential)) {
+    return { kind: 'credential', value: credential as CredentialState, withinDays: within(null) };
+  }
+  const clearance = get('clearanceStatus');
+  if (clearance) return { kind: 'clearance', value: clearance };
+  if (get('identityStatus') === 'Unverified') return { kind: 'identity' };
+  if (get('competencyStatus') === 'Expiring') return { kind: 'competency', withinDays: within(30) ?? 30 };
+  if (get('documentStatus')) return { kind: 'unsupported', what: 'documents awaiting review' };
+  if (get('cardStatus')) return { kind: 'unsupported', what: 'cards awaiting print' };
+  return { kind: 'none' };
+}
+
+/** Does this person belong in the list the Today figure promised? */
+export function matchesUrlFilter(
+  user: Pick<User, 'clearanceStatus' | 'idExpiresAtUtc' | 'certificates'>,
+  status: PersonnelStatus,
+  filter: PersonnelUrlFilter,
+  today: Date,
+): boolean {
+  switch (filter.kind) {
+    case 'credential':
+      return matchesCredentialFilter(status, filter.value, filter.withinDays);
+    case 'clearance':
+      return (user.clearanceStatus ?? '') === filter.value;
+    // The identity expiry column is only written from a *verified* identity document, so its absence is
+    // exactly "no identity check has passed yet" — which is what the dashboard counted.
+    case 'identity':
+      return !user.idExpiresAtUtc;
+    case 'competency': {
+      const days = (user.certificates ?? [])
+        .filter((certificate) => certificate.expiresAtUtc)
+        .map((certificate) => daysUntil(certificate.expiresAtUtc as string, today));
+      return days.some((value) => value >= 0 && value <= filter.withinDays);
+    }
+    default:
+      return true;
+  }
+}
+
+export function describeUrlFilter(filter: PersonnelUrlFilter): string | null {
+  switch (filter.kind) {
+    case 'credential':
+      if (filter.value === 'Expired') return 'with an expired document';
+      if (filter.value === 'Missing') return 'with no documents on file';
+      if (filter.value === 'Valid') return 'whose documents are in order';
+      return filter.withinDays
+        ? `with a document expiring within ${filter.withinDays} days`
+        : 'with a document expiring soon';
+    case 'clearance':
+      return `whose clearance is ${filter.value.toLowerCase()}`;
+    case 'identity':
+      return 'whose identity document has not been verified';
+    case 'competency':
+      return `with a competency expiring within ${filter.withinDays} days`;
+    default:
+      return null;
+  }
 }
 
 export const CREDENTIAL_BADGE: Record<CredentialState, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'warning' | 'success' }> = {
