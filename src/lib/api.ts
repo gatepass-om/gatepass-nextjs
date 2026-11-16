@@ -2183,3 +2183,12 @@ export async function downloadWorkerTraceability(authToken: string, format: 'csv
   anchor.remove();
   URL.revokeObjectURL(url);
 }
+
+/** Whether medical fitness is enforced at the gate for the caller's company. Off by default. */
+export async function getMedicalGateRequest(token: string) {
+  return apiRequest<{ enforced: boolean }>('/document-types/medical-gate', { token });
+}
+
+export async function setMedicalGateRequest(token: string, enforced: boolean) {
+  return apiRequest<{ enforced: boolean }>('/document-types/medical-gate', { method: 'PUT', token, body: { enforced } });
+}

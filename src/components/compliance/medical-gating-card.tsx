@@ -9,12 +9,15 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import {
   createDocumentRequirementRequest,
   deleteDocumentRequirementRequest,
+  getMedicalGateRequest,
   listDocumentRequirementsRequest,
   listDocumentTypesRequest,
+  setMedicalGateRequest,
   type DocumentRequirementRecord,
   type DocumentTypeInfo,
 } from '@/lib/api';
@@ -49,13 +52,20 @@ export function MedicalGatingCard() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ type: DocumentTypeInfo; mode: GatingMode } | null>(null);
+  const [enforced, setEnforced] = useState<boolean | null>(null);
+  const [confirmEnforce, setConfirmEnforce] = useState(false);
 
   const tenantId = user?.tenantId ?? null;
 
   const load = useCallback(async () => {
     if (!token) return;
     try {
-      const [allTypes, rows] = await Promise.all([listDocumentTypesRequest(token), listDocumentRequirementsRequest(token)]);
+      const [allTypes, rows, gate] = await Promise.all([
+        listDocumentTypesRequest(token),
+        listDocumentRequirementsRequest(token),
+        getMedicalGateRequest(token),
+      ]);
+      setEnforced(gate.enforced);
       setTypes(allTypes.filter((type) => type.category === DOCUMENT_CATEGORY_MEDICAL && type.isActive));
       setRequirements(rows);
       setError('');
@@ -113,6 +123,22 @@ export function MedicalGatingCard() {
     else void apply(type, mode);
   };
 
+  // Turning enforcement on changes who gets through the gate, so it is confirmed. Turning it off never does.
+  const toggleEnforced = async (next: boolean) => {
+    if (!token) return;
+    setBusy(true);
+    try {
+      const result = await setMedicalGateRequest(token, next);
+      setEnforced(result.enforced);
+      toast({ title: next ? 'Medical fitness is enforced at the gate' : 'Medical fitness is reported, not enforced' });
+    } catch (failure) {
+      toast({ variant: 'destructive', title: 'Could not change enforcement', description: failure instanceof Error ? failure.message : 'Try again.' });
+    } finally {
+      setBusy(false);
+      setConfirmEnforce(false);
+    }
+  };
+
   const sorted = useMemo(() => [...types].sort((a, b) => a.name.localeCompare(b.name)), [types]);
   if (!canConfigureMedicalGating(user?.role)) return null;
 
@@ -128,6 +154,24 @@ export function MedicalGatingCard() {
         </CardHeader>
         <CardContent className="space-y-3">
           {error ? <p role="alert" className="text-sm text-danger-ink">{error}</p> : null}
+          {enforced !== null ? (
+            <label className="flex items-start justify-between gap-4 rounded-md border bg-muted/30 p-3">
+              <span>
+                <span className="block text-sm font-medium">Enforce medical fitness at the gate</span>
+                <span className="block text-xs text-muted-foreground">
+                  {enforced
+                    ? 'On: an unfit outcome bars the worker, and a missing or expired record refuses entry.'
+                    : 'Off: medical records are shown and reported as warnings. Nobody is refused for them.'}
+                </span>
+              </span>
+              <Switch
+                aria-label="Enforce medical fitness at the gate"
+                checked={enforced}
+                disabled={busy}
+                onCheckedChange={(next) => (next ? setConfirmEnforce(true) : void toggleEnforced(false))}
+              />
+            </label>
+          ) : null}
           {!tenantId ? (
             <p className="text-sm text-muted-foreground">Your account has no company set, so requirements cannot be managed from it.</p>
           ) : (
@@ -158,6 +202,22 @@ export function MedicalGatingCard() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={confirmEnforce} onOpenChange={(open) => { if (!open) setConfirmEnforce(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Enforce medical fitness at the gate?</AlertDialogTitle>
+            <AlertDialogDescription>
+              From now, a worker whose medical record is unfit is barred, and a worker with a required record that is
+              missing, pending or expired is refused entry. Workers who already hold a valid record are not affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={busy} onClick={() => void toggleEnforced(true)}>Enforce it</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
         <AlertDialogContent>
