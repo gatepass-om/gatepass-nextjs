@@ -64,8 +64,13 @@ export function getWorkPassActions(
   return [];
 }
 
-export function isWorkerComplianceSatisfied(jobRoleCompliant: boolean, clearanceStatus?: string | null) {
-  return jobRoleCompliant && clearanceStatus === 'Cleared';
+/**
+ * Whether a worker is compliant is decided by the server (see fetchWorkerStandingsRequest), never worked out here.
+ * No answer means not compliant: a worker the server did not vouch for, or a failed request, must never read as
+ * fine. This used to default to compliant, so an outage or a missing job position quietly turned every worker green.
+ */
+export function isWorkerComplianceSatisfied(standing?: { compliant: boolean } | null) {
+  return standing?.compliant === true;
 }
 
 export function getWorkPassQueueItems<T extends CommandCenterWorkPass>(

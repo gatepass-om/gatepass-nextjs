@@ -126,3 +126,26 @@ test('each filter picks its own people', () => {
   // An unsupported filter shows everyone rather than an empty page pretending to be a result.
   assert.equal(matchesUrlFilter(far, personnelStatus(far, today), { kind: 'unsupported', what: 'x' }, today), true);
 });
+
+test('the server saying a clearance has lapsed overrules what the dates say', () => {
+  // Dates alone would call this worker "in order": identity good for a year, no certificates.
+  const lapsed = worker({
+    idExpiresAtUtc: '2027-11-16T23:59:59Z',
+    effectiveClearanceStatus: 'Lapsed',
+    clearanceLapsedReasons: ['HSE Induction: Missing', 'Photo: Rejected'],
+  });
+  const status = personnelStatus(lapsed, today);
+
+  assert.equal(status.state, 'Lapsed');
+  assert.equal(status.detail, 'HSE Induction: Missing (+1 more)');
+  assert.equal(matchesCredentialFilter(status, 'Lapsed', null), true);
+  assert.equal(matchesCredentialFilter(status, 'Valid', null), false);
+});
+
+test('without a verdict the dates still decide, and a non-lapsed verdict changes nothing', () => {
+  const noVerdict = personnelStatus(worker({ idExpiresAtUtc: '2027-11-16T23:59:59Z' }), today);
+  const cleared = personnelStatus(worker({ idExpiresAtUtc: '2027-11-16T23:59:59Z', effectiveClearanceStatus: 'Cleared' }), today);
+
+  assert.equal(noVerdict.state, 'Valid');
+  assert.equal(cleared.state, 'Valid');
+});

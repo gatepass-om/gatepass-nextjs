@@ -7,7 +7,7 @@ import type { User } from '@/lib/types';
  * and the gate remain the authority. It exists so a row can say *whose* card is expiring and *when*,
  * instead of a count on a dashboard that leads to an unfiltered list.
  */
-export type CredentialState = 'Expired' | 'Expiring' | 'Valid' | 'Missing' | 'None';
+export type CredentialState = 'Expired' | 'Expiring' | 'Valid' | 'Missing' | 'Lapsed' | 'None';
 
 export type PersonnelStatus = {
   state: CredentialState;
@@ -39,6 +39,15 @@ function phrase(label: string, days: number): string {
  * `Missing`, because the gate will refuse them; anyone who is not a worker reads `None` and shows a dash.
  */
 export function personnelStatus(user: User, today: Date, expiringWithinDays = 30): PersonnelStatus {
+  // The server has looked at every blocking document and said this worker's sign-off no longer holds. That is
+  // the authority; the dates below only know about the identity expiry and the certificates, so they cannot
+  // overrule it (they used to, which is how a register could say "In order" beside a profile that said Lapsed).
+  if (user.effectiveClearanceStatus === 'Lapsed') {
+    const reasons = user.clearanceLapsedReasons ?? [];
+    const more = reasons.length > 1 ? ` (+${reasons.length - 1} more)` : '';
+    return { state: 'Lapsed', detail: `${reasons[0] ?? 'A required document is not in order'}${more}`, daysRemaining: null };
+  }
+
   const dated: Array<{ label: string; days: number }> = [];
   if (user.idExpiresAtUtc) dated.push({ label: 'Identity document', days: daysUntil(user.idExpiresAtUtc, today) });
   for (const certificate of user.certificates ?? []) {
@@ -74,6 +83,7 @@ export function matchesCredentialFilter(
     return withinDays === null || (status.daysRemaining !== null && status.daysRemaining <= withinDays);
   }
   if (filter === 'Missing') return status.state === 'Missing';
+  if (filter === 'Lapsed') return status.state === 'Lapsed';
   if (filter === 'Valid') return status.state === 'Valid';
   return true;
 }
@@ -95,7 +105,7 @@ export type PersonnelUrlFilter =
   | { kind: 'competency'; withinDays: number }
   | { kind: 'unsupported'; what: string };
 
-const CREDENTIAL_VALUES: CredentialState[] = ['Expired', 'Expiring', 'Missing', 'Valid'];
+const CREDENTIAL_VALUES: CredentialState[] = ['Expired', 'Expiring', 'Missing', 'Lapsed', 'Valid'];
 
 export function personnelUrlFilter(get: (key: string) => string | null): PersonnelUrlFilter {
   const within = (fallback: number | null) => {
@@ -148,6 +158,7 @@ export function describeUrlFilter(filter: PersonnelUrlFilter): string | null {
     case 'credential':
       if (filter.value === 'Expired') return 'with an expired document';
       if (filter.value === 'Missing') return 'with no documents on file';
+      if (filter.value === 'Lapsed') return 'whose clearance has lapsed';
       if (filter.value === 'Valid') return 'whose documents are in order';
       return filter.withinDays
         ? `with a document expiring within ${filter.withinDays} days`
@@ -168,5 +179,6 @@ export const CREDENTIAL_BADGE: Record<CredentialState, { label: string; variant:
   Expiring: { label: 'Expiring', variant: 'warning' },
   Valid: { label: 'In order', variant: 'success' },
   Missing: { label: 'No documents', variant: 'destructive' },
+  Lapsed: { label: 'Lapsed', variant: 'warning' },
   None: { label: '—', variant: 'secondary' },
 };

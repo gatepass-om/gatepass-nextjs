@@ -396,6 +396,7 @@ export default function UsersPage() {
               <SelectItem value="Expired">Expired</SelectItem>
               <SelectItem value="Expiring">Expiring soon</SelectItem>
               <SelectItem value="Missing">No documents</SelectItem>
+              <SelectItem value="Lapsed">Clearance lapsed</SelectItem>
               <SelectItem value="Valid">In order</SelectItem>
             </SelectContent>
           </Select>

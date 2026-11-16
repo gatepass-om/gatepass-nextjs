@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Search } from 'lucide-react';
-import { apiRequest, assessWorkerPositionRequest, listCertificateTypesRequest } from '@/lib/api';
+import { apiRequest, fetchWorkerStandingsRequest, listCertificateTypesRequest, type WorkerStanding } from '@/lib/api';
 import { useSession } from '@/providers/session-provider';
 import type { ProjectRecord } from '@/components/projects/project-wizard-dialog';
 import type { CertificateType } from '@/lib/types';
@@ -21,7 +21,8 @@ export default function WorkerAccessRequestPage() {
   const [request, setRequest] = useState<WorkPass | null>(null);
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
-  const [jobRoleCompliance, setJobRoleCompliance] = useState<Record<string, boolean>>({});
+  // The server's verdict per worker; null until it has answered.
+  const [standings, setStandings] = useState<Record<string, WorkerStanding> | null>(null);
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [company, setCompany] = useState('all');
@@ -34,19 +35,16 @@ export default function WorkerAccessRequestPage() {
     if (!token) return;
     apiRequest<WorkPass>(`/work-passes/${params.workPassId}`, { token }).then((data) => {
       setRequest(data);
-      Promise.all(data.workers.map((item) => assessWorkerPositionRequest(token, item.userId).then(
-        (assessment) => [item.userId, !assessment.jobPositionId || assessment.isCompliant] as const,
-        () => [item.userId, true] as const,
-      ))).then((entries) => setJobRoleCompliance(Object.fromEntries(entries)));
+      // Compliance is the server's call, asked for in one request; a failed request leaves everyone not compliant.
+      fetchWorkerStandingsRequest(token, data.workers.map((item) => item.userId))
+        .catch(() => [] as WorkerStanding[])
+        .then((rows) => setStandings(Object.fromEntries(rows.map((row) => [row.userId, row]))));
     }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to load this request.'));
     apiRequest<ProjectRecord>(`/projects/${params.id}`, { token }).then(setProject).catch(() => {});
     listCertificateTypesRequest(token).then(setCertificateTypes).catch(() => []);
   }, [params.id, params.workPassId, token, decisionRevision]);
 
-  const isWorkerCompliant = (item: Worker) => isWorkerComplianceSatisfied(
-    jobRoleCompliance[item.userId] ?? true,
-    item.clearanceStatus,
-  );
+  const isWorkerCompliant = (item: Worker) => isWorkerComplianceSatisfied(standings?.[item.userId]);
 
   const filtered = useMemo(() => (request?.workers ?? []).filter((item) => {
     const query = search.trim().toLowerCase();
@@ -55,7 +53,7 @@ export default function WorkerAccessRequestPage() {
       && (jobRole === 'all' || item.jobPositionName === jobRole)
       && (compliance === 'all' || (compliance === 'compliant') === isWorkerCompliant(item));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [company, compliance, jobRole, jobRoleCompliance, request, search]);
+  }), [company, compliance, jobRole, standings, request, search]);
 
   if (error) return <div className="p-6 text-sm text-danger-ink" role="alert">{error}</div>;
   if (!request) return <div className="p-6 text-sm text-muted-foreground">Loading request…</div>;
@@ -86,7 +84,14 @@ export default function WorkerAccessRequestPage() {
               <td className="px-5 py-4">{item.contractorName || '—'}</td>
               <td className="px-5 py-4">{item.jobPositionName || '—'}</td>
               <td className="px-5 py-4 font-mono">{item.nationalId || '—'}</td>
-              <td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${compliant ? 'bg-success-soft text-success-ink' : 'bg-danger-soft text-danger-ink'}`}>{compliant ? 'Compliant' : 'Non-compliant'}</span></td>
+              <td className="px-5 py-4">{standings === null
+                ? <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">Checking…</span>
+                : <>
+                  <span title={standings[item.userId]?.reasons.join('\n') || undefined} className={`rounded-full px-2 py-1 text-xs font-semibold ${compliant ? 'bg-success-soft text-success-ink' : 'bg-danger-soft text-danger-ink'}`}>{compliant ? 'Compliant' : 'Non-compliant'}</span>
+                  {!compliant && standings[item.userId]?.reasons[0]
+                    ? <span className="mt-1 block text-xs text-muted-foreground">{standings[item.userId].reasons[0]}{standings[item.userId].reasons.length > 1 ? ` +${standings[item.userId].reasons.length - 1} more` : ''}</span>
+                    : null}
+                </>}</td>
             </tr>;
           })}</tbody>
         </table>
