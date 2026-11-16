@@ -2196,3 +2196,51 @@ would have scoped it to exclude `Rejected` and calls it a judgement, not a defec
 This workspace is gitignored, so the record — 43 numbered findings and 88 rulings —
 is copied into the repo at `docs/superpowers/` in gatepass-nextjs alongside the spec
 and plan, so it survives the workspace being deleted.
+
+## ATTRIBUTION CORRECTION — commit dcf9535 is not what its message says
+
+While this session was rate-limited, the owner had ChatGPT (Codex) review the
+branch at `8646eb5` and implement fixes. It left that work **uncommitted**.
+
+On resuming I found an uncommitted tree, misread it as two of my own agents' work
+interleaved, verified it (clean build, 909 unit / 97 integration green) and
+committed it as **`dcf9535`** with a message crediting my agents. That attribution
+is wrong. The fingerprint is conclusive: 12 files, 335 insertions, 59 deletions,
+and the file list maps one-to-one onto ChatGPT's six fixes. I did not notice at the
+time and should have asked rather than assumed, especially since the mix of files
+spanned tasks no single agent of mine owned.
+
+**ChatGPT's six fixes, all verified present and intact at HEAD `10c7c39` after my
+own fix wave touched several of the same files:**
+1. Bounded `RetentionDays`, `DefaultValidityDays` and `MinimumValidityDays` —
+   `EnsurePolicyDaysInRange` at `DocumentCatalogService.cs:148, 232-233`. Its point
+   was sharp: unbounded values flow into `AddDays`, so a negative retention disposes
+   eligible documents immediately and an extreme one throws inside a background job.
+2. Baseline identity configuration protected in every mutation path —
+   `IsBaselineIdentityType` guards deactivation (`:72, 98`), `IsActive = false`,
+   `Expires` (`:78`) and requirement deletion (`:186`). It found that the
+   "non-deletable" identity rule was in fact deletable three ways, and that
+   compliance ignores inactive types, so identity could silently vanish from
+   clearance and the gate.
+3. Work-pass decisions moved onto `IPersonDocumentQueryService` (`:138, :727`).
+4. The mirror restores `Blocking` enforcement, not only validity days (`:66`).
+5. Rejection allowed directly from `Draft` while verification still submits first
+   (`PersonDocumentWorkerDocumentService.cs:115-122`) — which is why my later Task
+   13b re-review found that residual "already fixed at HEAD".
+6. Dashboard expiry counts union new-model and legacy credentials with worker
+   deduplication (`DashboardService.cs:361-381`).
+
+**How its review compares with mine.** We converged independently on several things
+— the mirror's enforcement gap, work-pass still trusting legacy credentials, and
+the rejectable-draft dead end all appear in both. It found two I had not: the
+unbounded day values, and that the identity policy was deletable (my own final
+review later found the adjacent `Expires` hole, which its guard now also covers).
+My reviews found things it did not: the row-order wrong-admit in the compliance
+dedup, the Civil ID both-sides deploy blocker, and the tenant-blind `UserRole`
+scope. Nothing in its work conflicts with any ruling recorded above; the two
+directions agree.
+
+Its work was subsequently scrutinised by my whole-branch review and its re-review,
+both of which read `DocumentCatalogService`, the mirror, `WorkPassService` and
+`DashboardService` closely — so it has had independent review, just not the review
+I thought I was giving it.
