@@ -108,6 +108,8 @@ export type User = {
   /** What the stored sign-off is worth now: 'Lapsed' when stored Cleared but a blocking document is no longer in order. Absent on lists. */
   effectiveClearanceStatus?: 'Pending' | 'Submitted' | 'UnderReview' | 'Cleared' | 'Returned' | 'Lapsed' | null;
   clearanceLapsedReasons?: string[];
+  /** Documents submitted and not yet decided by a reviewer. */
+  documentsAwaitingReview?: number;
   assignedSiteId?: string | null;
   employment?: WorkerEmployment | null;
   presence?: UserPresence;

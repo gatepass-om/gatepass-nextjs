@@ -7,7 +7,7 @@ import type { User } from '@/lib/types';
  * and the gate remain the authority. It exists so a row can say *whose* card is expiring and *when*,
  * instead of a count on a dashboard that leads to an unfiltered list.
  */
-export type CredentialState = 'Expired' | 'Expiring' | 'Valid' | 'Missing' | 'Lapsed' | 'None';
+export type CredentialState = 'Expired' | 'Expiring' | 'Valid' | 'Missing' | 'Lapsed' | 'Pending' | 'None';
 
 export type PersonnelStatus = {
   state: CredentialState;
@@ -54,6 +54,12 @@ export function personnelStatus(user: User, today: Date, expiringWithinDays = 30
     if (certificate.expiresAtUtc) {
       dated.push({ label: certificate.name || 'Certificate', days: daysUntil(certificate.expiresAtUtc, today) });
     }
+  }
+
+  // Papers are in, just not checked yet: that is not the same as having nothing on file.
+  if (user.role === 'Worker' && !user.idExpiresAtUtc && (user.documentsAwaitingReview ?? 0) > 0) {
+    const n = user.documentsAwaitingReview ?? 0;
+    return { state: 'Pending', detail: `${n} document${n === 1 ? '' : 's'} waiting for review`, daysRemaining: null };
   }
 
   // A worker with no verified identity document is refused at the gate however good their certificates
@@ -180,5 +186,6 @@ export const CREDENTIAL_BADGE: Record<CredentialState, { label: string; variant:
   Valid: { label: 'In order', variant: 'success' },
   Missing: { label: 'No documents', variant: 'destructive' },
   Lapsed: { label: 'Lapsed', variant: 'warning' },
+  Pending: { label: 'Awaiting review', variant: 'warning' },
   None: { label: '—', variant: 'secondary' },
 };

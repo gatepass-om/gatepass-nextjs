@@ -149,3 +149,12 @@ test('without a verdict the dates still decide, and a non-lapsed verdict changes
   assert.equal(noVerdict.state, 'Valid');
   assert.equal(cleared.state, 'Valid');
 });
+
+test('a worker whose papers are waiting for review says so, not that nothing is on file', () => {
+  const waiting = worker({ documentsAwaitingReview: 2 });
+  const status = personnelStatus(waiting, today);
+  assert.equal(status.state, 'Pending');
+  assert.equal(status.detail, '2 documents waiting for review');
+  // Nothing submitted at all is still Missing.
+  assert.equal(personnelStatus(worker(), today).state, 'Missing');
+});
