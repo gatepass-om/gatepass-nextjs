@@ -57,3 +57,6 @@ firestore-debug.log
 
 # Alternate Next.js build/e2e output directories
 .next-*
+
+# stray scratchpad build output (never commit)
+private/
