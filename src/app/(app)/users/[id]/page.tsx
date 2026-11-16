@@ -24,6 +24,7 @@ import {
   listJobPositionsRequest,
   listOperatorsRequest,
   listSitesRequest,
+  getUserByIdRequest,
   listUsersRequest,
   updateUserRequest,
   type UpdateUserInput,
@@ -92,7 +93,10 @@ export default function PersonnelProfilePage() {
         return;
       }
 
-      setUser(selectedUser);
+      // The list carries no clearance verdict (a documents read per row is too costly there); the single-profile
+      // read does. If it fails the list row still stands, so the page shows the stored status rather than nothing.
+      const detailed = await getUserByIdRequest(token, personnelId).catch(() => null);
+      setUser(detailed ?? selectedUser);
       setSites((sitesData as any[]).map((site) => ({
         id: site.id,
         name: site.name,
