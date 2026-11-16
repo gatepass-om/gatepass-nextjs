@@ -11,7 +11,7 @@ export const workspaceLandingByRole: Record<UserRole, string> = {
   Security: '/inspections',
   'Contractor Admin': '/projects',
   Supervisor: '/projects',
-  Worker: '/permits',
+  Worker: '/profile',
   Visitor: '/profile',
   Inspector: '/inspections',
 };
