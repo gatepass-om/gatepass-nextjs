@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { CertificateType } from '@/lib/types';
 
@@ -50,6 +51,11 @@ export function WorkerDocuments({
   const [documents, setDocuments] = useState<WorkerDocument[]>([]);
   const [docType, setDocType] = useState(documentTypeFilter ?? 'Certificate');
   const [certificateTypeId, setCertificateTypeId] = useState('');
+  // Identifying details. The document catalogue decides which of these a type requires; a Civil ID needs a number
+  // and an expiry date before it can be submitted for review, so a form without them cannot clear a worker.
+  const [number, setNumber] = useState('');
+  const [issueDate, setIssueDate] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
   const [busy, setBusy] = useState(false);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,8 +79,15 @@ export function WorkerDocuments({
     }
     setBusy(true);
     try {
-      await uploadWorkerDocument(token, workerId, file, docType, docType === 'Certificate' ? certificateTypeId : undefined);
+      await uploadWorkerDocument(
+        token, workerId, file, docType,
+        docType === 'Certificate' ? certificateTypeId : undefined,
+        docType === 'Photo' ? undefined : { number, issueDate, expiryDate },
+      );
       toast({ title: 'Document uploaded', description: file.name });
+      setNumber('');
+      setIssueDate('');
+      setExpiryDate('');
       await load();
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Upload failed', description: error.message ?? 'Could not upload the document.' });
@@ -166,6 +179,31 @@ export function WorkerDocuments({
                   ))}
                 </SelectContent>
               </Select>
+            )}
+            {docType !== 'Photo' && (
+              <>
+                <Input
+                  aria-label="Document number"
+                  placeholder="Document number"
+                  className="w-[180px]"
+                  value={number}
+                  onChange={(event) => setNumber(event.target.value)}
+                />
+                <Input
+                  aria-label="Issue date"
+                  type="date"
+                  className="w-[150px]"
+                  value={issueDate}
+                  onChange={(event) => setIssueDate(event.target.value)}
+                />
+                <Input
+                  aria-label="Expiry date"
+                  type="date"
+                  className="w-[150px]"
+                  value={expiryDate}
+                  onChange={(event) => setExpiryDate(event.target.value)}
+                />
+              </>
             )}
             <input
               ref={fileInputRef}

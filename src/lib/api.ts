@@ -1452,17 +1452,33 @@ export async function reviewWorkerDocument(
 
 // Multipart upload — apiRequest JSON-encodes, so this uses fetch directly with FormData (the browser sets the
 // multipart boundary; we must NOT set Content-Type ourselves).
+/**
+ * The identifying details the document model needs before a document can be submitted for review: a Civil ID
+ * without a number or an expiry date cannot be verified at all, so a form that cannot supply them strands the
+ * worker. Every field is optional here because the catalogue decides which of them a given type requires.
+ */
+export type WorkerDocumentDetails = {
+  number?: string;
+  issuingAuthority?: string;
+  issueDate?: string;
+  expiryDate?: string;
+};
+
 export async function uploadWorkerDocument(
   token: string,
   workerId: string,
   file: File,
   documentType: string,
-  certificateTypeId?: string
+  certificateTypeId?: string,
+  details?: WorkerDocumentDetails
 ) {
   const form = new FormData();
   form.append('file', file);
   form.append('documentType', documentType);
   if (certificateTypeId) form.append('certificateTypeId', certificateTypeId);
+  for (const [field, value] of Object.entries(details ?? {})) {
+    if (value && value.trim()) form.append(field, value.trim());
+  }
   const response = await fetch(`${BACKEND_URL}/workers/${workerId}/documents`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
