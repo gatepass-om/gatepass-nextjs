@@ -166,7 +166,11 @@ export default function TodayPage() {
                   {gate.map((row) => (
                     <li key={row.id} className="flex items-center justify-between gap-3 py-2.5">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{row.name}</p>
+                        {row.userId ? (
+                          <Link href={`/users/${row.userId}`} className="block truncate text-sm font-medium underline-offset-4 hover:underline">{row.name}</Link>
+                        ) : (
+                          <p className="truncate text-sm font-medium">{row.name}</p>
+                        )}
                         <p className="truncate text-xs text-muted-foreground"><span>{clock.format(new Date(row.occurredAtUtc))}</span>{row.detail ? <> · <span>{t(row.detail)}</span></> : null}</p>
                       </div>
                       <Badge variant={outcomePill[row.outcome]}>{t(outcomeLabel[row.outcome])}</Badge>

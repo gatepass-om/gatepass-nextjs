@@ -45,6 +45,15 @@ test('expiry rows list only the buckets that have people in them', () => {
   assert.deepEqual(rows.map((row: { key: string }) => row.key), ['week']);
 });
 
+test('each expiry row opens the people it counted, not the whole register', () => {
+  const rows = toExpiryRows({ expired: 1, next7Days: 2, days8To30: 3, days31To60: 0, days61To90: 0 });
+  const href = (key: string) => rows.find((row: { key: string }) => row.key === key)!.href;
+  assert.equal(href('expired'), '/users?credentialStatus=Expired');
+  // The band has to travel with the link, or "next 7 days" opens everyone expiring within a month.
+  assert.equal(href('week'), '/users?credentialStatus=Expiring&within=7');
+  assert.equal(href('month'), '/users?credentialStatus=Expiring&within=30');
+});
+
 test('a day starts at local midnight', () => {
   const start = startOfDay(new Date(2026, 10, 11, 15, 30));
   assert.equal(start.getHours(), 0);

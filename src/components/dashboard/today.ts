@@ -46,6 +46,8 @@ export function buildTodayTasks(
 
 export type GateRow = {
   id: string;
+  /** Lets the feed name a person and take you to them; empty when the source row has no id. */
+  userId: string;
   name: string;
   occurredAtUtc: string;
   detail: string;
@@ -54,6 +56,7 @@ export type GateRow = {
 
 type RawGateRow = {
   id: string;
+  userId?: string;
   userName: string;
   gateName?: string | null;
   activityType: string;
@@ -71,6 +74,7 @@ export function toGateRows(rows: RawGateRow[], limit = 8): GateRow[] {
       const denied = row.decisionOutcome === 'Denied';
       return {
         id: row.id,
+        userId: row.userId ?? '',
         name: row.userName,
         occurredAtUtc: row.occurredAtUtc,
         detail: denied ? row.failureReason || 'Denied' : row.gateName || '',
@@ -81,11 +85,16 @@ export function toGateRows(rows: RawGateRow[], limit = 8): GateRow[] {
 
 export type ExpiryRow = { key: string; label: string; value: number; tone: TodayTone; href: string };
 
+/**
+ * Each row is a count, and each has to lead to the people behind it — one person or fifty — rather than
+ * to the unfiltered register. `within` carries the band the count was taken over so the list that opens
+ * holds the same people, and the two warning rows never show the same person twice.
+ */
 export function toExpiryRows(expiry: DashboardSummary['expiry']): ExpiryRow[] {
   return [
-    { key: 'expired', label: 'Expired', value: expiry.expired, tone: 'danger' as const, href: '/users?credentialStatus=Expired' },
-    { key: 'week', label: 'Next 7 days', value: expiry.next7Days, tone: 'warning' as const, href: '/users?credentialStatus=Expiring' },
-    { key: 'month', label: '8 to 30 days', value: expiry.days8To30, tone: 'default' as const, href: '/users?credentialStatus=Expiring' },
+    { key: 'expired', label: 'Already expired', value: expiry.expired, tone: 'danger' as const, href: '/users?credentialStatus=Expired' },
+    { key: 'week', label: 'Expiring in 7 days', value: expiry.next7Days, tone: 'warning' as const, href: '/users?credentialStatus=Expiring&within=7' },
+    { key: 'month', label: 'Expiring in 8 to 30 days', value: expiry.days8To30, tone: 'default' as const, href: '/users?credentialStatus=Expiring&within=30' },
   ].filter((row) => row.value > 0);
 }
 
