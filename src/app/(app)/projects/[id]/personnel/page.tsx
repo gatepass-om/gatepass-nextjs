@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Search } from 'lucide-react';
-import { apiRequest, fetchWorkerStandingsRequest, listCertificateTypesRequest, listUsersRequest, type WorkerStanding } from '@/lib/api';
+import { apiRequest, assessWorkerPositionRequest, listCertificateTypesRequest, listUsersRequest } from '@/lib/api';
 import { useSession } from '@/providers/session-provider';
 import type { ProjectRecord } from '@/components/projects/project-wizard-dialog';
 import type { CertificateType } from '@/lib/types';
@@ -35,8 +35,7 @@ export default function ProjectPersonnelPage() {
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [people, setPeople] = useState<Personnel[]>([]);
   const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
-  // The server's verdict per worker; null until it has answered, so the table never flashes everyone red or green.
-  const [standings, setStandings] = useState<Record<string, WorkerStanding> | null>(null);
+  const [jobRoleCompliance, setJobRoleCompliance] = useState<Record<string, boolean>>({});
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [company, setCompany] = useState('all');
@@ -57,17 +56,19 @@ export default function ProjectPersonnelPage() {
       const scoped = (users as Personnel[]).filter((person) => isOperationalProjectParticipant(person.role)
         && (memberIds.has(person.id) || Boolean(person.contractorId && companyIds.has(person.contractorId))));
       setPeople(scoped);
-      // Compliance is the server's call (documents, clearance and every blocking requirement), asked for in one
-      // request. A failed request leaves everyone not compliant rather than quietly compliant.
-      const workerIds = scoped.filter((person) => person.role === 'Worker').map((person) => person.id);
-      fetchWorkerStandingsRequest(token, workerIds)
-        .catch(() => [] as WorkerStanding[])
-        .then((rows) => setStandings(Object.fromEntries(rows.map((row) => [row.userId, row]))));
+      // Job-role compliance (the same credential-requirement check that gates project/work-pass
+      // approval) is assessed per person; account status is combined with it client-side below.
+      // No job position assigned means nothing is required of them yet, so that reads as
+      // compliant rather than a false non-compliance flag on every non-worker role.
+      Promise.all(scoped.map((person) => assessWorkerPositionRequest(token, person.id).then(
+        (assessment) => [person.id, !assessment.jobPositionId || assessment.isCompliant] as const,
+        () => [person.id, true] as const,
+      ))).then((entries) => setJobRoleCompliance(Object.fromEntries(entries)));
     });
   }, [params.id, token]);
 
   const isPersonCompliant = (person: Personnel) => person.status === 'Active'
-    && (person.role !== 'Worker' || isWorkerComplianceSatisfied(standings?.[person.id]));
+    && (person.role !== 'Worker' || isWorkerComplianceSatisfied(jobRoleCompliance[person.id] ?? true, person.clearanceStatus));
 
   const filtered = useMemo(() => people.filter((person) => {
     const query = search.trim().toLowerCase();
@@ -76,7 +77,7 @@ export default function ProjectPersonnelPage() {
       && (role === 'all' || person.role === role)
       && (compliance === 'all' || (compliance === 'compliant') === isPersonCompliant(person));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [company, compliance, standings, people, role, search]);
+  }), [company, compliance, jobRoleCompliance, people, role, search]);
 
   return <div className="space-y-5">
     <header><Link href={`/projects/${params.id}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground"><ArrowLeft className="h-4 w-4" /> {project?.name || 'Project'}</Link><h1 className="mt-4 text-3xl font-semibold">Project personnel</h1></header>
@@ -92,14 +93,7 @@ export default function ProjectPersonnelPage() {
               <td className="px-5 py-4">{person.contractorName || 'Operator'}</td>
               <td className="px-5 py-4">{person.employment?.jobPositionName || '—'}</td>
               <td className="px-5 py-4">{person.role}</td>
-              <td className="px-5 py-4">{person.role === 'Worker' && standings === null
-                ? <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">Checking…</span>
-                : <>
-                  <span title={standings?.[person.id]?.reasons.join('\n') || undefined} className={`rounded-full px-2 py-1 text-xs font-semibold ${compliant ? 'bg-success-soft text-success-ink' : 'bg-danger-soft text-danger-ink'}`}>{compliant ? 'Compliant' : 'Non-compliant'}</span>
-                  {person.role === 'Worker' && !compliant && standings?.[person.id]?.reasons[0]
-                    ? <span className="mt-1 block text-xs text-muted-foreground">{standings[person.id].reasons[0]}{standings[person.id].reasons.length > 1 ? ` +${standings[person.id].reasons.length - 1} more` : ''}</span>
-                    : null}
-                </>}</td>
+              <td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${compliant ? 'bg-success-soft text-success-ink' : 'bg-danger-soft text-danger-ink'}`}>{compliant ? 'Compliant' : 'Non-compliant'}</span></td>
             </tr>;
           })}</tbody>
         </table>

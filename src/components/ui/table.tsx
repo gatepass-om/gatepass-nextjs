@@ -4,16 +4,10 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-/**
- * `containerClassName` styles the scroll box around the table rather than the table itself. Pass
- * `md:max-h-* md:overflow-y-auto` and the rows scroll inside the card instead of growing the page,
- * with a `sticky top-0` TableHeader keeping the column names in view. Leave phones out of it: a short
- * scroll area nested in a scrolling page is worse than letting the page itself run on.
- */
 const Table = React.forwardRef<
   HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement> & { containerClassName?: string }
->(({ className, containerClassName, ...props }, ref) => {
+  React.HTMLAttributes<HTMLTableElement>
+>(({ className, ...props }, ref) => {
   const inner = React.useRef<HTMLTableElement | null>(null)
   React.useImperativeHandle(ref, () => inner.current as HTMLTableElement)
 
@@ -42,12 +36,7 @@ const Table = React.forwardRef<
   }, [])
 
   return (
-    <div
-      className={cn(
-        "relative w-full max-w-full min-w-0 overflow-x-auto overscroll-x-contain overscroll-y-contain",
-        containerClassName,
-      )}
-    >
+    <div className="relative w-full overflow-auto">
       <table
         ref={inner}
         className={cn("stack-table w-full caption-bottom text-sm", className)}

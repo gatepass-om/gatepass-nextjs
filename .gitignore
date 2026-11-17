@@ -54,9 +54,3 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
-
-# Alternate Next.js build/e2e output directories
-.next-*
-
-# stray scratchpad build output (never commit)
-private/

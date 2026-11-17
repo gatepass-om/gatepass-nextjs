@@ -59,10 +59,10 @@ export function OperatorsTable({ operators, users, sites, isLoading = false, onR
         <CardTitle>All Operators</CardTitle>
       </CardHeader>
       <CardContent>
-        <div>
-          <Table containerClassName="md:max-h-[min(60vh,34rem)] md:overflow-y-auto">
-            <TableHeader className="sticky top-0 z-10 [&_th]:sticky [&_th]:top-0 [&_th]:bg-muted">
-              <TableRow className="bg-muted hover:bg-muted">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
                 <TableHead>Operator Name</TableHead>
                 <TableHead>Personnel</TableHead>
                 <TableHead>Sites</TableHead>

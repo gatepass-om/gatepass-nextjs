@@ -24,7 +24,6 @@ import {
   listJobPositionsRequest,
   listOperatorsRequest,
   listSitesRequest,
-  getUserByIdRequest,
   listUsersRequest,
   updateUserRequest,
   type UpdateUserInput,
@@ -37,7 +36,6 @@ import { WorkerPositionCompliancePanel } from '@/components/compliance/worker-po
 import { WorkerTimeline } from '@/components/workers/worker-timeline';
 import { WorkerDocuments } from '@/components/workers/worker-documents';
 import { WorkerClearance } from '@/components/workers/worker-clearance';
-import { WorkerMedical } from '@/components/workers/worker-medical';
 
 export default function PersonnelProfilePage() {
   const params = useParams<{ id: string }>();
@@ -94,10 +92,7 @@ export default function PersonnelProfilePage() {
         return;
       }
 
-      // The list carries no clearance verdict (a documents read per row is too costly there); the single-profile
-      // read does. If it fails the list row still stands, so the page shows the stored status rather than nothing.
-      const detailed = await getUserByIdRequest(token, personnelId).catch(() => null);
-      setUser(detailed ?? selectedUser);
+      setUser(selectedUser);
       setSites((sitesData as any[]).map((site) => ({
         id: site.id,
         name: site.name,
@@ -209,8 +204,7 @@ export default function PersonnelProfilePage() {
         <div className="space-y-6">
           <WorkerDocuments workerId={user.id} canManage={canEdit} documentTypeFilter="IdDocument" title="Civil ID evidence" description="Upload the Civil ID copy for review. Set its expiry date in the personnel details above." />
           <WorkerDocuments workerId={user.id} canManage={false} documentTypeFilter="Photo" title="Photo verification" description="Review the uploaded profile photo before issuing a personnel card. Upload or replace the photo from the profile picture above." />
-          <WorkerMedical workerId={user.id} />
-          <WorkerClearance key={`${user.id}-${user.clearanceStatus}-${user.effectiveClearanceStatus}`} workerId={user.id} initialStatus={user.clearanceStatus} effectiveStatus={user.effectiveClearanceStatus} lapsedReasons={user.clearanceLapsedReasons} />
+          <WorkerClearance key={`${user.id}-${user.clearanceStatus}`} workerId={user.id} initialStatus={user.clearanceStatus} />
           <WorkerPositionCompliancePanel workerId={user.id} />
           <WorkerTimeline workerId={user.id} />
         </div>

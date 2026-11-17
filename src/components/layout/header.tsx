@@ -22,7 +22,7 @@ import { useLocale } from '@/providers/locale-provider';
 import { workspaceLandingForRole } from '@/lib/role-workspaces';
 import { cn } from '@/lib/utils';
 import { getNavigationForRole } from './sidebar-navigation';
-import { arabicLabels, buildNavigationGroups, isActiveRoute } from './shell-navigation';
+import { arabicLabels, isActiveRoute, splitForDesktop } from './shell-navigation';
 
 const ALERT_VIEWER_ROLES = ['Admin', 'Operator Admin', 'Manager', 'Security'];
 
@@ -65,10 +65,11 @@ export function Header() {
   const [notificationCount, setNotificationCount] = useState(0);
   const canViewAlerts = !!user && ALERT_VIEWER_ROLES.includes(user.role);
 
-  const navGroups = useMemo(
-    () => buildNavigationGroups(user?.role ? getNavigationForRole(user.role, { externalCompany: Boolean(user.contractorId) }) : []),
+  const { primary, more } = useMemo(
+    () => splitForDesktop(user?.role ? getNavigationForRole(user.role, { externalCompany: Boolean(user.contractorId) }) : []),
     [user],
   );
+  const moreIsActive = more.some((item) => isActiveRoute(pathname, item.href));
 
   const refreshAlertCount = useCallback(async () => {
     if (!token || !canViewAlerts) {
@@ -126,51 +127,47 @@ export function Header() {
         </Link>
 
         <nav aria-label={t('Main navigation', 'التنقل الرئيسي')} className="hidden min-w-0 flex-1 items-center gap-1 md:flex">
-          {navGroups.map((group) => {
-            const groupActive = group.items.some((item) => isActiveRoute(pathname, item.href));
-            // A group of one is a link, not a menu you have to open to find a single page.
-            if (group.items.length === 1) {
-              const item = group.items[0];
-              return (
-                <Link
-                  key={group.label}
-                  href={item.href}
-                  aria-current={groupActive ? 'page' : undefined}
-                  className={cn(
-                    'whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors',
-                    groupActive ? 'font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {t(item.label, arabicLabels[item.label])}
-                </Link>
-              );
-            }
+          {primary.map((item) => {
+            const active = isActiveRoute(pathname, item.href);
             return (
-              <DropdownMenu key={group.label}>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className={cn(
-                      'inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors',
-                      groupActive ? 'font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    {t(group.label, arabicLabels[group.label])}
-                    <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-52">
-                  {group.items.map((item) => (
-                    <DropdownMenuItem key={item.href} asChild>
-                      <Link href={item.href} aria-current={isActiveRoute(pathname, item.href) ? 'page' : undefined}>
-                        {t(item.label, arabicLabels[item.label])}
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors',
+                  active ? 'font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {t(item.label, arabicLabels[item.label])}
+              </Link>
             );
           })}
+          {more.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    'inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors',
+                    moreIsActive ? 'font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {t('More', arabicLabels.More)}
+                  <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                {more.map((item) => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link href={item.href} aria-current={isActiveRoute(pathname, item.href) ? 'page' : undefined}>
+                      {t(item.label, arabicLabels[item.label])}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </nav>
 
         <div className="ms-auto flex items-center gap-1 md:gap-2">

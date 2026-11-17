@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { User, Site, Contractor, Operator, JobPosition } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { UsersTable } from "@/components/users/users-table";
-import { AddPersonDialog } from "@/components/users/add-person-dialog";
 import { BulkRegistration } from "@/components/users/bulk-registration";
 import {
   canLoadPersonnelData,
@@ -20,18 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  describeUrlFilter,
-  matchesCredentialFilter,
-  matchesUrlFilter,
-  personnelStatus,
-  personnelUrlFilter,
-  type CredentialState,
-  type PersonnelUrlFilter,
-} from "@/components/users/personnel-status";
-import { resolveUserCompanyName } from "@/components/users/user-company";
-import { FileUp, UserPlus } from "lucide-react";
+import { FileUp } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthProtection } from "@/hooks/use-auth-protection";
 import { useSession } from "@/providers/session-provider";
@@ -65,83 +53,19 @@ export default function UsersPage() {
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
-  const [isAddOpen, setIsAddOpen] = useState(searchParams.get('new') === 'worker');
   const [personnelSearch, setPersonnelSearch] = useState('');
-  // Every figure on Today links here with the filter it counted, so the list that opens is the people
-  // behind that number rather than the whole register. One match or fifty, it is the same view.
-  const [urlFilter, setUrlFilter] = useState<PersonnelUrlFilter>(
-    () => personnelUrlFilter((key) => searchParams.get(key)),
-  );
-  const [credentialFilter, setCredentialFilter] = useState(
-    () => {
-      const parsed = personnelUrlFilter((key) => searchParams.get(key));
-      return parsed.kind === 'credential' ? parsed.value : 'all';
-    },
-  );
-  const [withinDays, setWithinDays] = useState<number | null>(() => {
-    const parsed = personnelUrlFilter((key) => searchParams.get(key));
-    return parsed.kind === 'credential' ? parsed.withinDays : null;
-  });
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [companyFilter, setCompanyFilter] = useState('all');
-  const [accountFilter, setAccountFilter] = useState('all');
   const { toast } = useToast();
+  const createFromRequest = searchParams.get('new') === 'worker';
   const requestedReturnTo = searchParams.get('returnTo');
   const returnTo = requestedReturnTo?.startsWith('/') && !requestedReturnTo.startsWith('//')
     ? requestedReturnTo
     : null;
-  const today = useMemo(() => new Date(), []);
   const displayedUsers = useMemo(() => {
     const term = personnelSearch.trim().toLowerCase();
-    return users.filter((person) => {
-      if (term && ![person.name, person.email, person.idNumber, person.nationality, person.employment?.jobPositionName]
-        .some(value => value?.toLowerCase().includes(term))) return false;
-      if (roleFilter !== 'all' && person.role !== roleFilter) return false;
-      if (accountFilter !== 'all' && (person.status ?? '') !== accountFilter) return false;
-      if (companyFilter !== 'all'
-        && resolveUserCompanyName(person, contractors, operators) !== companyFilter) return false;
-      const status = personnelStatus(person, today);
-      if (credentialFilter !== 'all' && !matchesCredentialFilter(status, credentialFilter, withinDays)) return false;
-      // A credential link is already represented by the dropdown above; the other kinds filter on top.
-      if (urlFilter.kind !== 'credential' && !matchesUrlFilter(person, status, urlFilter, today)) return false;
-      return true;
-    });
-  }, [users, personnelSearch, roleFilter, accountFilter, companyFilter, credentialFilter, withinDays, urlFilter, contractors, operators, today]);
-
-  const companyOptions = useMemo(() => {
-    const names = new Set<string>();
-    for (const person of users) {
-      const name = resolveUserCompanyName(person, contractors, operators);
-      if (name && name !== '—') names.add(name);
-    }
-    return [...names].sort((a, b) => a.localeCompare(b));
-  }, [users, contractors, operators]);
-
-  const roleOptions = useMemo(
-    () => [...new Set(users.map((person) => person.role))].sort((a, b) => a.localeCompare(b)),
-    [users],
-  );
-
-  const filtersActive = roleFilter !== 'all' || companyFilter !== 'all' || accountFilter !== 'all'
-    || credentialFilter !== 'all' || personnelSearch.trim() !== '' || urlFilter.kind !== 'none';
-
-  const clearFilters = () => {
-    setPersonnelSearch('');
-    setRoleFilter('all');
-    setCompanyFilter('all');
-    setAccountFilter('all');
-    setCredentialFilter('all');
-    setWithinDays(null);
-    setUrlFilter({ kind: 'none' });
-  };
-
-  const credentialSummary = urlFilter.kind === 'credential' || credentialFilter !== 'all'
-    ? describeUrlFilter(
-        urlFilter.kind === 'credential'
-          ? urlFilter
-          : { kind: 'credential', value: credentialFilter as CredentialState, withinDays },
-      )
-    : describeUrlFilter(urlFilter);
+    if (!term) return users;
+    return users.filter(person => [person.name, person.email, person.idNumber, person.nationality, person.employment?.jobPositionName]
+      .some(value => value?.toLowerCase().includes(term)));
+  }, [users, personnelSearch]);
 
   const canCreateUser = useMemo(() => {
     return ["Admin", "Operator Admin", "Contractor Admin", "Manager", "Supervisor"].includes(
@@ -349,11 +273,7 @@ export default function UsersPage() {
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Personnel</h1>
         </div>
         {canCreateUser && (
-          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
-          <Button className="w-full sm:w-auto" onClick={() => setIsAddOpen(true)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add person
-          </Button>
+          <div className="flex w-full gap-2 sm:w-auto">
           <Dialog open={isBulkFormOpen} onOpenChange={setIsBulkFormOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="w-full sm:w-auto">
@@ -379,67 +299,9 @@ export default function UsersPage() {
           </div>
         )}
       </header>
-      <div className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="w-full sm:max-w-md sm:flex-1"><Input value={personnelSearch} onChange={(event) => setPersonnelSearch(event.target.value)} placeholder="Search name, ID, email or position" className="w-full" /></div>
-          <p className="text-sm text-muted-foreground">
-            {displayedUsers.length === users.length
-              ? `${users.length} personnel`
-              : `${displayedUsers.length} of ${users.length} personnel`}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={credentialFilter} onValueChange={(value) => { setCredentialFilter(value); if (value !== 'Expiring') setWithinDays(null); }}>
-            <SelectTrigger className="h-9 w-auto min-w-[10rem]" aria-label="Document status"><SelectValue placeholder="Documents" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All documents</SelectItem>
-              <SelectItem value="Expired">Expired</SelectItem>
-              <SelectItem value="Expiring">Expiring soon</SelectItem>
-              <SelectItem value="Missing">No documents</SelectItem>
-              <SelectItem value="Lapsed">Clearance lapsed</SelectItem>
-              <SelectItem value="Valid">In order</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="h-9 w-auto min-w-[9rem]" aria-label="Role"><SelectValue placeholder="Role" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All roles</SelectItem>
-              {roleOptions.map((role) => <SelectItem key={role} value={role}>{role}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {companyOptions.length > 1 ? (
-            <Select value={companyFilter} onValueChange={setCompanyFilter}>
-              <SelectTrigger className="h-9 w-auto min-w-[11rem] max-w-[16rem]" aria-label="Company"><SelectValue placeholder="Company" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All companies</SelectItem>
-                {companyOptions.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          ) : null}
-          <Select value={accountFilter} onValueChange={setAccountFilter}>
-            <SelectTrigger className="h-9 w-auto min-w-[9rem]" aria-label="Account status"><SelectValue placeholder="Account" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Any account</SelectItem>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-          {filtersActive ? (
-            <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>
-          ) : null}
-        </div>
-        {credentialSummary ? (
-          <p className="text-sm text-muted-foreground">
-            Showing <span className="font-medium text-foreground">{displayedUsers.length}</span>{' '}
-            {displayedUsers.length === 1 ? 'person' : 'people'} {credentialSummary}.
-            {displayedUsers.length === 0 ? ' Nothing matches right now.' : ''}
-          </p>
-        ) : null}
-        {urlFilter.kind === 'unsupported' ? (
-          <p className="text-sm text-warning-ink">
-            Showing everyone: this page cannot yet narrow to {urlFilter.what}. Open a person to see theirs.
-          </p>
-        ) : null}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Input value={personnelSearch} onChange={(event) => setPersonnelSearch(event.target.value)} placeholder="Search name, national ID, email or job position" className="max-w-md" />
+        <p className="text-sm text-muted-foreground">{displayedUsers.length} personnel</p>
       </div>
       <UsersTable
         users={displayedUsers}
@@ -453,19 +315,9 @@ export default function UsersPage() {
         canMutateUsers={canMutateUsers}
         onImpersonateUser={handleImpersonateUser}
         onResendActivation={handleResendActivation}
+        onCreateUser={handleAddUser}
+        startWithInlineRow={createFromRequest && canCreateUser}
       />
-      {canCreateUser && (
-        <AddPersonDialog
-          open={isAddOpen}
-          onOpenChange={setIsAddOpen}
-          currentUser={currentUser}
-          contractors={contractors}
-          operators={operators}
-          sites={sites}
-          jobPositions={jobPositions}
-          onCreateUser={handleAddUser}
-        />
-      )}
     </div>
   );
 }

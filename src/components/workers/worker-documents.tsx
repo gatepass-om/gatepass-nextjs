@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { CertificateType } from '@/lib/types';
 
@@ -25,10 +24,7 @@ const DOC_TYPES = [
   { value: 'IdDocument', label: 'ID document' },
   { value: 'Certificate', label: 'Certificate' },
   { value: 'TrainingRecord', label: 'Training record' },
-  // 'Medical fitness' is deliberately absent. Medical documents are outcome-only in the document model — the
-  // fitness result, its restrictions and its expiry are recorded, the clinical report is never stored — so the
-  // upload endpoint refuses a file for them ("Periodic medical fitness does not store a file"). Offering the
-  // option here could only ever fail. A control for recording the outcome belongs with the medical screens.
+  { value: 'MedicalFitness', label: 'Medical fitness' },
   { value: 'CompetencyEvidence', label: 'Competency evidence' },
   { value: 'Photo', label: 'Worker card photo' },
   { value: 'Other', label: 'Other' },
@@ -54,11 +50,6 @@ export function WorkerDocuments({
   const [documents, setDocuments] = useState<WorkerDocument[]>([]);
   const [docType, setDocType] = useState(documentTypeFilter ?? 'Certificate');
   const [certificateTypeId, setCertificateTypeId] = useState('');
-  // Identifying details. The document catalogue decides which of these a type requires; a Civil ID needs a number
-  // and an expiry date before it can be submitted for review, so a form without them cannot clear a worker.
-  const [number, setNumber] = useState('');
-  const [issueDate, setIssueDate] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
   const [busy, setBusy] = useState(false);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -82,15 +73,8 @@ export function WorkerDocuments({
     }
     setBusy(true);
     try {
-      await uploadWorkerDocument(
-        token, workerId, file, docType,
-        docType === 'Certificate' ? certificateTypeId : undefined,
-        docType === 'Photo' ? undefined : { number, issueDate, expiryDate },
-      );
+      await uploadWorkerDocument(token, workerId, file, docType, docType === 'Certificate' ? certificateTypeId : undefined);
       toast({ title: 'Document uploaded', description: file.name });
-      setNumber('');
-      setIssueDate('');
-      setExpiryDate('');
       await load();
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Upload failed', description: error.message ?? 'Could not upload the document.' });
@@ -182,31 +166,6 @@ export function WorkerDocuments({
                   ))}
                 </SelectContent>
               </Select>
-            )}
-            {docType !== 'Photo' && (
-              <>
-                <Input
-                  aria-label="Document number"
-                  placeholder="Document number"
-                  className="w-[180px]"
-                  value={number}
-                  onChange={(event) => setNumber(event.target.value)}
-                />
-                <Input
-                  aria-label="Issue date"
-                  type="date"
-                  className="w-[150px]"
-                  value={issueDate}
-                  onChange={(event) => setIssueDate(event.target.value)}
-                />
-                <Input
-                  aria-label="Expiry date"
-                  type="date"
-                  className="w-[150px]"
-                  value={expiryDate}
-                  onChange={(event) => setExpiryDate(event.target.value)}
-                />
-              </>
             )}
             <input
               ref={fileInputRef}

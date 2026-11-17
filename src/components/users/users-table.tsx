@@ -18,6 +18,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import type { User, Site, Contractor, Operator, JobPosition } from "@/lib/types";
+import type { CreateUserInput } from '@/lib/api';
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -25,6 +26,7 @@ import {
   MoreHorizontal,
   Pencil,
   UserCheck,
+  Plus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -47,11 +49,11 @@ import {
 import { Badge } from "../ui/badge";
 import { canEditUserRecord, canImpersonateUser } from "./user-actions";
 import { resolveUserCompanyName } from './user-company';
-import { CREDENTIAL_BADGE, personnelStatus } from './personnel-status';
+import { InlineUserRow } from './inline-user-row';
 
 interface UsersTableProps {
   users: User[];
-  sites?: Site[];
+  sites: Site[];
   contractors: Contractor[];
   operators: Operator[];
   jobPositions: JobPosition[];
@@ -61,163 +63,207 @@ interface UsersTableProps {
   canMutateUsers: boolean;
   onImpersonateUser: (user: User) => void;
   onResendActivation: (user: User) => void;
+  onCreateUser: (user: CreateUserInput) => Promise<boolean>;
+  startWithInlineRow?: boolean;
 }
 
 export function UsersTable({
   users,
+  sites,
   contractors,
   operators,
+  jobPositions,
   isLoading,
   onDeleteUser,
   currentUser,
   canMutateUsers,
   onImpersonateUser,
   onResendActivation,
+  onCreateUser,
+  startWithInlineRow = false,
 }: UsersTableProps) {
   const router = useRouter();
-  const openProfile = (user: User) => router.push(`/users/${user.id}`);
-  const canEditUser = (user: User) => canEditUserRecord(canMutateUsers, user.role);
+  const [isAddingRow, setIsAddingRow] = useState(startWithInlineRow);
 
-  const actions = (user: User) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-9 w-9">
-          <MoreHorizontal className="h-4 w-4" />
-          <span className="sr-only">More actions for {user.name}</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {canEditUser(user) && (
-          <DropdownMenuItem onSelect={() => openProfile(user)}>
-            <Pencil className="mr-2 h-4 w-4" /> Edit
-          </DropdownMenuItem>
-        )}
-        {canImpersonateUser(currentUser.role, currentUser.id, user.id) && (
-          <DropdownMenuItem onSelect={() => onImpersonateUser(user)} disabled={user.status === "Inactive"}>
-            <UserCheck className="mr-2 h-4 w-4" /> Impersonate
-          </DropdownMenuItem>
-        )}
-        {canEditUser(user) && user.id !== currentUser.id && user.email && user.interactiveAccountEnabled !== false && user.status === 'Inactive' && (
-          <DropdownMenuItem onSelect={() => onResendActivation(user)}>Resend activation link</DropdownMenuItem>
-        )}
-        {canEditUser(user) && user.id !== currentUser.id && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                <span>Delete</span>
-              </DropdownMenuItem>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the user account for {user.name} and remove all associated data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onDeleteUser(user.id, user.name)}>Delete</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  const handleProfileClick = (user: User) => {
+    router.push(`/users/${user.id}`);
+  };
 
-  const company = (user: User) => resolveUserCompanyName(user, contractors, operators);
-
-  // One clock for the whole render, so two rows can never disagree about what "today" is.
-  const today = new Date();
-  const standing = (user: User) => {
-    const status = personnelStatus(user, today);
-    return { status, badge: CREDENTIAL_BADGE[status.state] };
+  const canEditUser = (user: User) => {
+    return canEditUserRecord(canMutateUsers, user.role);
   };
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="border-b px-4 py-3 sm:px-6 sm:py-4">
-        <CardTitle>Personnel register</CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        {isLoading ? (
-          <div className="space-y-3 p-4">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
-        ) : users.length === 0 ? (
-          <p className="px-6 py-12 text-center text-sm text-muted-foreground">No personnel match.</p>
-        ) : (
-          <>
-            {/* Laptop: one compact table. National ID and nationality live on the profile (and stay searchable). */}
-            <div className="hidden md:block">
-              <Table className="border-collapse text-sm" containerClassName="md:max-h-[min(65vh,40rem)] md:overflow-y-auto">
-                <TableHeader className="sticky top-0 z-10 [&_th]:sticky [&_th]:top-0 [&_th]:bg-muted">
-                  <TableRow className="bg-muted hover:bg-muted">
-                    <TableHead>Name</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Role</TableHead>
+    <>
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b px-4 py-3 sm:px-6 sm:py-4">
+          <div>
+            <CardTitle>Personnel register</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <div className="inline-block min-w-full align-middle">
+              <Table className="min-w-[1240px] table-fixed border-collapse text-sm">
+                <colgroup>
+                  <col className="w-[190px]" />
+                  <col className="w-[150px]" />
+                  <col className="w-[210px]" />
+                  <col className="w-[280px]" />
+                  <col className="w-[150px]" />
+                  <col className="w-[170px]" />
+                  <col className="w-[160px]" />
+                  <col className="w-[88px]" />
+                </colgroup>
+                <TableHeader>
+                  <TableRow className="bg-muted/60 hover:bg-muted/60">
+                    <TableHead className="border-r">Name</TableHead>
+                    <TableHead className="border-r">National ID</TableHead>
+                    <TableHead className="border-r">Email</TableHead>
+                    <TableHead className="border-r">Company</TableHead>
+                    <TableHead className="border-r">Nationality</TableHead>
+                    <TableHead className="border-r">Role</TableHead>
                     <TableHead>Job position</TableHead>
-                    <TableHead>Documents</TableHead>
-                    <TableHead>Account</TableHead>
-                    <TableHead aria-label="Row actions" className="w-14" />
+                    <TableHead aria-label="Row actions" className="w-14 text-right">
+                      {canMutateUsers ? (
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="Add personnel row" title="Add person" onClick={() => setIsAddingRow(true)} disabled={isAddingRow || isLoading}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => {
-                    const { status, badge } = standing(user);
-                    return (
-                      <TableRow key={user.id} className="cursor-pointer hover:bg-muted/30" onClick={() => openProfile(user)}>
-                        <TableCell className="py-2.5">
-                          <button type="button" className="block text-left font-medium underline-offset-4 hover:underline" onClick={(event) => { event.stopPropagation(); openProfile(user); }}>{user.name}</button>
-                          <span className="block text-xs text-muted-foreground">{user.email}</span>
-                        </TableCell>
-                        <TableCell className="py-2.5">{company(user)}</TableCell>
-                        <TableCell className="py-2.5"><Badge variant="secondary">{user.role}</Badge></TableCell>
-                        <TableCell className="py-2.5">{user.employment?.jobPositionName || '—'}</TableCell>
-                        <TableCell className="py-2.5">
-                          {status.state === 'None' ? (
-                            <span className="text-muted-foreground">—</span>
-                          ) : (
-                            <>
-                              <Badge variant={badge.variant}>{badge.label}</Badge>
-                              {status.detail ? <span className="mt-0.5 block text-xs text-muted-foreground">{status.detail}</span> : null}
-                            </>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-2.5">
-                          <Badge variant={user.status === 'Active' ? 'success' : 'secondary'}>{user.status ?? 'Unknown'}</Badge>
-                        </TableCell>
-                        <TableCell className="py-2.5 text-right" onClick={(event) => event.stopPropagation()}>{actions(user)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {isAddingRow ? (
+                    <InlineUserRow
+                      currentUser={currentUser}
+                      contractors={contractors}
+                      operators={operators}
+                      sites={sites}
+                      jobPositions={jobPositions}
+                      onCreateUser={onCreateUser}
+                      onCancel={() => setIsAddingRow(false)}
+                    />
+                  ) : null}
+                  {isLoading
+                    ? [...Array(5)].map((_, i) => (
+                        <TableRow key={i}>
+                          {[0, 1, 2, 3, 4, 5, 6].map((cell) => <TableCell key={cell} className="border-r py-2"><Skeleton className="h-5 w-24" /></TableCell>)}
+                          <TableCell className="text-right">
+                            <Skeleton className="h-9 w-9 ml-auto" />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    : users.map((user) => (
+                        <TableRow
+                          key={user.id}
+                          className="cursor-pointer hover:bg-muted/30"
+                          onClick={() => handleProfileClick(user)}
+                        >
+                          <TableCell className="border-r py-2 font-medium truncate" title={user.name}>
+                            <button
+                              type="button"
+                              className="text-left underline-offset-4 hover:underline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleProfileClick(user);
+                              }}
+                            >
+                              {user.name}
+                            </button>
+                          </TableCell>
+                          <TableCell className="border-r py-2 font-mono text-xs">{user.idNumber || '—'}</TableCell>
+                          <TableCell className="border-r py-2 truncate" title={user.email || undefined}>{user.email}</TableCell>
+                          <TableCell className="border-r py-2 truncate" title={resolveUserCompanyName(user, contractors, operators)}>{resolveUserCompanyName(user, contractors, operators)}</TableCell>
+                          <TableCell className="border-r py-2 truncate">{user.nationality || '—'}</TableCell>
+                          <TableCell className="border-r py-2">
+                            <Badge variant="secondary">{user.role}</Badge>
+                          </TableCell>
+                          <TableCell className="py-2 truncate">{user.employment?.jobPositionName || '—'}</TableCell>
+                          <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">More actions</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {canEditUser(user) && (
+                                  <DropdownMenuItem
+                                    onSelect={() => handleProfileClick(user)}
+                                  >
+                                    <Pencil className="mr-2 h-4 w-4" /> Edit
+                                  </DropdownMenuItem>
+                                )}
+                                {canImpersonateUser(currentUser.role, currentUser.id, user.id) && (
+                                  <DropdownMenuItem
+                                    onSelect={() => onImpersonateUser(user)}
+                                    disabled={user.status === "Inactive"}
+                                  >
+                                    <UserCheck className="mr-2 h-4 w-4" /> Impersonate
+                                  </DropdownMenuItem>
+                                )}
+                                {canEditUser(user) && user.id !== currentUser.id && user.email && user.interactiveAccountEnabled !== false && user.status === 'Inactive' && (
+                                  <DropdownMenuItem onSelect={() => onResendActivation(user)}>
+                                    Resend activation link
+                                  </DropdownMenuItem>
+                                )}
+                                {canEditUser(user) && user.id !== currentUser.id && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem
+                                        onSelect={(e) => e.preventDefault()}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        <span>
+                                          Delete
+                                        </span>
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                          Are you absolutely sure?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          This action cannot be undone. This will
+                                          permanently delete the user account for{""}
+                                          {user.name} and remove all associated
+                                          data.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                          Cancel
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() =>
+                                            onDeleteUser(user.id, user.name)
+                                          }
+                                        >
+                                          Delete
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                 </TableBody>
               </Table>
             </div>
-
-            {/* Phone: one card per person — name, role, then a single line of context. */}
-            <ul className="divide-y md:hidden">
-              {users.map((user) => {
-                const { status, badge } = standing(user);
-                return (
-                  <li key={user.id} className="flex items-start gap-2 px-4 py-3">
-                    <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openProfile(user)}>
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold">{user.name}</span>
-                        <Badge variant="secondary">{user.role}</Badge>
-                        {status.state !== 'None' && status.state !== 'Valid' ? <Badge variant={badge.variant}>{badge.label}</Badge> : null}
-                      </span>
-                      <span className="mt-0.5 block truncate text-sm text-muted-foreground">{user.email}</span>
-                      <span className="block truncate text-sm text-muted-foreground">{[company(user), user.employment?.jobPositionName].filter(Boolean).join(' · ')}</span>
-                      {status.detail && status.state !== 'Valid' ? <span className="block truncate text-sm text-muted-foreground">{status.detail}</span> : null}
-                    </button>
-                    {actions(user)}
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          </div>
+        </CardContent>
+      </Card>
+    </>
   );
 }

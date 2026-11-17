@@ -49,12 +49,10 @@ test('pending second approval uses the operator approval label', () => {
   assert.match(reportsPageSource, /getWorkPassStatusPresentation\(row\.accessStatus\)/);
 });
 
-test('worker compliance is the server verdict, and no verdict is not compliant', () => {
-  assert.equal(isWorkerComplianceSatisfied({ compliant: true }), true);
-  assert.equal(isWorkerComplianceSatisfied({ compliant: false }), false);
-  // A missing answer (not readable, request failed, still loading) must never read as compliant.
-  assert.equal(isWorkerComplianceSatisfied(undefined), false);
-  assert.equal(isWorkerComplianceSatisfied(null), false);
+test('worker compliance includes onboarding clearance as well as job credentials', () => {
+  assert.equal(isWorkerComplianceSatisfied(true, 'Pending'), false);
+  assert.equal(isWorkerComplianceSatisfied(true, 'Cleared'), true);
+  assert.equal(isWorkerComplianceSatisfied(false, 'Cleared'), false);
 });
 
 test('workflow stages show the live queue instead of claiming access is granted', () => {

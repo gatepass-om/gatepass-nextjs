@@ -14,7 +14,6 @@ import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { FileBadge, Loader2, Plus, Trash2, Pencil, MoreHorizontal } from 'lucide-react';
 import { useAuthProtection } from '@/hooks/use-auth-protection';
-import { MedicalGatingCard } from '@/components/compliance/medical-gating-card';
 import { useSession } from '@/providers/session-provider';
 import { createCertificateTypeRequest, deleteCertificateTypeRequest, listCertificateTypesRequest, updateCertificateTypeRequest } from '@/lib/api';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -260,8 +259,6 @@ export default function CertificatesPage() {
                         </CardContent>
                     </Card>
         </div>
-
-        <div className="mt-4 md:mt-6"><MedicalGatingCard /></div>
 
         <Dialog
             open={isEditOpen}
