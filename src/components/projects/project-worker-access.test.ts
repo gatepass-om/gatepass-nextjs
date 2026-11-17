@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 // @ts-expect-error Node's built-in TypeScript runner requires the source extension.
-import { getEligibleProjectWorkers, toWorkPassWindow } from './project-worker-access.ts';
+import { getEligibleProjectWorkers } from './project-worker-access.ts';
 
 const workers = [
   { id: 'worker-1', name: 'Aisha Al-Balushi', role: 'Worker' as const, contractorId: 'contractor-a', idNumber: 'OM-001' },
@@ -20,11 +20,4 @@ test('selected-only filter keeps the request list manageable for large crews', (
   const result = getEligibleProjectWorkers(workers, 'contractor-a', '', ['worker-2'], true);
 
   assert.deepEqual(result.map((worker) => worker.id), ['worker-2']);
-});
-
-test('work pass window stays inside a project that starts mid-day in UTC', () => {
-  const project = { validFromUtc: '2026-11-16T19:06:10Z', validToUtc: '2027-07-11T19:06:10Z' };
-  const result = toWorkPassWindow('2026-11-16', '2027-07-11', project);
-  assert.ok(new Date(result.validFromUtc).getTime() >= new Date(project.validFromUtc).getTime());
-  assert.ok(new Date(result.validToUtc).getTime() <= new Date(project.validToUtc).getTime());
 });

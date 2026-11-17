@@ -156,10 +156,11 @@ export default function SurveillancePage() {
     <div className="space-y-4 md:space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Surveillance And Evidence</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Surveillance And Evidence</h1>
+          <p className="text-muted-foreground">VMS cameras, thermal monitoring, correlated events, and local-first evidence retrieval.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={selectedSiteId} onValueChange={setSelectedSiteId}><SelectTrigger className="w-auto min-w-[9rem] sm:w-[240px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Sites</SelectItem>{sites.map((site) => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}</SelectContent></Select>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Select value={selectedSiteId} onValueChange={setSelectedSiteId}><SelectTrigger className="w-full sm:w-[240px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All Sites</SelectItem>{sites.map((site) => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}</SelectContent></Select>
           <Button variant="outline" disabled={loadingData} onClick={() => void fetchData()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
           {canManage && (
             <RegisterCameraDialog providers={data.providers} sites={sites} canManage={canManage} busy={busy} onCreateCamera={(input) => handleCreateCamera(input)} />

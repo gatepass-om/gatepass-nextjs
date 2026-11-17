@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
@@ -7,44 +5,15 @@ import { cn } from "@/lib/utils"
 const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => {
-  const inner = React.useRef<HTMLTableElement | null>(null)
-  React.useImperativeHandle(ref, () => inner.current as HTMLTableElement)
-
-  // On phones the rows stack into labelled lines (see .stack-table in globals.css); each cell
-  // carries its column heading so the stacked line can show it.
-  React.useEffect(() => {
-    const table = inner.current
-    if (!table) return
-    const label = () => {
-      const heads = Array.from(table.querySelectorAll("thead th")).map((th) => {
-        const text = (th.textContent ?? "").trim()
-        // An actions column is just a menu button; it needs no label of its own.
-        return /^(actions?|row actions|الإجراءات|إجراءات)$/i.test(text) ? "" : text
-      })
-      table.querySelectorAll("tbody tr").forEach((row) => {
-        Array.from(row.children).forEach((cell, index) => {
-          const next = heads[index] ?? ""
-          if (cell.getAttribute("data-label") !== next) cell.setAttribute("data-label", next)
-        })
-      })
-    }
-    label()
-    const observer = new MutationObserver(label)
-    observer.observe(table, { childList: true, subtree: true, characterData: true })
-    return () => observer.disconnect()
-  }, [])
-
-  return (
-    <div className="relative w-full overflow-auto">
-      <table
-        ref={inner}
-        className={cn("stack-table w-full caption-bottom text-sm", className)}
-        {...props}
-      />
-    </div>
-  )
-})
+>(({ className, ...props }, ref) => (
+  <div className="relative w-full overflow-auto">
+    <table
+      ref={ref}
+      className={cn("w-full caption-bottom text-sm", className)}
+      {...props}
+    />
+  </div>
+))
 Table.displayName = "Table"
 
 const TableHeader = React.forwardRef<
@@ -89,7 +58,7 @@ const TableRow = React.forwardRef<
   <tr
     ref={ref}
     className={cn(
-      "border-b transition-colors hover:bg-muted/40 data-[state=selected]:bg-muted",
+      "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
       className
     )}
     {...props}
@@ -104,7 +73,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-10 px-4 text-start align-middle text-xs font-medium text-muted-foreground [&:has([role=checkbox])]:pe-0",
+      "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
       className
     )}
     {...props}
@@ -118,7 +87,7 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn("px-4 py-3 align-middle [&:has([role=checkbox])]:pe-0", className)}
+    className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
     {...props}
   />
 ))

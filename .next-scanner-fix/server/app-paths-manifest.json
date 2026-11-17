@@ -1,9 +1,0 @@
-{
-  "/favicon.ico/route": "app/favicon.ico/route.js",
-  "/(app)/inspections/page": "app/(app)/inspections/page.js",
-  "/(app)/certificates/page": "app/(app)/certificates/page.js",
-  "/(app)/contractor-user-applications/page": "app/(app)/contractor-user-applications/page.js",
-  "/(app)/profile/page": "app/(app)/profile/page.js",
-  "/(app)/muster/page": "app/(app)/muster/page.js",
-  "/(app)/users/page": "app/(app)/users/page.js"
-}

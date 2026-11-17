@@ -100,7 +100,10 @@ export default function OperatorDetailPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Companies
           </Button>
-          <h1 className="text-2xl font-semibold tracking-tight">{detail.name}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{detail.name}</h1>
+          <p className="text-muted-foreground">
+            Operator details, sites, attached contractors, personnel, and recent access activity.
+          </p>
         </div>
         <Badge variant="outline" className="w-fit">{detail.tenantName ?? detail.tenantId ?? 'No tenant'}</Badge>
       </header>
@@ -122,6 +125,7 @@ export default function OperatorDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle>Attached Contractors</CardTitle>
+          <CardDescription>Contractors with access requests linked to this operator.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -159,6 +163,7 @@ export default function OperatorDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>Sites</CardTitle>
+            <CardDescription>Operator sites and operational counts.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -189,6 +194,7 @@ export default function OperatorDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>Operator Personnel</CardTitle>
+            <CardDescription>Users directly assigned to this operator.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -221,6 +227,7 @@ export default function OperatorDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle>Recent Site Access</CardTitle>
+          <CardDescription>Latest requests involving this operator.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>

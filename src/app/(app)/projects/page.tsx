@@ -15,9 +15,7 @@ import {
   Search,
   UsersRound,
 } from 'lucide-react';
-import { useAuthProtection } from '@/hooks/use-auth-protection';
 import { Button } from '@/components/ui/button';
-import { StatStrip } from '@/components/ui/stat-strip';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   apiRequest,
@@ -50,7 +48,6 @@ const statusFilters: StatusFilter[] = ['All', 'Active', 'Upcoming', 'Completed',
 
 export default function ProjectsPage() {
   const { token, user } = useSession();
-  const { isAuthorized, loading: authLoading, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin']);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [operators, setOperators] = useState<NamedOption[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
@@ -198,13 +195,18 @@ export default function ProjectsPage() {
     }
   }
 
-  if (!authLoading && user && !isAuthorized) return <UnauthorizedComponent />;
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Projects</h1>
+          <div className="flex items-center gap-2 text-sm font-semibold text-blue-600">
+            <BriefcaseBusiness className="h-4 w-4" />
+            Project portfolio
+          </div>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Projects</h1>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+            Plan project periods, assign delivery partners and keep work-pass activity connected to the right operation.
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => void loadWorkspace()} disabled={loading} aria-label="Refresh projects">
@@ -214,30 +216,30 @@ export default function ProjectsPage() {
         </div>
       </header>
 
-      {error ? <div role="alert" className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger-ink">{error}</div> : null}
+      {error ? <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
-      {notice ? <div role="status" className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-ink">{notice}</div> : null}
+      {notice ? <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
 
-      <StatStrip label="Project portfolio summary" items={[
-        { label: 'active', value: portfolio.active },
-        { label: 'awaiting decision', value: projectWorkPasses.filter((pass) => ['PendingContractorApproval', 'Submitted', 'PendingSecondApproval'].includes(pass.status)).length, tone: 'warning' },
-        { label: 'work passes valid now', value: projectWorkPasses.filter((pass) => pass.status === 'Approved' && new Date(pass.validFromUtc) <= new Date() && new Date(pass.validToUtc) >= new Date()).length },
-      ]} />
+      <section aria-label="Project portfolio summary" className="grid gap-3 sm:grid-cols-3">
+        <MetricCard label="Active projects" value={portfolio.active} detail={`${portfolio.total} total projects`} icon={CircleDot} tone="blue" loading={loading} />
+        <MetricCard label="Pending access decisions" value={projectWorkPasses.filter((pass) => ['PendingContractorApproval', 'Submitted', 'PendingSecondApproval'].includes(pass.status)).length} detail="Requests awaiting action" icon={CalendarClock} tone="amber" loading={loading} />
+        <MetricCard label="Active work passes" value={projectWorkPasses.filter((pass) => pass.status === 'Approved' && new Date(pass.validFromUtc) <= new Date() && new Date(pass.validToUtc) >= new Date()).length} detail="Currently valid project access" icon={FileCheck2} tone="emerald" loading={loading} />
+      </section>
 
-      <section className="overflow-hidden rounded-xl border border-border bg-card ">
-        <div className="border-b border-border p-4">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="relative min-w-0 flex-1 lg:max-w-md">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input value={search} onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search by project, client, operator or contractor"
-                className="w-full rounded-lg border border-border py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+                className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
             </div>
             <div className="flex gap-1 overflow-x-auto" aria-label="Filter projects by status">
               {statusFilters.map((filter) => (
                 <button key={filter} onClick={() => setStatusFilter(filter)}
                   className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${
-                    statusFilter === filter ? 'bg-foreground text-white' : 'text-muted-foreground hover:bg-muted'
+                    statusFilter === filter ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
                   }`}>{filter}</button>
               ))}
             </div>
@@ -247,7 +249,7 @@ export default function ProjectsPage() {
         {loading ? (
           <div className="space-y-3 p-4">{[0, 1, 2].map((item) => <Skeleton key={item} className="h-24 w-full rounded-xl" />)}</div>
         ) : filteredProjects.length ? (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-slate-100">
             {filteredProjects.map((project) => {
               const actionable = projectWorkPasses
                 .filter((pass) => pass.projectId === project.id)
@@ -269,9 +271,9 @@ export default function ProjectsPage() {
           </div>
         ) : (
           <div className="px-6 py-16 text-center">
-            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground"><BriefcaseBusiness className="h-6 w-6" /></span>
-            <h3 className="mt-4 font-semibold text-foreground">{projects.length ? 'No projects match this view' : 'Create your first project'}</h3>
-            <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400"><BriefcaseBusiness className="h-6 w-6" /></span>
+            <h3 className="mt-4 font-semibold text-slate-900">{projects.length ? 'No projects match this view' : 'Create your first project'}</h3>
+            <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
               {projects.length ? 'Try a different search or status filter.' : 'Projects connect operators, contractors, team members and work passes in one place.'}
             </p>
             {!projects.length && canConfigureProjects ? <Button className="mt-5" onClick={startCreating}><Plus className="mr-2 h-4 w-4" /> Create project</Button> : null}
@@ -300,7 +302,7 @@ export default function ProjectsPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Reject project work pass</DialogTitle>
-            <DialogDescription className="sr-only">
+            <DialogDescription>
               Record what the contractor must correct. The reason remains on the work-pass audit trail.
             </DialogDescription>
           </DialogHeader>
@@ -342,29 +344,30 @@ function ProjectRow({ project, onEdit, canEdit, actionablePasses, busyWorkPassId
   const needsAttention = project.status.toLowerCase() === 'active' && daysRemaining >= 0 && daysRemaining <= 30;
   const singleActionable = actionablePasses.length === 1 ? actionablePasses[0] : null;
   return (
-    <article className="group grid gap-4 p-5 transition hover:bg-muted/70 lg:grid-cols-[minmax(0,1.2fr)_minmax(12rem,0.6fr)_auto] lg:items-center">
+    <article className="group grid gap-4 p-5 transition hover:bg-slate-50/70 lg:grid-cols-[minmax(0,1.2fr)_minmax(12rem,0.6fr)_auto] lg:items-center">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="truncate font-semibold text-foreground">{project.name}</h3>
+          <h3 className="truncate font-semibold text-slate-950">{project.name}</h3>
           <StatusBadge project={project} />
-          {needsAttention ? <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning-ink">Ending soon</span> : null}
+          {needsAttention ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Ending soon</span> : null}
         </div>
-        <p className="mt-1 truncate text-sm text-muted-foreground">
+        <p className="mt-1 truncate text-sm text-slate-500">
           {project.clientReference || 'No client reference'} · {project.operatorName}
         </p>
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
           <span>{formatDate(project.validFromUtc)} – {formatDate(project.validToUtc)}</span>
           <span>{project.contractors.length} contractor{project.contractors.length === 1 ? '' : 's'}</span>
           <span>{project.members.length} team member{project.members.length === 1 ? '' : 's'}</span>
         </div>
         {actionablePasses.length > 1 ? (
-          <p className="mt-2 text-xs font-semibold text-warning-ink">{actionablePasses.length} work passes need your decision</p>
+          <p className="mt-2 text-xs font-semibold text-amber-700">{actionablePasses.length} work passes need your decision</p>
         ) : null}
       </div>
       <div>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-semibold tabular-nums text-foreground">{project.workPassCount}</span>
-          <span className="text-sm text-muted-foreground">passes</span>
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Work-pass activity</p>
+        <div className="mt-1 flex items-center gap-2">
+          <span className="text-2xl font-semibold tabular-nums text-slate-950">{project.workPassCount}</span>
+          <span className="text-sm text-slate-500">passes</span>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -394,14 +397,34 @@ function ProjectRow({ project, onEdit, canEdit, actionablePasses, busyWorkPassId
   );
 }
 
+function MetricCard({ label, value, detail, icon: Icon, tone, loading }: {
+  label: string; value: number | string; detail: string; icon: typeof CircleDot; tone: string; loading: boolean;
+}) {
+  const toneClasses: Record<string, string> = {
+    blue: 'bg-blue-50 text-blue-700', amber: 'bg-amber-50 text-amber-700',
+    emerald: 'bg-emerald-50 text-emerald-700', violet: 'bg-violet-50 text-violet-700',
+    slate: 'bg-slate-100 text-slate-600',
+  };
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between">
+        <div><p className="text-sm font-medium text-slate-500">{label}</p>
+          {loading ? <Skeleton className="mt-3 h-8 w-16" /> : <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>}</div>
+        <span className={`rounded-xl p-2.5 ${toneClasses[tone]}`}><Icon className="h-5 w-5" /></span>
+      </div>
+      <p className="mt-3 text-xs text-slate-500">{detail}</p>
+    </div>
+  );
+}
+
 function StatusBadge({ project }: { project: ProjectRecord }) {
   const presentation = getProjectStatusPresentation(project);
   const classes = {
-    amber: 'bg-warning-soft text-warning-ink',
-    emerald: 'bg-success-soft text-success-ink',
-    blue: 'bg-pending-soft text-pending-ink',
-    red: 'bg-danger-soft text-danger-ink',
-    slate: 'bg-muted text-muted-foreground',
+    amber: 'bg-amber-100 text-amber-800',
+    emerald: 'bg-emerald-50 text-emerald-700',
+    blue: 'bg-blue-50 text-blue-700',
+    red: 'bg-red-50 text-red-700',
+    slate: 'bg-slate-100 text-slate-600',
   }[presentation.tone];
   return (
     <span title={presentation.detail} className={`rounded-full px-2 py-0.5 text-xs font-semibold ${classes}`}>

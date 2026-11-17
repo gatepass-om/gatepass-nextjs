@@ -15,6 +15,7 @@ export function ViolationsTable({ violations, loading }: { violations: GeofenceV
           <AlertTriangle className="h-5 w-5 text-destructive" />
           Open Violations
         </CardTitle>
+        <CardDescription>Compliance exceptions from mobile work-session pings.</CardDescription>
       </CardHeader>
       <CardContent>
         {loading ? <Skeleton className="h-48 w-full" /> : (

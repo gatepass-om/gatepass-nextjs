@@ -1,6 +1,5 @@
 'use client';
 
-import { StatStrip } from '@/components/ui/stat-strip';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, BellRing, RefreshCw, ShieldAlert, Siren } from 'lucide-react';
 import Link from 'next/link';
@@ -64,7 +63,7 @@ export default function AlertsPage() {
   };
 
   const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
-    if (!token || !currentUser || !isAuthorized) return;
+    if (!token || !currentUser) return;
     if (!opts?.silent) setLoadingData(true);
     try {
       const sitesInput = currentUser.role === 'Operator Admin' && currentUser.operatorId
@@ -85,7 +84,7 @@ export default function AlertsPage() {
     } finally {
       if (!opts?.silent) setLoadingData(false);
     }
-  }, [currentUser, isAuthorized, siteFilter, t, toast, token]);
+  }, [currentUser, siteFilter, t, toast, token]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
   // Live: an alert raised or acknowledged anywhere in scope refreshes the table instantly (silent so the Refresh
@@ -123,15 +122,16 @@ export default function AlertsPage() {
     <div className="space-y-4 md:space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t('Alerts & Muster')}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('Alerts & Muster')}</h1>
+          <p className="text-muted-foreground">{t('Monitor site alerts and open the emergency roll-call workspace from one place.')}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           {currentUser?.role === 'Admin' && <Button variant="outline" disabled={expiryCheckBusy} onClick={() => void runExpiryCheck()}>{expiryCheckBusy ? 'Checking expiry…' : 'Run expiry check'}</Button>}
           <Button asChild variant="outline">
             <Link href="/muster"><Siren className="me-2 h-4 w-4" />{t('Muster / Roll-call')}</Link>
           </Button>
           <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-            <SelectTrigger className="w-auto min-w-[9rem] sm:w-[240px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[240px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('All sites')}</SelectItem>
               {sites.map((site) => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}
@@ -151,11 +151,11 @@ export default function AlertsPage() {
       </header>
       {expiryCheckResult && <p role="status" className="rounded-md border p-3 text-sm">{expiryCheckResult}</p>}
 
-      <StatStrip items={[
-        { label: t('alerts'), value: alerts.length },
-        { label: t('unacknowledged'), value: unacknowledgedCount, tone: 'warning' },
-        { label: t('critical'), value: criticalCount, tone: 'danger' },
-      ]} />
+      <div className="grid gap-4 md:grid-cols-3">
+        <SummaryCard icon={ShieldAlert} label={t('Total alerts')} value={alerts.length} />
+        <SummaryCard icon={BellRing} label={t('Unacknowledged')} value={unacknowledgedCount} />
+        <SummaryCard icon={Siren} label={t('Critical unacknowledged')} value={criticalCount} />
+      </div>
 
       <Card className="p-0">
         <Table>

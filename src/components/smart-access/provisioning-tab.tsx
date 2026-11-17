@@ -21,6 +21,7 @@ export function ProvisioningTab({
     <Card>
       <CardHeader>
         <CardTitle>Assignments And Sync Jobs</CardTitle>
+        <CardDescription>Generated access rights and provider sync status.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <Table>

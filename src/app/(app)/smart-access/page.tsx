@@ -218,11 +218,12 @@ export default function SmartAccessPage() {
     <div className="space-y-4 md:space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Smart Access</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Smart Access</h1>
+          <p className="text-muted-foreground">Physical access providers, devices, assignments, sync jobs, and device events.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-            <SelectTrigger className="w-auto min-w-[9rem] sm:w-[240px]">
+            <SelectTrigger className="w-full sm:w-[240px]">
               <SelectValue placeholder="Filter by site" />
             </SelectTrigger>
             <SelectContent>

@@ -240,7 +240,8 @@ export default function SitesPage() {
     <div className="space-y-4 md:space-y-6">
       <header className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Site Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Site Management</h1>
+          <p className="text-muted-foreground">Create, view, and manage all operational sites.</p>
         </div>
         <Dialog open={isNewSiteFormOpen} onOpenChange={setIsNewSiteFormOpen}>
           <Button onClick={() => setIsNewSiteFormOpen(true)}>
@@ -250,7 +251,7 @@ export default function SitesPage() {
           <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create a New Site</DialogTitle>
-              <DialogDescription className="sr-only">Enter the site details below.</DialogDescription>
+              <DialogDescription>Enter the site details below.</DialogDescription>
             </DialogHeader>
             <NewSiteForm
               onNewSite={handleAddSite}

@@ -118,7 +118,8 @@ export default function CertificatesPage() {
         <div className="space-y-4 md:space-y-6">
             <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-semibold tracking-tight">Certificate Management</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">Certificate Management</h1>
+                    <p className="text-muted-foreground">Manage the types of certificates available in the system.</p>
                 </div>
                 <Dialog
                     open={isAddOpen}
@@ -136,7 +137,7 @@ export default function CertificatesPage() {
                     <DialogContent className="max-w-lg">
                         <DialogHeader>
                             <DialogTitle>Add New Certificate Type</DialogTitle>
-                            <DialogDescription className="sr-only">Create a new type of certificate that can be used across the application.</DialogDescription>
+                            <DialogDescription>Create a new type of certificate that can be used across the application.</DialogDescription>
                         </DialogHeader>
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(handleAddCertificate)} className="space-y-4">
@@ -177,6 +178,7 @@ export default function CertificatesPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Available Certificate Types</CardTitle>
+                    <CardDescription>This is a list of all certificate types that can be required by sites or attached to user profiles.</CardDescription>
                 </CardHeader>
                 <CardContent>
                              <Table>

@@ -48,8 +48,9 @@ export default function WorkflowsPage() {
         <div className="max-w-3xl space-y-2">
           <div className="flex items-center gap-3">
             <div className="grid size-11 place-items-center rounded-lg bg-primary text-primary-foreground"><GitBranch className="size-5" /></div>
-            <h1 className="text-2xl font-semibold tracking-tight">Workflow Studio</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">Workflow Studio</h1>
           </div>
+          <p className="text-muted-foreground">Design one approval flow per client. GatePass remains the system of record; Operaton runs the sequence and human-task state.</p>
         </div>
         <Badge variant="outline" className="w-fit">Admin only</Badge>
       </div>

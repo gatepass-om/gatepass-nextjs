@@ -68,7 +68,7 @@ export default function LoginPage() {
       <div className="flex min-h-svh items-center justify-center bg-background p-4">
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
               <ShieldCheck className="h-8 w-8 text-primary-foreground" />
             </div>
             <CardTitle>Connecting to GatePass</CardTitle>
@@ -84,11 +84,12 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="flex h-14 w-14 items-center justify-center bg-primary rounded-xl">
+            <div className="flex h-14 w-14 items-center justify-center bg-primary rounded-2xl">
               <ShieldCheck className="text-primary-foreground h-8 w-8" />
             </div>
           </div>
           <CardTitle className="text-2xl">Welcome to GatePass</CardTitle>
+          <CardDescription>Sign in to access the dashboard</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>

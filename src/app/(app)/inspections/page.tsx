@@ -1,6 +1,5 @@
 'use client';
 
-import { StatStrip } from '@/components/ui/stat-strip';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ClipboardCheck, RefreshCw, UsersRound } from 'lucide-react';
@@ -85,14 +84,21 @@ export default function InspectionsPage() {
   if (authLoading || !currentUser) return <InspectionPageSkeleton />;
   if (!isAuthorized) return <UnauthorizedComponent />;
 
+  const metrics = [
+    { label: 'Inspections', value: analytics.totalInspections, icon: ClipboardCheck, detail: `Last ${days} days` },
+    { label: 'Workers inspected', value: analytics.uniqueWorkersInspected, icon: UsersRound, detail: 'Distinct workers' },
+    { label: 'Compliance rate', value: `${analytics.complianceRate.toFixed(1)}%`, icon: CheckCircle2, detail: `${analytics.compliantInspections} compliant` },
+    { label: 'Wrongful conduct', value: analytics.nonCompliantInspections, icon: AlertTriangle, detail: 'Non-compliant findings' },
+  ];
 
   return (
     <div className="space-y-5">
       <header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Inspection Analytics</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Inspection Analytics</h1>
+          <p className="mt-1 text-muted-foreground">Workforce conduct, compliance outcomes, and inspector activity from mobile QR inspections.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <Select value={days} onValueChange={setDays}>
             <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="7">Last 7 days</SelectItem><SelectItem value="30">Last 30 days</SelectItem><SelectItem value="90">Last 90 days</SelectItem></SelectContent>
@@ -109,14 +115,17 @@ export default function InspectionsPage() {
         </div>
       </header>
 
-      {loading ? null : (
-        <StatStrip showZero items={[
-          { label: 'inspections', value: analytics.totalInspections },
-          { label: 'workers inspected', value: analytics.uniqueWorkersInspected },
-          { label: 'compliance', value: analytics.totalInspections > 0 ? `${analytics.complianceRate.toFixed(1)}%` : '—', tone: 'success' },
-          { label: 'wrongful conduct', value: analytics.nonCompliantInspections, tone: 'danger' },
-        ]} />
-      )}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Inspection metrics">
+        {metrics.map((metric) => (
+          <Card key={metric.label}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{metric.label}</CardTitle>
+              <metric.icon className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent><div className="text-3xl font-bold">{loading ? '—' : metric.value}</div><p className="mt-1 text-xs text-muted-foreground">{metric.detail}</p></CardContent>
+          </Card>
+        ))}
+      </section>
 
       <InspectionCharts analytics={analytics} />
 

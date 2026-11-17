@@ -116,7 +116,7 @@ export function useScanner({ onScanSuccess, isPaused, scanContext }: UseScannerP
         }
       } catch (failure) {
         if (cancelled) return;
-        console.warn('Scanner startup failed', failure);
+        console.error('Scanner startup failed', failure);
         // html5-qrcode wraps DOMException names in a string before rejecting.
         const detail = `${failure instanceof Error ? failure.name : ''} ${String(failure)}`;
         const message = /NotAllowedError|PermissionDeniedError/.test(detail)

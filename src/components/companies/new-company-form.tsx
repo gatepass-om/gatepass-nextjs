@@ -168,7 +168,7 @@ export function NewCompanyForm({ companyType, onAddCompany, open, onOpenChange, 
             <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>{subcontractorRegistrationOnly ? 'Request subcontractor registration' : `Add New ${companyType === 'contractor' ? 'Contractor' : typeCapitalized}`}</DialogTitle>
-                    <DialogDescription className="sr-only">{subcontractorRegistrationOnly ? 'Submit the company, contract and proposed administrator for operator approval. The company and administrator remain inactive until approved.' : companyType === 'contractor' ? 'Register a contractor, consultant, vendor, or other third-party company.' : 'Create a new operator company record.'}</DialogDescription>
+                    <DialogDescription>{subcontractorRegistrationOnly ? 'Submit the company, contract and proposed administrator for operator approval. The company and administrator remain inactive until approved.' : companyType === 'contractor' ? 'Register a contractor, consultant, vendor, or other third-party company.' : 'Create a new operator company record.'}</DialogDescription>
                     {companyType === 'contractor' && <ol aria-label="Registration progress" className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">{wizardSteps.map((label, index) => <li key={label} aria-current={index === step ? 'step' : undefined} className={index === step ? 'font-semibold text-primary' : 'text-muted-foreground'}>{index + 1}. {label}</li>)}</ol>}
                 </DialogHeader>
                 <Form {...form}>

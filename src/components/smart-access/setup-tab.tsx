@@ -223,6 +223,7 @@ function sectionTitle(step: string, title: string, description: string, Icon: Lu
             <Icon className="h-4 w-4 text-muted-foreground" />
           </div>
           <CardTitle className="text-xl">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
         </div>
       </div>
     </CardHeader>
@@ -639,6 +640,7 @@ export function SmartAccessSetupTab({
           <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle>Provider Onboarding</CardTitle>
+              <CardDescription>Connection, provider record, door inventory, and policy setup.</CardDescription>
             </div>
             <Button onClick={() => setOnboardingOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
@@ -670,6 +672,7 @@ export function SmartAccessSetupTab({
         <Card>
           <CardHeader>
             <CardTitle>Readiness</CardTitle>
+            <CardDescription>Records required for automatic provisioning.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {setupProgress.map((item) => (
@@ -692,6 +695,7 @@ export function SmartAccessSetupTab({
       <Card>
         <CardHeader>
           <CardTitle>Configured Providers</CardTitle>
+          <CardDescription>Connections currently registered for this tenant.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>

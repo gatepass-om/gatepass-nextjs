@@ -85,7 +85,10 @@ export default function ContractorDetailPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Companies
           </Button>
-          <h1 className="text-2xl font-semibold tracking-tight">{detail.name}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{detail.name}</h1>
+          <p className="text-muted-foreground">
+            Contractor details, associated operators, scoped sites, personnel, and recent access activity.
+          </p>
         </div>
         <Badge variant="outline" className="w-fit">{detail.tenantName ?? detail.tenantId ?? 'No tenant'}</Badge>
       </header>
@@ -102,6 +105,7 @@ export default function ContractorDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle>Associated Operators</CardTitle>
+          <CardDescription>Operators connected to this contractor through access requests.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -137,6 +141,7 @@ export default function ContractorDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>Scoped Sites</CardTitle>
+            <CardDescription>Sites where this contractor has relevant access activity.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -163,6 +168,7 @@ export default function ContractorDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>Personnel</CardTitle>
+            <CardDescription>Personnel visible in this contractor scope.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -195,6 +201,7 @@ export default function ContractorDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle>Recent Site Access</CardTitle>
+          <CardDescription>Latest requests visible for this contractor.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>

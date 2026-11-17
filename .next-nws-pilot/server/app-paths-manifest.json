@@ -1,7 +1,0 @@
-{
-  "/login/page": "app/login/page.js",
-  "/(app)/projects/[id]/access-requests/[workPassId]/page": "app/(app)/projects/[id]/access-requests/[workPassId]/page.js",
-  "/(app)/companies/operators/[id]/page": "app/(app)/companies/operators/[id]/page.js",
-  "/(app)/projects/[id]/page": "app/(app)/projects/[id]/page.js",
-  "/(app)/card-verification/page": "app/(app)/card-verification/page.js"
-}

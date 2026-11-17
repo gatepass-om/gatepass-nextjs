@@ -5,7 +5,7 @@ import test from 'node:test';
 import { getNavigationForRole } from '../layout/sidebar-navigation.ts';
 
 const sidebarSource = readFileSync(
-  new URL('../layout/header.tsx', import.meta.url),
+  new URL('../layout/sidebar-nav.tsx', import.meta.url),
   'utf8',
 );
 

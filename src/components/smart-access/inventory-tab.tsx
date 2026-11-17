@@ -28,6 +28,7 @@ export function InventoryTab({
     <Card>
       <CardHeader>
         <CardTitle>Devices</CardTitle>
+        <CardDescription>{selectedSiteName} access-control devices and provider capabilities.</CardDescription>
       </CardHeader>
       <CardContent>
         {loading ? <Skeleton className="h-40 w-full" /> : (

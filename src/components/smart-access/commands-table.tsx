@@ -24,6 +24,7 @@ export function CommandsTable({ commands }: { commands: DeviceCommand[] }) {
     <Card>
       <CardHeader>
         <CardTitle>Device Commands</CardTitle>
+        <CardDescription>Remote command history for capable providers and devices.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>

@@ -32,6 +32,7 @@ export function LocationValidationPanel({
     <Card>
       <CardHeader>
         <CardTitle>Point Validation</CardTitle>
+        <CardDescription>Manual check for mobile-app point-of-action validation.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">

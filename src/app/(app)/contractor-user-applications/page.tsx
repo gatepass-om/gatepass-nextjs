@@ -125,19 +125,7 @@ export default function ContractorUserApplicationsPage() {
   const update = (key: keyof FormState, value: string | boolean) => setForm((current) => ({ ...current, [key]: value }));
   const nextStep = () => {
     const fields: (keyof FormState)[][] = [['operatorId', 'contractorId', 'location'], ['firstName', 'lastName', 'email', 'phone', 'civilId', 'position', 'contractorRepresentativeName'], ['assetType', 'assetSubClass', 'directorate', 'department', 'contractorType', 'employeeType', 'civilIdExpiresAtUtc']];
-    const missing = (fields[step] ?? []).filter((key) => !String(form[key]).trim());
-    if (missing.length) {
-      const friendly: Partial<Record<keyof FormState, string>> = { civilIdExpiresAtUtc: 'Civil ID expiry', civilId: 'Civil ID', operatorId: 'Operator', contractorId: 'Contractor company' };
-      const names = missing.map((key) => friendly[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase()));
-      toast({ variant: 'destructive', title: 'Complete this step', description: `Missing: ${names.join(', ')}.` });
-      // Focus and flag the first empty control in the visible step so the gap is obvious without hunting.
-      const empty = Array.from(document.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[role="dialog"] fieldset:not([hidden]) input:not([type="file"]):not([type="checkbox"]), [role="dialog"] fieldset:not([hidden]) select'))
-        .find((control) => !control.value.trim());
-      empty?.setAttribute('aria-invalid', 'true');
-      empty?.addEventListener('input', () => empty.removeAttribute('aria-invalid'), { once: true });
-      empty?.focus();
-      return;
-    }
+    if (fields[step]?.some((key) => !String(form[key]).trim())) { toast({ variant: 'destructive', title: 'Complete this step', description: 'Fill in the required fields before continuing.' }); return; }
     if (step === 1 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { toast({ variant: 'destructive', title: 'Enter a valid email address' }); return; }
     if (step === 2 && new Date(form.civilIdExpiresAtUtc).getTime() <= Date.now()) { toast({ variant: 'destructive', title: 'Civil ID must have a future expiry date' }); return; }
     setStep((value) => Math.min(3, value + 1));
@@ -239,21 +227,21 @@ export default function ContractorUserApplicationsPage() {
   if (authLoading) return <div className="p-6">{t('Loading…', 'جارٍ التحميل…')}</div>;
   if (!isAuthorized) return <UnauthorizedComponent />;
 
-  return <div className="space-y-5">
-    <div><h1 className="text-2xl font-semibold">{t('Contractor user approvals', 'اعتمادات مستخدمي المقاولين')}</h1></div>
+  return <div className="space-y-6 p-4 md:p-6">
+    <div><h1 className="text-2xl font-semibold">{t('Contractor user approvals', 'اعتمادات مستخدمي المقاولين')}</h1><p className="text-sm text-muted-foreground">{t('Contractor login accounts are created only after NAMA review and independent final approval.', 'لا يتم إنشاء حسابات المقاولين إلا بعد مراجعة نماء والموافقة النهائية المستقلة.')}</p></div>
 
-    <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="link" asChild><Link href="/companies">Companies & subcontractor approvals</Link></Button><div className="flex flex-wrap gap-2">{canConfigure && <Button variant="outline" onClick={() => setSettingsOpen((value) => !value)}>Application settings</Button>}{canCreate && <Button disabled={loadingData || !!loadError || !operators.length} onClick={() => { setEditingId(null); setForm({ ...emptyForm, operatorId: operators[0]?.id ?? '', contractorId: currentUser?.contractorId || contractors[0]?.id || '' }); setCivilIdFile(null); setCertificateFile(null); setStep(0); setFormOpen(true); }}>New user application</Button>}</div></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="link" asChild><Link href="/companies">Companies & subcontractor approvals</Link></Button><div className="flex gap-2">{canConfigure && <Button variant="outline" onClick={() => setSettingsOpen((value) => !value)}>Application settings</Button>}{canCreate && <Button disabled={loadingData || !!loadError || !operators.length} onClick={() => { setEditingId(null); setForm({ ...emptyForm, operatorId: operators[0]?.id ?? '', contractorId: currentUser?.contractorId || contractors[0]?.id || '' }); setCivilIdFile(null); setCertificateFile(null); setStep(0); setFormOpen(true); }}>New user application</Button>}</div></div>
     {loadError && <div role="alert" className="rounded-md border border-destructive p-4 text-sm">{loadError}<Button className="ml-3" variant="outline" onClick={() => void reload().catch(() => undefined)}>Retry</Button></div>}
     {!loadingData && !loadError && canCreate && !operators.length && <p role="status" className="rounded-md border p-4 text-sm">No approved operator is available for this account. Check your company relationship in Companies.</p>}
     {canConfigure && settingsOpen && form.operatorId && <Card>
-      <CardHeader><CardTitle>{t('Operator application options', 'خيارات طلبات المشغل')}</CardTitle></CardHeader>
+      <CardHeader><CardTitle>{t('Operator application options', 'خيارات طلبات المشغل')}</CardTitle><CardDescription>{t('Control the approved choices shown to contractor administrators.', 'تحكم في الخيارات المعتمدة التي تظهر لمسؤولي المقاولين.')}</CardDescription></CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-2">
         {configurableOptionKeys.map((key) => <Field key={key} label={key.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase())}><Textarea value={options[key].join('\n')} onChange={(event) => setOptions((current) => ({ ...current, [key]: event.target.value.split(/\n|,/).map((value) => value.trim()).filter(Boolean) }))} /></Field>)}
         <div className="md:col-span-2"><Button disabled={busy} onClick={saveOptions}>{t('Save options', 'حفظ الخيارات')}</Button></div>
       </CardContent>
     </Card>}
 
-    {canCreate && <Dialog open={formOpen} onOpenChange={setFormOpen}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{editingId ? 'Correct returned application' : 'New user application'}</DialogTitle><DialogDescription className="sr-only">Complete each step, then review and submit for approval.</DialogDescription></DialogHeader>
+    {canCreate && <Dialog open={formOpen} onOpenChange={setFormOpen}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{editingId ? 'Correct returned application' : 'New user application'}</DialogTitle><DialogDescription>Complete each step, then review and submit for approval.</DialogDescription></DialogHeader>
       <ol aria-label="Application progress" className="grid grid-cols-2 gap-3 border-b pb-4 sm:grid-cols-4">{steps.map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined} className={`text-sm ${step === index ? 'font-semibold text-primary' : 'text-muted-foreground'}`}>{index + 1}. {label}</li>)}</ol>
       <div>
       <div className="space-y-5">

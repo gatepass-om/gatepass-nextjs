@@ -150,7 +150,8 @@ export default function PersonnelProfilePage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Personnel
         </Button>
-        <h1 className="text-2xl font-semibold tracking-tight">Personnel profile</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Personnel profile</h1>
+        <p className="text-muted-foreground">Review identity and employment details, then update this profile below.</p>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -179,7 +180,7 @@ export default function PersonnelProfilePage() {
         <Card>
           <CardHeader>
             <CardTitle>{canEdit ? 'Edit personnel data' : 'Personnel data'}</CardTitle>
-            {!canEdit ? <CardDescription>You have read-only access to this profile.</CardDescription> : null}
+            <CardDescription>{canEdit ? 'Changes are saved directly to this personnel profile.' : 'You have read-only access to this profile.'}</CardDescription>
           </CardHeader>
           <CardContent>
             {canEdit ? (

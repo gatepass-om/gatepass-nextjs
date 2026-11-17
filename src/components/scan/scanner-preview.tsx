@@ -45,7 +45,7 @@ export function ScannerPreview({ onScanSuccess, isPaused, scanContext }: Scanner
   }, [scannerId]);
 
   return (
-    <Card ref={cardRef} className={`relative w-full bg-black rounded-lg overflow-hidden border ${status === 'error' ? 'min-h-64' : 'aspect-[4/3] sm:aspect-video'}`}>
+    <Card ref={cardRef} className={`relative aspect-[4/3] sm:aspect-video bg-black rounded-md overflow-hidden border ${status === 'error' ? 'min-h-64' : ''}`}>
       {/* The reader forces position:relative and its own video size inline; override both. */}
       <div id={scannerId} data-testid="qr-scanner-container" className="!absolute left-0 top-0 origin-top-left [&_video]:!h-full [&_video]:!w-full" />
       {status === 'starting' && (

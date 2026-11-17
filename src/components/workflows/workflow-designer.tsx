@@ -119,7 +119,7 @@ export function WorkflowDesigner({ token, tenantId }: { token: string; tenantId:
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-background ">
+    <div className="overflow-hidden rounded-xl border bg-background shadow-sm">
       <div className="grid gap-4 border-b bg-muted/30 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
         <div className="space-y-2">
           <Label htmlFor="workflow-name">Workflow name</Label>
@@ -136,12 +136,12 @@ export function WorkflowDesigner({ token, tenantId }: { token: string; tenantId:
         </div>
       </div>
 
-      <div className="relative min-h-[560px] bg-card">
-        {!ready && <div className="absolute inset-0 z-10 grid place-items-center bg-card/90 text-sm text-muted-foreground"><Loader2 className="mr-2 inline size-4 animate-spin" />Loading visual designer…</div>}
+      <div className="relative min-h-[560px] bg-white">
+        {!ready && <div className="absolute inset-0 z-10 grid place-items-center bg-white/90 text-sm text-slate-600"><Loader2 className="mr-2 inline size-4 animate-spin" />Loading visual designer…</div>}
         <div ref={canvasRef} className="h-[min(68vh,720px)] min-h-[560px] w-full" aria-label="BPMN workflow canvas" />
       </div>
 
-      <div className={`flex items-start gap-2 border-t px-4 py-3 text-sm ${status.kind === 'error' ? 'bg-danger-soft text-red-900' : status.kind === 'success' ? 'bg-success-soft text-emerald-900' : 'bg-muted/30 text-muted-foreground'}`} role="status">
+      <div className={`flex items-start gap-2 border-t px-4 py-3 text-sm ${status.kind === 'error' ? 'bg-red-50 text-red-900' : status.kind === 'success' ? 'bg-emerald-50 text-emerald-900' : 'bg-muted/30 text-muted-foreground'}`} role="status">
         {status.kind === 'error' ? <TriangleAlert className="mt-0.5 size-4 shrink-0" /> : status.kind === 'success' ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <ShieldCheck className="mt-0.5 size-4 shrink-0" />}
         <span>{status.message}</span>
       </div>

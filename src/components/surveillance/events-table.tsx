@@ -10,6 +10,7 @@ export function SurveillanceEventsTable({ events }: { events: SurveillanceEvent[
     <Card>
       <CardHeader>
         <CardTitle>Surveillance Events</CardTitle>
+        <CardDescription>VMS telemetry correlated independently from gate and smart-lock events.</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>

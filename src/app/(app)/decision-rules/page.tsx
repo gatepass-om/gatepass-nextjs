@@ -205,7 +205,8 @@ export default function DecisionRulesPage() {
     <div className="space-y-6">
       <header>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Decision Rules</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Decision Rules</h1>
+          <p className="text-muted-foreground">Configure tenant-level access decision tolerances and test the effective outcome.</p>
         </div>
       </header>
 
@@ -256,6 +257,7 @@ export default function DecisionRulesPage() {
                       <SlidersHorizontal className="h-5 w-5" />
                       Access Rule Configuration
                     </CardTitle>
+                    <CardDescription>Hard guards stay enforced. Only tenant-tolerable reasons can be relaxed.</CardDescription>
                   </div>
                   <Badge variant={isDirty ? 'default' : 'outline'}>{isDirty ? 'Unsaved changes' : 'Saved'}</Badge>
                 </div>
@@ -317,6 +319,7 @@ export default function DecisionRulesPage() {
                   <ShieldCheck className="h-5 w-5" />
                   Effective Enforcement
                 </CardTitle>
+                <CardDescription>Current rule behavior for {selectedTenant?.name ?? 'this tenant'}.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -356,6 +359,7 @@ export default function DecisionRulesPage() {
                   <TestTube2 className="h-5 w-5" />
                   Test Decision
                 </CardTitle>
+                <CardDescription>Run the live access decision engine for a user and site.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -389,7 +393,7 @@ export default function DecisionRulesPage() {
                   Evaluate
                 </Button>
                 {evaluation && (
-                  <div className={`rounded-md border p-4 ${evaluation.allowed ? 'border-border bg-success-soft text-green-900' : 'border-danger/30 bg-danger-soft text-red-900'}`}>
+                  <div className={`rounded-md border p-4 ${evaluation.allowed ? 'border-green-200 bg-green-50 text-green-900' : 'border-red-200 bg-red-50 text-red-900'}`}>
                     <div className="flex items-center gap-2 font-semibold">
                       {evaluation.allowed ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
                       {evaluation.allowed ? 'Allowed' : 'Denied'}
@@ -437,7 +441,7 @@ export default function DecisionRulesPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-warning-ink" />
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
               Confirm relaxed access rules
             </AlertDialogTitle>
             <AlertDialogDescription>

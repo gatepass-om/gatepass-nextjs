@@ -7,7 +7,6 @@ export type NavigationItem = {
 };
 
 const navigationItems: NavigationItem[] = [
-  { href: '/dashboard', label: 'Today', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin'] },
   { href: '/projects', label: 'Projects', roles: ['Admin', 'Operator Admin', 'Manager', 'Supervisor', 'Contractor Admin'] },
   { href: '/workflows', label: 'Workflow Studio', roles: ['Admin'] },
   { href: '/alerts', label: 'Alerts & Muster', roles: ['Admin', 'Operator Admin', 'Manager', 'Security'] },

@@ -43,24 +43,14 @@ export default {
         success: {
           DEFAULT: 'hsl(var(--success))',
           foreground: 'hsl(var(--success-foreground))',
-          soft: 'hsl(var(--success-soft))',
-          ink: 'hsl(var(--success-ink))',
         },
         warning: {
           DEFAULT: 'hsl(var(--warning))',
           foreground: 'hsl(var(--warning-foreground))',
-          soft: 'hsl(var(--warning-soft))',
-          ink: 'hsl(var(--warning-ink))',
         },
         danger: {
           DEFAULT: 'hsl(var(--danger))',
           foreground: 'hsl(var(--danger-foreground))',
-          soft: 'hsl(var(--danger-soft))',
-          ink: 'hsl(var(--danger-ink))',
-        },
-        pending: {
-          soft: 'hsl(var(--pending-soft))',
-          ink: 'hsl(var(--pending-ink))',
         },
         info: {
           DEFAULT: 'hsl(var(--info))',
@@ -80,6 +70,16 @@ export default {
           '3': 'hsl(var(--chart-3))',
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))',
+        },
+        sidebar: {
+          DEFAULT: 'hsl(var(--sidebar-background))',
+          foreground: 'hsl(var(--sidebar-foreground))',
+          primary: 'hsl(var(--sidebar-primary))',
+          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
+          accent: 'hsl(var(--sidebar-accent))',
+          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
+          border: 'hsl(var(--sidebar-border))',
+          ring: 'hsl(var(--sidebar-ring))',
         },
       },
       borderRadius: {

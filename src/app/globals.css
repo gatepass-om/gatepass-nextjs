@@ -6,59 +6,61 @@
   :root {
     color-scheme: light;
 
-    /* GatePass "Sheets": soft grey page, white panels, hairlines, one blue. */
-    --background: 220 20% 97%;            /* #f6f7f9 */
-    --foreground: 220 6% 10%;             /* #17181a */
+    /* GatePass — Apple HIG–style light theme */
+    --background: 240 20% 97%;
+    --foreground: 240 6% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 6% 10%;
+    --card-foreground: 240 6% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 6% 10%;
+    --popover-foreground: 240 6% 12%;
 
-    --primary: 218 74% 47%;               /* #1f5fd1 */
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 96%;             /* #f3f4f6 */
-    --secondary-foreground: 220 6% 10%;
+    --secondary: 240 20% 94%;
+    --secondary-foreground: 240 6% 14%;
 
-    --muted: 220 14% 96%;                 /* soft fill */
-    --muted-foreground: 218 5% 44%;       /* #6b6f76 */
+    --muted: 240 15% 95%;
+    --muted-foreground: 240 4% 46%;
 
-    --accent: 217 84% 95%;                /* #e8f0fd, selected/pending wash */
-    --accent-foreground: 218 74% 47%;
+    --accent: 211 100% 95%;
+    --accent-foreground: 211 100% 36%;
 
-    --destructive: 0 62% 39%;             /* #a32626 */
+    --destructive: 4 90% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 225 9% 91%;                 /* #e6e7ea hairline */
-    --input: 225 9% 86%;
-    --ring: 218 74% 47%;
+    --border: 240 10% 88%;
+    --input: 240 10% 85%;
+    --ring: 211 100% 50%;
 
-    --radius: 0.5rem;                     /* 8px controls; panels use rounded-xl (12px) */
+    --radius: 0.875rem;
 
-    /* status: solid colour for dots and charts, plus a soft wash and an ink for pills */
-    --success: 149 72% 28%;
+    /* status palette for operations widgets */
+    --success: 142 69% 42%;
     --success-foreground: 0 0% 100%;
-    --success-soft: 141 46% 93%;          /* #e4f5ea */
-    --success-ink: 149 72% 25%;           /* #12703f */
-    --warning: 36 100% 45%;
+    --warning: 36 100% 50%;
     --warning-foreground: 0 0% 100%;
-    --warning-soft: 45 100% 93%;
-    --warning-ink: 33 90% 28%;
-    --danger: 0 62% 39%;
+    --danger: 4 90% 58%;
     --danger-foreground: 0 0% 100%;
-    --danger-soft: 0 69% 95%;             /* #fbe9e9 */
-    --danger-ink: 0 62% 39%;              /* #a32626 */
-    --info: 218 74% 47%;
-    --pending-soft: 217 84% 95%;          /* #e8f0fd */
-    --pending-ink: 218 74% 47%;           /* #1f5fd1 */
+    --info: 211 100% 50%;
 
-    --chart-1: 218 74% 47%;
-    --chart-2: 149 72% 28%;
-    --chart-3: 36 100% 45%;
-    --chart-4: 262 52% 52%;
-    --chart-5: 340 70% 48%;
+    --chart-1: 211 100% 50%;
+    --chart-2: 142 69% 42%;
+    --chart-3: 36 100% 50%;
+    --chart-4: 280 60% 58%;
+    --chart-5: 340 82% 58%;
+
+    /* sidebar — macOS-style light rail with a blue selected state */
+    --sidebar-background: 240 20% 96%;
+    --sidebar-foreground: 240 6% 27%;
+    --sidebar-primary: 211 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 211 92% 93%;
+    --sidebar-accent-foreground: 211 100% 38%;
+    --sidebar-border: 240 10% 89%;
+    --sidebar-ring: 211 100% 50%;
   }
 
   .dark {
@@ -76,57 +78,20 @@
 }
 
 @layer components {
-  /* Flat panel: white, hairline border, no shadow. */
+  /* Elevated operations panel */
   .ops-panel {
-    @apply rounded-xl border border-border bg-card;
+    @apply rounded-2xl border border-border bg-card;
+    box-shadow:
+      0 1px 1px hsl(240 6% 12% / 0.03),
+      0 8px 20px -14px hsl(240 6% 12% / 0.14);
   }
 
   .metric-value {
-    @apply text-3xl font-semibold tracking-tight tabular-nums text-foreground;
+    @apply text-3xl font-bold tracking-tight tabular-nums text-foreground;
   }
 
   .eyebrow {
-    @apply text-xs font-medium text-muted-foreground;
-  }
-
-
-  /* Phones: a table row becomes a card of labelled lines; the first cell is its title. */
-  @media (max-width: 767px) {
-    .stack-table { min-width: 0 !important; table-layout: auto !important; }
-    .stack-table colgroup, .stack-table thead { display: none; }
-    .stack-table tbody td {
-      white-space: normal !important;
-      overflow: visible !important;
-      text-overflow: clip !important;
-      border-width: 0 !important;
-      overflow-wrap: anywhere;
-    }
-    .stack-table, .stack-table tbody { display: block; width: 100%; }
-    .stack-table tbody tr {
-      display: block;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid hsl(var(--border));
-    }
-    .stack-table tbody tr:last-child { border-bottom: 0; }
-    .stack-table tbody td {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 0.2rem 0;
-      text-align: end;
-    }
-    .stack-table tbody td::before {
-      content: attr(data-label);
-      flex-shrink: 0;
-      font-size: 0.75rem;
-      color: hsl(var(--muted-foreground));
-      text-align: start;
-    }
-    .stack-table tbody td[data-label=""]::before,
-    .stack-table tbody td:first-child::before { display: none; }
-    .stack-table tbody td:first-child { justify-content: flex-start; padding-bottom: 0.35rem; font-weight: 600; text-align: start; }
-    .stack-table tbody td[data-label=""]:not(:first-child) { justify-content: flex-end; }
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground;
   }
 
   .status-dot {
@@ -138,8 +103,202 @@
     animation: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
+  .dashboard-panel {
+    @apply overflow-hidden rounded-2xl border border-slate-200/80 bg-white;
+    box-shadow: 0 6px 18px -16px rgb(0 0 0 / .18);
+  }
 
+  .dashboard-metric {
+    @apply rounded-2xl border border-slate-200/80 bg-white p-4;
+    box-shadow: 0 6px 18px -16px rgb(0 0 0 / .16);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
 
+  .dashboard-metric:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px -16px rgb(0 0 0 / .22);
+  }
+
+  .dashboard-eyebrow {
+    @apply text-[10px] font-semibold uppercase tracking-[.14em] text-slate-400;
+  }
+
+  /* The home dashboard uses a compact command-centre rail, styled as a
+     floating macOS-style sidebar with the same light Apple palette as the
+     rest of the application. */
+  .dashboard-sidebar {
+    --sidebar-width: 14rem;
+  }
+
+  .dashboard-sidebar [data-sidebar="sidebar"] {
+    border-right: 0;
+    margin: 1rem;
+    width: calc(100% - 2rem);
+    height: calc(100% - 2rem);
+    border-radius: 1.25rem;
+    box-shadow: 0 8px 24px -18px rgb(0 0 0 / .18);
+  }
+
+  .dashboard-sidebar [data-sidebar="header"] {
+    padding: 1.35rem 1.15rem 1rem;
+  }
+
+  .dashboard-sidebar [data-sidebar="content"] {
+    padding-inline: .65rem;
+    gap: .35rem;
+  }
+
+  .dashboard-sidebar [data-sidebar="group"] {
+    padding-block: .35rem;
+  }
+
+  .dashboard-sidebar [data-sidebar="group-label"] {
+    height: 1.65rem;
+    padding-inline: .65rem;
+  }
+
+  .dashboard-sidebar [data-sidebar="menu-button"] {
+    height: 2.1rem;
+    border-radius: .6rem;
+    font-size: .78rem;
+  }
+
+  .dashboard-sidebar [data-sidebar="footer"] {
+    padding: .75rem;
+  }
+
+  .dashboard-reference-canvas {
+    display: flex;
+    min-height: 100svh;
+    align-items: center;
+    justify-content: center;
+    background: #e7e7e7;
+    padding: 0;
+  }
+
+  .dashboard-reference-frame {
+    position: relative;
+    display: flex;
+    width: 100vw;
+    height: 100svh;
+    min-height: 100svh;
+    max-height: 100svh;
+    overflow: hidden;
+    border-radius: 0 1.65rem 1.65rem 0;
+    background: hsl(var(--sidebar-background));
+    box-shadow: 0 22px 48px -24px rgb(0 0 0 / .25);
+  }
+
+  .dashboard-reference-sidebar {
+    --sidebar-width: 210px !important;
+    position: absolute !important;
+    inset: 0 auto 0 0 !important;
+    z-index: 10;
+    width: 210px !important;
+    height: 100% !important;
+    border-right: 0 !important;
+  }
+
+  .dashboard-reference-frame > .group {
+    width: 210px !important;
+    border-right: 0 !important;
+  }
+
+  .dashboard-reference-sidebar [data-sidebar="sidebar"] {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .dashboard-reference-inset {
+    width: calc(100% - 210px);
+    min-width: 0;
+    margin-left: 0;
+    overflow: auto;
+    position: relative;
+    z-index: 20;
+    border-radius: 2rem 0 0 2rem;
+    background: #f6f6f6;
+  }
+
+  .dashboard-reference-inset > div {
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .dashboard-reference-inset .dashboard-home {
+    min-height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  .dashboard-reference-inset .dashboard-frame {
+    min-height: 100%;
+    padding: 1rem !important;
+    background: #f6f6f6;
+  }
+
+  .dashboard-reference-topbar {
+    display: flex;
+    min-height: 3.25rem;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgb(226 232 240 / .75);
+    padding: .75rem 1rem;
+    background: rgb(255 255 255 / .78);
+  }
+
+  .dashboard-reference-search {
+    display: flex;
+    width: min(13rem, 45%);
+    align-items: center;
+    gap: .5rem;
+    border-radius: .65rem;
+    background: #f1f5f9;
+    padding: .45rem .65rem;
+  }
+
+  .dashboard-reference-search input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: .7rem;
+    color: #334155;
+  }
+
+  .dashboard-reference-search input::placeholder {
+    color: #94a3b8;
+  }
+
+  .dashboard-reference-status {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    background: #dff6ed;
+    padding: .35rem .6rem;
+    font-size: .62rem;
+    font-weight: 700;
+    color: #20825f;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .dashboard-reference-avatar {
+    display: flex;
+    height: 1.75rem;
+    width: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #dce9ff;
+    font-size: .65rem;
+    font-weight: 700;
+    color: #2765c8;
+  }
 }
 
 @keyframes pulse-ring {
@@ -199,10 +358,3 @@
 .leaflet-tooltip-bottom::before { border-bottom-color: hsl(214 32% 88%) !important; }
 .leaflet-tooltip-left::before { border-left-color: hsl(214 32% 88%) !important; }
 .leaflet-tooltip-right::before { border-right-color: hsl(214 32% 88%) !important; }
-
-/* Controls flagged by a failed wizard step get a clear danger outline. */
-input[aria-invalid='true'],
-select[aria-invalid='true'] {
-  border-color: hsl(var(--danger));
-  box-shadow: 0 0 0 1px hsl(var(--danger));
-}

@@ -73,6 +73,7 @@ export function SitesTable({
       <Card>
         <CardHeader>
           <CardTitle>All Sites</CardTitle>
+          <CardDescription>A list of all registered sites in the system.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -129,7 +130,7 @@ export function SitesTable({
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {(site.requiredCertificates || []).map((cert, index) => (
-                            <Badge key={index} variant="secondary">{certificateTypes.find((type) => type.id === cert)?.name ?? cert}</Badge>
+                            <Badge key={index} variant="secondary">{cert}</Badge>
                           ))}
                         </div>
                       </TableCell>
@@ -204,7 +205,7 @@ export function SitesTable({
           <DialogContent className="sm:max-w-4xl">
               <DialogHeader>
                   <DialogTitle>Edit Site</DialogTitle>
-                  <DialogDescription className="sr-only">Update the details for {selectedSite?.name}.</DialogDescription>
+                  <DialogDescription>Update the details for {selectedSite?.name}.</DialogDescription>
               </DialogHeader>
               {selectedSite && (
                   <EditSiteForm

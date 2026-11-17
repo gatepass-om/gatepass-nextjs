@@ -49,10 +49,10 @@ const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' | 
 }
 
 const statusColorClasses = {
-  Approved: 'bg-green-500/20 text-success-ink border-transparent hover:bg-green-500/30',
-  Pending: 'bg-yellow-500/20 text-warning-ink border-transparent hover:bg-yellow-500/30',
-  Denied: 'bg-red-500/20 text-danger-ink border-transparent hover:bg-red-500/30',
-  Expired: 'bg-slate-500/15 text-muted-foreground border-transparent hover:bg-slate-500/20',
+  Approved: 'bg-green-500/20 text-green-700 border-transparent hover:bg-green-500/30',
+  Pending: 'bg-yellow-500/20 text-yellow-700 border-transparent hover:bg-yellow-500/30',
+  Denied: 'bg-red-500/20 text-red-700 border-transparent hover:bg-red-500/30',
+  Expired: 'bg-slate-500/15 text-slate-700 border-transparent hover:bg-slate-500/20',
 }
 
 const statusIcons = {
@@ -110,6 +110,7 @@ export function RequestsTable({
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -199,7 +200,7 @@ export function RequestsTable({
                                         size="icon"
                                         onClick={(e) => e.stopPropagation()}
                                       >
-                                        <Trash2 className="h-4 w-4 text-danger-ink" />
+                                        <Trash2 className="h-4 w-4 text-red-600" />
                                       </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent onClick={(e) => e.stopPropagation()}>

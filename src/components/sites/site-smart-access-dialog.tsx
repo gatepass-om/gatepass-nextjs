@@ -130,7 +130,7 @@ export function SiteSmartAccessDialog({
           <DialogTitle className="flex items-center gap-2">
             <DoorOpen className="h-5 w-5" /> Smart access — {siteName}
           </DialogTitle>
-          <DialogDescription className="sr-only">Manage this site&apos;s entrances, the locks mounted at each, and lock credentials.</DialogDescription>
+          <DialogDescription>Manage this site&apos;s entrances, the locks mounted at each, and lock credentials.</DialogDescription>
         </DialogHeader>
 
         {loading && <p className="text-sm text-muted-foreground py-8 text-center">Loading…</p>}

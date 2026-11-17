@@ -74,11 +74,12 @@ function ActivateAccountForm() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="flex h-14 w-14 items-center justify-center bg-primary rounded-xl">
+            <div className="flex h-14 w-14 items-center justify-center bg-primary rounded-2xl">
               <KeyRound className="text-primary-foreground h-8 w-8" />
             </div>
           </div>
           <CardTitle className="text-2xl">Activate Your Account</CardTitle>
+          <CardDescription>To secure your account, please create a new password.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>

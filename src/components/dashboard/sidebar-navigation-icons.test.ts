@@ -7,11 +7,11 @@ const navigationSource = readFileSync(
   'utf8',
 );
 const sidebarSource = readFileSync(
-  new URL('../layout/nav-icons.ts', import.meta.url),
+  new URL('../layout/sidebar-nav.tsx', import.meta.url),
   'utf8',
 );
 
-test('every configured navigation route has an icon', () => {
+test('every configured sidebar route has an icon', () => {
   const configuredRoutes = [
     ...navigationSource.matchAll(/href:\s*['"]([^'"]+)['"]/g),
   ].map((match) => match[1]);

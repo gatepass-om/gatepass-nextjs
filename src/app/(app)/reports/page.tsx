@@ -83,7 +83,8 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t('Audit & Reports')}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('Audit & Reports')}</h1>
+          <p className="text-muted-foreground">{t('The immutable activity trail and audit-ready compliance export.')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {canViewAudit && <Button variant="outline" onClick={handleExport} disabled={busy}>
@@ -105,6 +106,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><FileSpreadsheet className="h-5 w-5" /> {t('Worker traceability')}</CardTitle>
+          <CardDescription>{t('Power BI-ready worker records connecting identity, employer hierarchy, project, site, role, clearance, and expiry.')}</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {loading ? <Skeleton className="h-48 w-full" /> : (
@@ -132,6 +134,7 @@ export default function ReportsPage() {
       {canViewAudit && <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" /> {t('Recent audit activity')}</CardTitle>
+          <CardDescription>{t('Who did what, and when — the latest 100 recorded actions.')}</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (

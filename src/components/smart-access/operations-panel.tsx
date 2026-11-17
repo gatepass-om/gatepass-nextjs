@@ -39,7 +39,7 @@ export function SmartAccessOperationsPanel({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Operations Console</DialogTitle>
-          <DialogDescription className="sr-only">
+          <DialogDescription>
             Smart-lock actions, mobile-readiness, and sync pressure for the selected scope.
           </DialogDescription>
         </DialogHeader>

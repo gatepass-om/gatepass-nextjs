@@ -70,6 +70,7 @@ export function WorkerClearance({ workerId, initialStatus }: WorkerClearanceProp
           Worker clearance
           <Badge variant={status === 'Cleared' ? 'default' : 'secondary'}>{status}</Badge>
         </CardTitle>
+        <CardDescription>Submit, review, clear, or return this worker&apos;s onboarding record.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {actions.some(action => action === 'clear' || action === 'return') && (

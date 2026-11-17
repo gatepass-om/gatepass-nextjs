@@ -57,6 +57,7 @@ export function OperatorsTable({ operators, users, sites, isLoading = false, onR
     <Card>
       <CardHeader>
         <CardTitle>All Operators</CardTitle>
+        <CardDescription>A list of all operator companies in the system.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
