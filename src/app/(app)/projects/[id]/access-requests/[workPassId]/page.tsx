@@ -10,7 +10,7 @@ import type { ProjectRecord } from '@/components/projects/project-wizard-dialog'
 import type { CertificateType } from '@/lib/types';
 import { PersonnelDetailsDialog } from '@/components/projects/personnel-details-dialog';
 import { WorkerTransferReview, type TransferWorker } from '@/components/projects/worker-transfer-review';
-import { getWorkPassStatusPresentation, isWorkerComplianceSatisfied } from '@/components/projects/project-command-center';
+import { getWorkPassStatusPresentation, workerComplianceBadge } from '@/components/projects/project-command-center';
 
 type Worker = TransferWorker & { nationalId?: string | null; clearanceStatus?: string | null; email?: string | null; contractorName?: string | null; jobPositionName?: string | null };
 type WorkPass = { id: string; projectId: string; projectName: string; siteName: string; passNumber: string; status: string; validFromUtc: string; validToUtc: string; taskDescription?: string | null; submittedByName: string; submittingContractorName?: string | null; approvedByName?: string | null; approvedAtUtc?: string | null; secondApprovedByName?: string | null; workers: Worker[] };
@@ -21,7 +21,7 @@ export default function WorkerAccessRequestPage() {
   const [request, setRequest] = useState<WorkPass | null>(null);
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
-  const [jobRoleCompliance, setJobRoleCompliance] = useState<Record<string, boolean>>({});
+  const [jobRoleCompliance, setJobRoleCompliance] = useState<Record<string, boolean | null>>({});
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [company, setCompany] = useState('all');
@@ -36,17 +36,16 @@ export default function WorkerAccessRequestPage() {
       setRequest(data);
       Promise.all(data.workers.map((item) => assessWorkerPositionRequest(token, item.userId).then(
         (assessment) => [item.userId, !assessment.jobPositionId || assessment.isCompliant] as const,
-        () => [item.userId, true] as const,
+        () => [item.userId, null] as const,
       ))).then((entries) => setJobRoleCompliance(Object.fromEntries(entries)));
     }).catch((reason) => setError(reason instanceof Error ? reason.message : 'Unable to load this request.'));
     apiRequest<ProjectRecord>(`/projects/${params.id}`, { token }).then(setProject).catch(() => {});
     listCertificateTypesRequest(token).then(setCertificateTypes).catch(() => []);
   }, [params.id, params.workPassId, token, decisionRevision]);
 
-  const isWorkerCompliant = (item: Worker) => isWorkerComplianceSatisfied(
-    jobRoleCompliance[item.userId] ?? true,
-    item.clearanceStatus,
-  );
+  // Until the position check answers, a worker reads as not checked, never as compliant.
+  const badgeFor = (item: Worker) => workerComplianceBadge(jobRoleCompliance[item.userId], item.clearanceStatus);
+  const isWorkerCompliant = (item: Worker) => badgeFor(item).compliant;
 
   const filtered = useMemo(() => (request?.workers ?? []).filter((item) => {
     const query = search.trim().toLowerCase();
@@ -80,13 +79,13 @@ export default function WorkerAccessRequestPage() {
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500"><tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Company</th><th className="px-5 py-3">Job role</th><th className="px-5 py-3">National ID</th><th className="px-5 py-3">Compliance</th></tr></thead>
           <tbody className="divide-y divide-slate-100">{filtered.map((item) => {
-            const compliant = isWorkerCompliant(item);
+            const badge = badgeFor(item);
             return <tr key={item.userId} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelectedWorkerId(item.userId)}>
               <td className="px-5 py-4 font-medium">{item.name}{item.assignmentEndedAtUtc ? <p className="mt-1 text-xs font-normal text-muted-foreground">Transferred out {new Date(item.assignmentEndedAtUtc).toLocaleDateString()}</p> : null}</td>
               <td className="px-5 py-4">{item.contractorName || '—'}</td>
               <td className="px-5 py-4">{item.jobPositionName || '—'}</td>
               <td className="px-5 py-4 font-mono">{item.nationalId || '—'}</td>
-              <td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${compliant ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{compliant ? 'Compliant' : 'Non-compliant'}</span></td>
+              <td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${badge.className}`}>{badge.label}</span></td>
             </tr>;
           })}</tbody>
         </table>

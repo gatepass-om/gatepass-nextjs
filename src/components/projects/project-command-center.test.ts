@@ -11,7 +11,7 @@ test('transfer requests are actionable only by the employing contractor administ
   assert.deepEqual(getWorkPassActions(pass, project, { id: 'operator-admin', role: 'Operator Admin', operatorId: 'operator' }), []);
 });
 // @ts-expect-error Node's built-in TypeScript runner requires the source extension.
-import { getProjectWorkflowStages, getWorkPassActions, getWorkPassQueueItems, getWorkPassStatusPresentation, isWorkerComplianceSatisfied, type CommandCenterProject, type CommandCenterWorkPass } from './project-command-center.ts';
+import { getProjectWorkflowStages, getWorkPassActions, getWorkPassQueueItems, getWorkPassStatusPresentation, isWorkerComplianceSatisfied, workerComplianceBadge, type CommandCenterProject, type CommandCenterWorkPass } from './project-command-center.ts';
 
 const workPassDetailSource = readFileSync(new URL('../../app/(app)/projects/[id]/access-requests/[workPassId]/page.tsx', import.meta.url), 'utf8');
 const reportsPageSource = readFileSync(new URL('../../app/(app)/reports/page.tsx', import.meta.url), 'utf8');
@@ -53,6 +53,27 @@ test('worker compliance includes onboarding clearance as well as job credentials
   assert.equal(isWorkerComplianceSatisfied(true, 'Pending'), false);
   assert.equal(isWorkerComplianceSatisfied(true, 'Cleared'), true);
   assert.equal(isWorkerComplianceSatisfied(false, 'Cleared'), false);
+});
+
+test('the worker badge never reads an unchecked worker as compliant', () => {
+  assert.deepEqual(
+    [workerComplianceBadge(null, 'Cleared').label, workerComplianceBadge(undefined, 'Cleared').compliant],
+    ['Not checked', false],
+  );
+});
+
+test('the worker badge separates awaiting verification from non-compliance', () => {
+  assert.equal(workerComplianceBadge(true, 'Cleared').label, 'Compliant');
+  assert.equal(workerComplianceBadge(true, 'Pending').label, 'Awaiting verification');
+  assert.equal(workerComplianceBadge(true, 'UnderReview').label, 'Awaiting verification');
+  assert.equal(workerComplianceBadge(true, 'Returned').label, 'Non-compliant');
+  assert.equal(workerComplianceBadge(false, 'Cleared').label, 'Non-compliant');
+  assert.equal(workerComplianceBadge(false, 'Pending').label, 'Non-compliant');
+});
+
+test('the request page uses the shared badge and treats a failed check as unknown', () => {
+  assert.match(workPassDetailSource, /workerComplianceBadge\(/);
+  assert.doesNotMatch(workPassDetailSource, /\(\) => \[item\.userId, true\]/);
 });
 
 test('workflow stages show the live queue instead of claiming access is granted', () => {

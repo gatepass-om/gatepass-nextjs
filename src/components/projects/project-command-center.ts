@@ -68,6 +68,31 @@ export function isWorkerComplianceSatisfied(jobRoleCompliant: boolean, clearance
   return jobRoleCompliant && clearanceStatus === 'Cleared';
 }
 
+export type WorkerComplianceBadge = { label: string; className: string; compliant: boolean };
+
+const AWAITING_VERIFICATION = new Set(['Pending', 'Submitted', 'UnderReview']);
+
+/**
+ * The per-worker badge on project screens. `jobRoleCompliant` is null when the position check could not be read
+ * (a refused or failed request): that is shown as unknown, never as compliant. A worker whose credentials are in
+ * order but who has not been verified yet is awaiting the consultant, not non-compliant.
+ */
+export function workerComplianceBadge(jobRoleCompliant: boolean | null | undefined, clearanceStatus?: string | null): WorkerComplianceBadge {
+  if (jobRoleCompliant === false || clearanceStatus === 'Returned') {
+    return { label: 'Non-compliant', className: 'bg-red-50 text-red-700', compliant: false };
+  }
+  if (jobRoleCompliant == null) {
+    return { label: 'Not checked', className: 'bg-slate-100 text-slate-600', compliant: false };
+  }
+  if (clearanceStatus === 'Cleared') {
+    return { label: 'Compliant', className: 'bg-emerald-50 text-emerald-700', compliant: true };
+  }
+  if (clearanceStatus && AWAITING_VERIFICATION.has(clearanceStatus)) {
+    return { label: 'Awaiting verification', className: 'bg-amber-50 text-amber-700', compliant: false };
+  }
+  return { label: 'Non-compliant', className: 'bg-red-50 text-red-700', compliant: false };
+}
+
 export function getWorkPassQueueItems<T extends CommandCenterWorkPass>(
   workPasses: T[],
   projects: CommandCenterProject[],

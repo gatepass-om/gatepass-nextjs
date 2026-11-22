@@ -88,7 +88,7 @@ test('project personnel has a filterable project-scoped table', () => {
   assert.match(personnelPage, /Company/);
   assert.match(personnelPage, /Job position/);
   assert.match(personnelPage, /Compliance/);
-  assert.match(personnelPage, /isWorkerComplianceSatisfied/);
+  assert.match(personnelPage, /workerComplianceBadge\(/);
   assert.match(personnelPage, /clearanceStatus/);
   assert.match(personnelPage, /Search personnel/);
 });

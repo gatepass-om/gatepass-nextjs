@@ -9,7 +9,7 @@ import { useSession } from '@/providers/session-provider';
 import type { ProjectRecord } from '@/components/projects/project-wizard-dialog';
 import type { CertificateType } from '@/lib/types';
 import { PersonnelDetailsDialog } from '@/components/projects/personnel-details-dialog';
-import { isWorkerComplianceSatisfied } from '@/components/projects/project-command-center';
+import { workerComplianceBadge } from '@/components/projects/project-command-center';
 import { isOperationalProjectParticipant } from '@/components/projects/project-workflow';
 
 type Personnel = {
@@ -35,7 +35,7 @@ export default function ProjectPersonnelPage() {
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [people, setPeople] = useState<Personnel[]>([]);
   const [certificateTypes, setCertificateTypes] = useState<CertificateType[]>([]);
-  const [jobRoleCompliance, setJobRoleCompliance] = useState<Record<string, boolean>>({});
+  const [jobRoleCompliance, setJobRoleCompliance] = useState<Record<string, boolean | null>>({});
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [company, setCompany] = useState('all');
@@ -62,13 +62,17 @@ export default function ProjectPersonnelPage() {
       // compliant rather than a false non-compliance flag on every non-worker role.
       Promise.all(scoped.map((person) => assessWorkerPositionRequest(token, person.id).then(
         (assessment) => [person.id, !assessment.jobPositionId || assessment.isCompliant] as const,
-        () => [person.id, true] as const,
+        () => [person.id, null] as const,
       ))).then((entries) => setJobRoleCompliance(Object.fromEntries(entries)));
     });
   }, [params.id, token]);
 
-  const isPersonCompliant = (person: Personnel) => person.status === 'Active'
-    && (person.role !== 'Worker' || isWorkerComplianceSatisfied(jobRoleCompliance[person.id] ?? true, person.clearanceStatus));
+  const badgeFor = (person: Personnel) => {
+    if (person.status !== 'Active') return { label: 'Inactive', className: 'bg-red-50 text-red-700', compliant: false };
+    if (person.role !== 'Worker') return { label: 'Compliant', className: 'bg-emerald-50 text-emerald-700', compliant: true };
+    return workerComplianceBadge(jobRoleCompliance[person.id], person.clearanceStatus);
+  };
+  const isPersonCompliant = (person: Personnel) => badgeFor(person).compliant;
 
   const filtered = useMemo(() => people.filter((person) => {
     const query = search.trim().toLowerCase();
@@ -87,13 +91,13 @@ export default function ProjectPersonnelPage() {
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500"><tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Company</th><th className="px-5 py-3">Job position</th><th className="px-5 py-3">Role</th><th className="px-5 py-3">Compliance</th></tr></thead>
           <tbody className="divide-y">{filtered.map((person) => {
-            const compliant = isPersonCompliant(person);
+            const badge = badgeFor(person);
             return <tr key={person.id} onClick={() => setSelectedPersonId(person.id)} className="cursor-pointer transition hover:bg-slate-50">
               <td className="px-5 py-4"><span className="font-medium">{person.name}</span><span className="block text-xs text-slate-500">{person.email}</span></td>
               <td className="px-5 py-4">{person.contractorName || 'Operator'}</td>
               <td className="px-5 py-4">{person.employment?.jobPositionName || '—'}</td>
               <td className="px-5 py-4">{person.role}</td>
-              <td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${compliant ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{compliant ? 'Compliant' : 'Non-compliant'}</span></td>
+              <td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${badge.className}`}>{badge.label}</span></td>
             </tr>;
           })}</tbody>
         </table>
