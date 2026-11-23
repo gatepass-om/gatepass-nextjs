@@ -814,8 +814,10 @@ export async function createExternalCompanyRequest(token: string, input: {
   contractNumber?: string;
   contractValidFromUtc?: string;
   contractValidToUtc?: string;
-  adminName: string;
-  adminEmail: string;
+  /** Required for operator and platform admins: the Nama manager who looks after the company. */
+  focalPointUserId?: string;
+  /** Set when a focal-point manager registers a subcontractor under one of their companies. */
+  parentContractorId?: string;
 }) {
   return apiRequest<any>('/companies/external', { method: 'POST', token, body: input });
 }
@@ -828,7 +830,7 @@ export async function updateContractorRequest(token: string, contractorId: strin
   });
 }
 
-export async function updateExternalCompanyRequest(token: string, companyId: string, input: { name: string; companyType: number; logoUrl?: string; operatorId?: string; supervisorLimit?: number | null }) {
+export async function updateExternalCompanyRequest(token: string, companyId: string, input: { name: string; companyType?: number; logoUrl?: string; operatorId?: string; supervisorLimit?: number | null; focalPointUserId?: string }) {
   return apiRequest<any>(`/companies/external/${companyId}`, { method: 'PUT', token, body: input });
 }
 

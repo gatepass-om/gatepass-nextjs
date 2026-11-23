@@ -10,6 +10,7 @@ import { ContractorsTable } from '@/components/companies/contractors-table';
 import { NewCompanyForm } from '@/components/companies/new-company-form';
 import { Button } from '@/components/ui/button';
 import { Building2, HardHat } from 'lucide-react';
+import { normalizeExternalCompanyType } from '@/components/compliance/compliance-model';
 import { useSession } from '@/providers/session-provider';
 import {
   listOperatorsRequest,
@@ -29,7 +30,7 @@ import {
 import { usePolling } from '@/lib/polling';
 
 export default function CompaniesPage() {
-  const { currentUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Supervisor']);
+  const { currentUser, loading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Supervisor']);
   const { token } = useSession();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
@@ -45,7 +46,13 @@ export default function CompaniesPage() {
 
   const { toast } = useToast();
   const canManageCompanies = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin';
-  const canRegisterExternalCompany = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin' || currentUser?.role === 'Contractor Admin';
+  const isManager = currentUser?.role === 'Manager';
+  // Companies this manager looks after as focal point; they can edit them and register subcontractors under them.
+  const focalCompanies = isManager ? contractors.filter((company) => company.focalPointUserId === currentUser?.id) : [];
+  const focalMainContractors = focalCompanies.filter((company) => normalizeExternalCompanyType(company.companyType) === 1);
+  const canRegisterExternalCompany = currentUser?.role === 'Admin' || currentUser?.role === 'Operator Admin' || currentUser?.role === 'Contractor Admin'
+    || (isManager && focalMainContractors.length > 0);
+  const focalPointCandidates = users.filter((user) => user.role === 'Manager' && (user.status === undefined || user.status === 'Active'));
 
   const fetchData = useCallback(async (options?: { silent?: boolean }) => {
     if (!token || !currentUser?.id) return;
@@ -99,7 +106,7 @@ export default function CompaniesPage() {
     void fetchData({ silent: true });
   }, 20000);
 
-  const handleAddCompany = async (input: { name: string; logoUrl?: string; type: 'operator' | 'contractor'; externalType?: ExternalCompanyType; operatorId?: string; contractNumber?: string; contractValidFromUtc?: string; contractValidToUtc?: string; adminName?: string; adminEmail?: string }): Promise<boolean> => {
+  const handleAddCompany = async (input: { name: string; logoUrl?: string; type: 'operator' | 'contractor'; externalType?: ExternalCompanyType; operatorId?: string; focalPointUserId?: string; parentContractorId?: string }): Promise<boolean> => {
     const { type } = input;
     const trimmed = input.name.trim();
     if (!token || !trimmed) return false;
@@ -112,15 +119,12 @@ export default function CompaniesPage() {
           logoUrl: input.logoUrl,
           companyType: input.externalType ?? 1,
           operatorId: input.operatorId,
-          contractNumber: input.contractNumber,
-          contractValidFromUtc: input.contractValidFromUtc,
-          contractValidToUtc: input.contractValidToUtc,
-          adminName: input.adminName ?? '',
-          adminEmail: input.adminEmail ?? '',
+          focalPointUserId: input.focalPointUserId,
+          parentContractorId: input.parentContractorId,
         });
       }
       const isRegistrationRequest = currentUser?.role === 'Contractor Admin' && type === 'contractor';
-      toast({ title: isRegistrationRequest ? 'Registration request submitted' : `${type.charAt(0).toUpperCase() + type.slice(1)} Created`, description: isRegistrationRequest ? `"${trimmed}" is awaiting operator approval. The company and administrator remain inactive until approved.` : `Company "${trimmed}" has been added.` });
+      toast({ title: isRegistrationRequest ? 'Registration request submitted' : `${type.charAt(0).toUpperCase() + type.slice(1)} Created`, description: isRegistrationRequest ? `"${trimmed}" is awaiting operator approval. The company remains inactive until approved.` : `Company "${trimmed}" has been added.` });
       if (isRegistrationRequest) { setShowCompanyApprovals(true); setSubmittedCompany(trimmed); }
       void fetchData();
       return true;
@@ -144,11 +148,15 @@ export default function CompaniesPage() {
     }
   };
 
-  const handleRenameContractor = async (contractorId: string, name: string, companyType: ExternalCompanyType, logoUrl?: string, supervisorLimit?: number | null) => {
+  const handleRenameContractor = async (contractorId: string, name: string, companyType: ExternalCompanyType, logoUrl?: string, supervisorLimit?: number | null, focalPointUserId?: string) => {
     const trimmed = name.trim();
     if (!token || !trimmed) return;
     try {
-      await updateExternalCompanyRequest(token, contractorId, { name: trimmed, companyType, logoUrl, operatorId: currentUser?.operatorId ?? contractors.find((company) => company.id === contractorId)?.operatorId, supervisorLimit });
+      const operatorId = currentUser?.operatorId ?? contractors.find((company) => company.id === contractorId)?.operatorId;
+      await updateExternalCompanyRequest(token, contractorId, canManageCompanies
+        ? { name: trimmed, companyType, logoUrl, operatorId, supervisorLimit, ...(focalPointUserId ? { focalPointUserId } : {}) }
+        // A focal point can change the name and logo only.
+        : { name: trimmed, logoUrl });
       toast({ title: "Contractor Updated", description: "Company details have been updated." });
       void fetchData();
     } catch (error: any) {
@@ -213,7 +221,9 @@ export default function CompaniesPage() {
           <p className="text-muted-foreground">
             {canManageCompanies
               ? 'Overview of operators and all connected contractor companies.'
-              : 'Request subcontractor registration and track operator approval before company activation.'}
+              : isManager
+                ? 'Companies you look after as focal point, and the other companies registered with your operator.'
+                : 'Request subcontractor registration and track operator approval before company activation.'}
           </p>
         </div>
         {canRegisterExternalCompany && (
@@ -224,14 +234,14 @@ export default function CompaniesPage() {
             </Button>}
             <Button disabled={loadingData || (!currentUser.operatorId && operators.length === 0)} onClick={() => setIsContractorFormOpen(true)}>
               <HardHat className="mr-2 h-4 w-4" />
-              {currentUser.role === 'Contractor Admin' ? 'Request subcontractor registration' : 'Register company'}
+              {currentUser.role === 'Contractor Admin' ? 'Request subcontractor registration' : isManager ? 'Register subcontractor' : 'Register company'}
             </Button>
           </div>
         )}
       </header>
       {loadError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 p-4"><p className="text-sm">{loadError}</p><Button variant="outline" disabled={loadingData} onClick={() => void fetchData()}>Retry company data</Button></div>}
       {!loadingData && !loadError && canRegisterExternalCompany && !currentUser.operatorId && operators.length === 0 && <p role="status" className="rounded-md border p-4 text-sm">No approved operator is linked to your company. An operator must approve the company relationship before you can register a subcontractor.</p>}
-      {submittedCompany && <div role="status" className="rounded-md border bg-muted/30 p-4"><p className="font-medium">Registration request submitted: {submittedCompany}</p><p className="mt-1 text-sm text-muted-foreground">Awaiting operator approval. The company and proposed administrator remain inactive. Track the decision in Registration requests.</p></div>}
+      {submittedCompany && <div role="status" className="rounded-md border bg-muted/30 p-4"><p className="font-medium">Registration request submitted: {submittedCompany}</p><p className="mt-1 text-sm text-muted-foreground">Awaiting operator approval. The company remains inactive until approved. Track the decision in Registration requests.</p></div>}
 
       {canRegisterExternalCompany && (
         <>
@@ -249,6 +259,8 @@ export default function CompaniesPage() {
             operators={operators}
             currentOperatorId={currentUser.operatorId ?? undefined}
             subcontractorRegistrationOnly={currentUser.role === 'Contractor Admin'}
+            focalPointCandidates={focalPointCandidates}
+            focalPointParentCompanies={isManager ? focalMainContractors : undefined}
           />
         </>
       )}
@@ -268,12 +280,14 @@ export default function CompaniesPage() {
         )}
 	        <ContractorsTable
               title={showCompanyApprovals ? (canManageCompanies ? 'Company approvals' : 'Registration requests') : 'External Companies'}
-              description={showCompanyApprovals ? (canManageCompanies ? 'Review subcontractor registration requests. Approval activates the company and invites its administrator; rejection requires a reason.' : 'Track your subcontractor requests. Pending companies and their administrators remain inactive until the operator approves.') : undefined}
+              description={showCompanyApprovals ? (canManageCompanies ? 'Review subcontractor registration requests. Approval activates the company; rejection requires a reason.' : 'Track your subcontractor requests. Pending companies remain inactive until the operator approves.') : undefined}
 	            contractors={showCompanyApprovals ? contractors.filter((company) => company.approvalStatus === 'PendingOperatorApproval' || company.approvalStatus === 'Rejected') : contractors}
 	            users={users}
 	            accessRequests={requests}
 	            isLoading={loadingData}
-	            onRenameContractor={canManageCompanies ? handleRenameContractor : undefined}
+	            onRenameContractor={canManageCompanies || focalCompanies.length > 0 ? handleRenameContractor : undefined}
+              focalPointCandidates={canManageCompanies ? focalPointCandidates : []}
+              canEditCompany={(company) => canManageCompanies || focalCompanies.some((focal) => focal.id === company.id)}
 	            onDeleteContractor={canManageCompanies ? handleDeleteContractor : undefined}
 	            canDelete={currentUser?.role === 'Admin'}
               canManage={canManageCompanies}

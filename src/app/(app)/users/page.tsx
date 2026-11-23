@@ -101,7 +101,8 @@ export default function UsersPage() {
                 : undefined
             )
           : Promise.resolve([]),
-        currentUser.role === "Operator Admin" ? Promise.resolve([]) : listContractorsRequest(token),
+        // Operator admins need the companies too: they add supervisors on a company focal point's behalf.
+        listContractorsRequest(token),
         listOperatorsRequest(token),
         listJobPositionsRequest(token),
       ]);

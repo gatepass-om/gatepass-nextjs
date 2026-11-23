@@ -202,6 +202,9 @@ export type Contractor = {
     approvalStatus?: 'PendingOperatorApproval' | 'Approved' | 'Rejected' | 'Unlinked';
     operatorId?: string;
     rejectionReason?: string | null;
+    /** The operator's manager who looks after this company. */
+    focalPointUserId?: string | null;
+    focalPointName?: string | null;
 }
 
 export const ExternalCompanyTypeNames = {
@@ -402,6 +405,8 @@ export type ContractorDetail = {
   approvalStatus?: string;
   rejectionReason?: string | null;
   parentContractorName?: string | null;
+  focalPointUserId?: string | null;
+  focalPointName?: string | null;
   id: string;
   tenantId?: string | null;
   tenantName?: string | null;
