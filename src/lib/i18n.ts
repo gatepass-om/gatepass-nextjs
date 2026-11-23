@@ -268,6 +268,22 @@ export const arabicTranslations: Record<string, string> = {
   'Electrical Technician': 'فني كهرباء',
   'pending)': 'معلّقة)',
   'Search by project, client, operator or contractor': 'ابحث بالمشروع أو العميل أو المشغل أو المقاول',
+  'Unable to load the project workspace.': 'تعذّر تحميل مساحة عمل المشاريع.',
+  'The work pass could not be updated.': 'تعذّر تحديث تصريح العمل.',
+  'The work pass could not be rejected.': 'تعذّر رفض تصريح العمل.',
+  'No projects match this view': 'لا توجد مشاريع مطابقة لهذا العرض',
+  'Create your first project': 'أنشئ مشروعك الأول',
+  'Try a different search or status filter.': 'جرّب بحثاً آخر أو اختر حالة مختلفة.',
+  'Projects connect operators, contractors, team members and work passes in one place.': 'تجمع المشاريع المشغلين والمقاولين وأعضاء الفريق وتصاريح العمل في مكان واحد.',
+  'Submitted': 'مُقدَّم',
+  'Ending soon': 'ينتهي قريباً',
+  'No client reference': 'لا يوجد مرجع للعميل',
+  'Review transfer': 'مراجعة النقل',
+  'Reject project work pass': 'رفض تصريح عمل المشروع',
+  'Record what the contractor must correct. The reason remains on the work-pass audit trail.': 'سجّل ما يجب على المقاول تصحيحه. يبقى السبب محفوظاً في سجل تدقيق تصريح العمل.',
+  'e.g. Worker credentials are incomplete.': 'مثال: وثائق العامل غير مكتملة.',
+  'Reject work pass': 'رفض تصريح العمل',
+  'Rejecting…': 'جارٍ الرفض…',
 };
 
 export function translateToArabic(value: string) {
