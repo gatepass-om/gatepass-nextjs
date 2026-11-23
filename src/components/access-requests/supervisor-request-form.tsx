@@ -42,7 +42,7 @@ const formSchema = z.object({
   operatorId: z.string({ error: (issue) => issue.input === undefined ? "Please select an operator." : undefined }),
   siteId: z.string({ error: (issue) => issue.input === undefined ? "Please select a site." : undefined }),
   contractNumber: z.string().min(1, { message: "Contract number is required." }),
-  focalPoint: z.string().min(2, { message: "Focal point name is required." }),
+  focalPoint: z.string().min(2, { message: "Site contact name is required." }),
   notes: z.string().optional(),
   workers: z.array(workerSchema).min(1, { message: "Please add at least one worker." }),
 });
@@ -271,8 +271,8 @@ export function SupervisorRequestForm({ supervisor, operators, sites, contractor
                                 name="focalPoint"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Operator Focal Point</FormLabel>
-                                        <FormControl><Input placeholder="e.g., Site Manager Name" {...field} /></FormControl>
+                                        <FormLabel>Site contact</FormLabel>
+                                        <FormControl><Input placeholder="e.g., the NAMA person you report to on site" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}

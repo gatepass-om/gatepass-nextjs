@@ -2,6 +2,7 @@
 'use client'
 
 import { z } from "zod";
+import { focalCompanyNames, focalPointLossWarning } from '@/lib/focal-points';
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,11 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
       control: form.control,
       name: 'role'
     });
+    const selectedStatus = useWatch({ control: form.control, name: "status" });
+    const focalPointWarning = user.role === 'Manager' && (user.status ?? 'Active') === 'Active'
+      && (selectedStatus === 'Inactive' || selectedRole !== 'Manager')
+      ? focalPointLossWarning(focalCompanyNames(user.id, contractors))
+      : null;
 
     useEffect(() => {
         if (!token) {
@@ -330,6 +336,11 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                 )}
               />
               </div>
+              {focalPointWarning ? (
+                <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  {focalPointWarning}
+                </p>
+              ) : null}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {selectedRole === "Contractor Admin" && currentUser.role === "Admin" && (
                 <FormField

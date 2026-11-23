@@ -112,6 +112,9 @@ export function ContractorsTable({ title = 'External Companies', description = '
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {contractor.focalPointName ?? <span className="text-muted-foreground">Not assigned</span>}
+                      {contractor.focalPointUserId && contractor.focalPointActive === false ? (
+                        <Badge variant="destructive" className="ml-2">Needs reassignment</Badge>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

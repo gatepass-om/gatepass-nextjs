@@ -205,6 +205,7 @@ export type Contractor = {
     /** The operator's manager who looks after this company. */
     focalPointUserId?: string | null;
     focalPointName?: string | null;
+    focalPointActive?: boolean;
 }
 
 export const ExternalCompanyTypeNames = {
@@ -407,6 +408,7 @@ export type ContractorDetail = {
   parentContractorName?: string | null;
   focalPointUserId?: string | null;
   focalPointName?: string | null;
+  focalPointActive?: boolean;
   id: string;
   tenantId?: string | null;
   tenantName?: string | null;

@@ -321,6 +321,10 @@ export const arabicTranslations: Record<string, string> = {
   'Select a contractor company.': 'اختر شركة مقاولات.',
   'Select company': 'اختر الشركة',
   'You': 'أنت',
+  'Needs reassignment': 'يحتاج إلى إعادة تعيين',
+  'Site contact': 'جهة الاتصال في الموقع',
+  'e.g., the NAMA person you report to on site': 'مثال: موظف نماء الذي تتواصل معه في الموقع',
+  'Site contact name is required.': 'اسم جهة الاتصال في الموقع مطلوب.',
 };
 
 export function translateToArabic(value: string) {
@@ -330,5 +334,7 @@ export function translateToArabic(value: string) {
   if (pageMatch) return `الصفحة ${pageMatch[1]} من ${pageMatch[2]}`;
   const totalProjects = /^(\d+) total projects$/.exec(value);
   if (totalProjects) return `${totalProjects[1]} مشروعاً إجمالاً`;
+  const focalLoss = /^This person is the focal point for (.+)\. Operator admins will be alerted to assign a new focal point\.$/.exec(value);
+  if (focalLoss) return `هذا الشخص هو نقطة الاتصال لـ ${focalLoss[1]}. سيتم تنبيه مسؤولي المشغل لتعيين نقطة اتصال جديدة.`;
   return value;
 }

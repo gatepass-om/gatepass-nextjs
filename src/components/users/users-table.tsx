@@ -35,6 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { focalCompanyNames, focalPointLossWarning } from '@/lib/focal-points';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -237,6 +238,11 @@ export function UsersTable({
                                           permanently delete the user account for{" "}
                                           {user.name} and remove all associated
                                           data.
+                                          {focalPointLossWarning(focalCompanyNames(user.id, contractors)) ? (
+                                            <span className="mt-2 block font-medium text-destructive">
+                                              {focalPointLossWarning(focalCompanyNames(user.id, contractors))}
+                                            </span>
+                                          ) : null}
                                         </AlertDialogDescription>
                                       </AlertDialogHeader>
                                       <AlertDialogFooter>
