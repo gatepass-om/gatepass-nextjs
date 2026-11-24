@@ -65,7 +65,7 @@ test('external-company principals use and report their enforced company scope', 
 
 test('optional company reference-data failures do not discard accessible sites', () => {
   assert.match(dashboardPage, /listOperatorsRequest\(token\)\.catch/);
-  assert.match(dashboardPage, /listExternalCompaniesRequest\(token\)\.catch/);
+  assert.match(dashboardPage, /listExternalCompaniesRequest\(token, \{ onlyMine: userRole === 'Manager' \}\)\.catch/);
   assert.doesNotMatch(
     dashboardPage,
     /Promise\.all\(\[\s*userRole === 'Operator Admin'[\s\S]+?listExternalCompaniesRequest\(token\)/,

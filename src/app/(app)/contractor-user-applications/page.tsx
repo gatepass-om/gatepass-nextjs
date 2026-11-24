@@ -85,7 +85,8 @@ export default function ContractorUserApplicationsPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [loadError, setLoadError] = useState('');
   const steps = ['Assignment', 'Personal details', 'Employment', 'Documents & review'];
-  const canCreate = currentUser?.role === 'Contractor Admin' || currentUser?.role === 'Admin';
+  // Applications are retired: the company's focal point adds supervisors and supervisors register workers.
+  const canCreate = false;
   const canDecide = ['Admin', 'Operator Admin', 'Manager'].includes(currentUser?.role ?? '');
   const canConfigure = ['Admin', 'Operator Admin'].includes(currentUser?.role ?? '');
 
@@ -229,6 +230,7 @@ export default function ContractorUserApplicationsPage() {
 
   return <div className="space-y-6 p-4 md:p-6">
     <div><h1 className="text-2xl font-semibold">{t('Contractor user approvals', 'اعتمادات مستخدمي المقاولين')}</h1><p className="text-sm text-muted-foreground">{t('Contractor login accounts are created only after NAMA review and independent final approval.', 'لا يتم إنشاء حسابات المقاولين إلا بعد مراجعة نماء والموافقة النهائية المستقلة.')}</p></div>
+    <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">{t('Account applications are no longer used. The company’s focal point adds supervisors, and supervisors register their workers. Earlier applications are kept here for reference.', 'لم تعد طلبات الحسابات مستخدمة. يضيف مسؤول الاتصال للشركة المشرفين، ويسجل المشرفون عمالهم. تبقى الطلبات السابقة هنا للرجوع إليها.')}</p>
 
     <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="link" asChild><Link href="/companies">Companies & subcontractor approvals</Link></Button><div className="flex gap-2">{canConfigure && <Button variant="outline" onClick={() => setSettingsOpen((value) => !value)}>Application settings</Button>}{canCreate && <Button disabled={loadingData || !!loadError || !operators.length} onClick={() => { setEditingId(null); setForm({ ...emptyForm, operatorId: operators[0]?.id ?? '', contractorId: currentUser?.contractorId || contractors[0]?.id || '' }); setCivilIdFile(null); setCertificateFile(null); setStep(0); setFormOpen(true); }}>New user application</Button>}</div></div>
     {loadError && <div role="alert" className="rounded-md border border-destructive p-4 text-sm">{loadError}<Button className="ml-3" variant="outline" onClick={() => void reload().catch(() => undefined)}>Retry</Button></div>}

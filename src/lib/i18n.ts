@@ -325,6 +325,18 @@ export const arabicTranslations: Record<string, string> = {
   'Site contact': 'جهة الاتصال في الموقع',
   'e.g., the NAMA person you report to on site': 'مثال: موظف نماء الذي تتواصل معه في الموقع',
   'Site contact name is required.': 'اسم جهة الاتصال في الموقع مطلوب.',
+  'Team and assignments': 'الفريق والتكليفات',
+  'See where each person is assigned': 'اعرف أين يعمل كل شخص',
+  'People': 'الأشخاص',
+  'On site now': 'في الموقع الآن',
+  'On a live work pass': 'على تصريح عمل ساري',
+  'Where now': 'الموقع الحالي',
+  'Assigned to': 'مكلف بـ',
+  'Person': 'الشخص',
+  'Search name, role, project or site': 'ابحث بالاسم أو الدور أو المشروع أو الموقع',
+  'Nobody matches your search.': 'لا يوجد من يطابق بحثك.',
+  'No people registered yet.': 'لا يوجد أشخاص مسجلون بعد.',
+  'Supervisors, workers and visitors registered under this company.': 'المشرفون والعمال والزوار المسجلون تحت هذه الشركة.',
 };
 
 export function translateToArabic(value: string) {

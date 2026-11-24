@@ -110,10 +110,10 @@ export function ContractorsTable({ title = 'External Companies', description = '
                       {contractor.parentContractorName && <div className="mt-1 text-xs text-muted-foreground">Main: {contractor.parentContractorName}</div>}
                       {contractor.rejectionReason && <p className="mt-2 max-w-xs whitespace-normal text-sm text-destructive">Reason: {contractor.rejectionReason}</p>}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {contractor.focalPointName ?? <span className="text-muted-foreground">Not assigned</span>}
+                    <TableCell>
+                      <div className="whitespace-nowrap">{contractor.focalPointName ?? <span className="text-muted-foreground">Not assigned</span>}</div>
                       {contractor.focalPointUserId && contractor.focalPointActive === false ? (
-                        <Badge variant="destructive" className="ml-2">Needs reassignment</Badge>
+                        <Badge variant="destructive" className="mt-1">Needs reassignment</Badge>
                       ) : null}
                     </TableCell>
                     <TableCell>

@@ -121,7 +121,6 @@ export function SidebarNav() {
       '/sites': Building2,
       '/companies': Briefcase,
       '/users': Users,
-      '/contractor-user-applications': ClipboardCheck,
       '/certificates': FileBadge,
       '/profile': UserIcon,
       '/notifications': BellRing,

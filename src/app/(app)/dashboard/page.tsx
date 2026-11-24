@@ -170,7 +170,7 @@ export default function DashboardPage() {
         : Promise.resolve([]);
       const companiesRequest = userContractorId
         ? Promise.resolve([])
-        : listExternalCompaniesRequest(token).catch((error) => {
+        : listExternalCompaniesRequest(token, { onlyMine: userRole === 'Manager' }).catch((error) => {
           console.warn('External-company dashboard filter is unavailable', error);
           return [];
         });
