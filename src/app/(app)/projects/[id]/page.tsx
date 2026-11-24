@@ -181,7 +181,7 @@ export default function ProjectCommandCenterPage() {
       {notice ? <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
       {canAssignConsultantVerifier ? (
         <section className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="font-semibold text-amber-950">Consultant verifier required</h2><p className="mt-1 text-sm text-amber-800">This project is waiting for your consultant company to assign a supervisor before worker access can be verified.</p></div>
+          <div><h2 className="font-semibold text-amber-950">Consultant verifier required</h2><p className="mt-1 text-sm text-amber-800">This project is waiting for a consultant supervisor to be assigned as verifier before worker access can be verified.</p></div>
           <Button size="sm" onClick={() => setAssigningVerifier(true)}>Assign verifier</Button>
         </section>
       ) : null}

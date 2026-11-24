@@ -339,6 +339,7 @@ export const arabicTranslations: Record<string, string> = {
   'Supervisors, workers and visitors registered under this company.': 'المشرفون والعمال والزوار المسجلون تحت هذه الشركة.',
   'Delegate to the consultant’s focal point': 'تفويض مسؤول الاتصال لدى الاستشاري',
   'Select one active supervisor of the consultant company to verify this project’s worker-access requests.': 'اختر مشرفًا نشطًا واحدًا من الشركة الاستشارية للتحقق من طلبات وصول العمال لهذا المشروع.',
+  'This project is waiting for a consultant supervisor to be assigned as verifier before worker access can be verified.': 'ينتظر هذا المشروع تعيين مشرف استشاري كمتحقق قبل التحقق من وصول العمال.',
 };
 
 export function translateToArabic(value: string) {
