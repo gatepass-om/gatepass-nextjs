@@ -80,7 +80,8 @@ export default function PersonnelProfilePage() {
             ? { operatorId: currentUser.operatorId }
             : undefined)
           : Promise.resolve([]),
-        currentUser.role === 'Operator Admin' ? Promise.resolve([]) : listContractorsRequest(token),
+        // Operator admins need the company list too: the edit form warns before a focal point is deactivated.
+        listContractorsRequest(token).catch(() => []),
         listOperatorsRequest(token),
         listJobPositionsRequest(token),
       ]);

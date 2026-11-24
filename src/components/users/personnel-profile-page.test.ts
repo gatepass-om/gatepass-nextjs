@@ -35,3 +35,8 @@ test('company-scoped administrators never fall back to an unscoped personnel req
   assert.match(source, /currentUser\.role === 'Operator Admin' && !currentUser\.operatorId/);
   assert.match(source, /currentUser\.role === 'Contractor Admin' && !currentUser\.contractorId/);
 });
+
+test('operator admins load the company list so the edit form can warn about losing a focal point', () => {
+  assert.doesNotMatch(source, /currentUser\.role === 'Operator Admin' \? Promise\.resolve\(\[\]\) : listContractorsRequest/);
+  assert.match(source, /listContractorsRequest\(token\)\.catch\(\(\) => \[\]\)/);
+});
