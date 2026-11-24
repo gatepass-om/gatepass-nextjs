@@ -337,6 +337,8 @@ export const arabicTranslations: Record<string, string> = {
   'Nobody matches your search.': 'لا يوجد من يطابق بحثك.',
   'No people registered yet.': 'لا يوجد أشخاص مسجلون بعد.',
   'Supervisors, workers and visitors registered under this company.': 'المشرفون والعمال والزوار المسجلون تحت هذه الشركة.',
+  'Delegate to the consultant’s focal point': 'تفويض مسؤول الاتصال لدى الاستشاري',
+  'Select one active supervisor of the consultant company to verify this project’s worker-access requests.': 'اختر مشرفًا نشطًا واحدًا من الشركة الاستشارية للتحقق من طلبات وصول العمال لهذا المشروع.',
 };
 
 export function translateToArabic(value: string) {

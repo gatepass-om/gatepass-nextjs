@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { apiRequest, listUsersRequest } from '@/lib/api';
+import { apiRequest, getContractorDetailRequest, listUsersRequest } from '@/lib/api';
 import type { Site, User } from '@/lib/types';
 import { useSession } from '@/providers/session-provider';
 import type { ProjectRecord } from '@/components/projects/project-wizard-dialog';
@@ -49,6 +49,7 @@ export default function ProjectCommandCenterPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [activity, setActivity] = useState<AuditEntry[]>([]);
   const [consultantSupervisors, setConsultantSupervisors] = useState<User[]>([]);
+  const [canAssignAsNws, setCanAssignAsNws] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -72,18 +73,32 @@ export default function ProjectCommandCenterPage() {
           ? listUsersRequest(token, { role: 'Supervisor', contractorId: user.contractorId, pageSize: 250 }).catch(() => [])
           : Promise.resolve([]),
       ]);
+      // The consultant's focal point (a NWS manager) or an operator admin picks a delegated verifier.
+      let verifierCandidates = supervisorData as User[];
+      let isConsultantFocalPoint = false;
+      if (projectData.isConsultantVerifierDelegationPending && projectData.consultantCompanyId
+        && (user?.role === 'Manager' || user?.role === 'Operator Admin')) {
+        const consultant = user.role === 'Manager'
+          ? await getContractorDetailRequest(token, projectData.consultantCompanyId).catch(() => null)
+          : null;
+        isConsultantFocalPoint = Boolean(consultant && consultant.focalPointUserId === user.id && consultant.focalPointActive);
+        if (isConsultantFocalPoint || user.role === 'Operator Admin') {
+          verifierCandidates = await listUsersRequest(token, { role: 'Supervisor', contractorId: projectData.consultantCompanyId, pageSize: 250 }).catch(() => []) as User[];
+        }
+      }
+      setCanAssignAsNws(isConsultantFocalPoint || (user?.role === 'Operator Admin' && Boolean(projectData.isConsultantVerifierDelegationPending)));
       setProject(projectData);
       setWorkPasses(passData);
       setSites(getProjectSites(projectData.sites ?? []));
       setUsers(userData as User[]);
       setActivity(auditData);
-      setConsultantSupervisors(supervisorData as User[]);
+      setConsultantSupervisors(verifierCandidates);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load this project.');
     } finally {
       setLoading(false);
     }
-  }, [params.id, token, user?.contractorId]);
+  }, [params.id, token, user?.contractorId, user?.id, user?.role]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -92,9 +107,8 @@ export default function ProjectCommandCenterPage() {
   const canCreateRequest = Boolean(project && user && project.status === 'Active'
     && ['Contractor Admin', 'Supervisor'].includes(user.role)
     && (!user.contractorId || project.contractors.some((item) => item.contractorId === user.contractorId)));
-  const canAssignConsultantVerifier = Boolean(project && user?.role === 'Contractor Admin'
-    && user.contractorId === project.consultantCompanyId
-    && project.isConsultantVerifierDelegationPending);
+  const canAssignConsultantVerifier = Boolean(project && project.isConsultantVerifierDelegationPending
+    && ((user?.role === 'Contractor Admin' && user.contractorId === project.consultantCompanyId) || canAssignAsNws));
 
   async function runAction(pass: WorkPass, action: 'submit' | 'approve' | 'second-approve') {
     if (!token) return;
@@ -195,7 +209,7 @@ export default function ProjectCommandCenterPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-950">Activity history</h2>{activity.length ? <ol className="mt-4 divide-y divide-slate-100">{activity.map((item) => <li key={item.id} className="flex gap-3 py-3"><span className="mt-1 h-2 w-2 rounded-full bg-blue-500" /><div className="min-w-0"><p className="text-sm text-slate-800">{item.summary}</p><p className="mt-0.5 text-xs text-slate-400">{formatDateTime(item.occurredAtUtc)}{item.actorRole ? ` · ${item.actorRole}` : ' · System'}</p></div></li>)}</ol> : <p className="mt-3 text-sm text-slate-500">No project activity is available for your role yet.</p>}</section>
 
       <WorkerAccessDialog open={requestOpen} onOpenChange={setRequestOpen} token={token ?? ''} project={project} sites={sites} users={users} currentUser={user} onCreated={load} />
-      <Dialog open={assigningVerifier} onOpenChange={setAssigningVerifier}><DialogContent><DialogHeader><DialogTitle>Assign consultant verifier</DialogTitle><DialogDescription>Select one active supervisor from your company. This is the only project setting a consultant administrator can change.</DialogDescription></DialogHeader><div className="py-3"><Label htmlFor="consultant-verifier">Supervisor</Label><select id="consultant-verifier" className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={selectedVerifierId} onChange={(event) => setSelectedVerifierId(event.target.value)}><option value="">Select supervisor</option>{consultantSupervisors.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.email ? ` · ${supervisor.email}` : ''}</option>)}</select>{!consultantSupervisors.length ? <p className="mt-2 text-sm text-amber-700">No active supervisors are available for this consultant company.</p> : null}</div><DialogFooter><Button variant="outline" onClick={() => setAssigningVerifier(false)}>Cancel</Button><Button disabled={!selectedVerifierId} onClick={() => void assignConsultantVerifier()}>Assign verifier</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={assigningVerifier} onOpenChange={setAssigningVerifier}><DialogContent><DialogHeader><DialogTitle>Assign consultant verifier</DialogTitle><DialogDescription>Select one active supervisor of the consultant company to verify this project’s worker-access requests.</DialogDescription></DialogHeader><div className="py-3"><Label htmlFor="consultant-verifier">Supervisor</Label><select id="consultant-verifier" className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={selectedVerifierId} onChange={(event) => setSelectedVerifierId(event.target.value)}><option value="">Select supervisor</option>{consultantSupervisors.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.email ? ` · ${supervisor.email}` : ''}</option>)}</select>{!consultantSupervisors.length ? <p className="mt-2 text-sm text-amber-700">No active supervisors are available for this consultant company.</p> : null}</div><DialogFooter><Button variant="outline" onClick={() => setAssigningVerifier(false)}>Cancel</Button><Button disabled={!selectedVerifierId} onClick={() => void assignConsultantVerifier()}>Assign verifier</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={Boolean(rejecting)} onOpenChange={(open) => { if (!open) { setRejecting(null); setRejectionReason(''); } }}><DialogContent><DialogHeader><DialogTitle>Reject worker access</DialogTitle><DialogDescription>The contractor and affected workers will receive this reason in-system and by email when available.</DialogDescription></DialogHeader><div className="py-3"><Label htmlFor="rejection">Reason</Label><Textarea id="rejection" className="mt-2" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} placeholder="Explain what must be corrected" /></div><DialogFooter><Button variant="outline" onClick={() => setRejecting(null)}>Cancel</Button><Button variant="destructive" disabled={!rejectionReason.trim()} onClick={() => void rejectPass()}>Reject request</Button></DialogFooter></DialogContent></Dialog>
     </div>
   );

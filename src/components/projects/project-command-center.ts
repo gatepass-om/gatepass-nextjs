@@ -51,7 +51,7 @@ export function getWorkPassActions(
   actor: WorkflowActor,
 ): WorkPassAction[] {
   if (!actor.id) return [];
-  if (workPass.status === 'PendingContractorApproval' && actor.role === 'Contractor Admin'
+  if (workPass.status === 'PendingContractorApproval' && ['Contractor Admin', 'Supervisor'].includes(actor.role ?? '') && Boolean(actor.contractorId)
     && workPass.workers?.some(worker => worker.transferStatus === 'Pending' && worker.contractorId === actor.contractorId)) return ['review-transfer'];
   if (workPass.status === 'Draft' && workPass.submittedByUserId === actor.id) return ['submit'];
   const isOperatorApprover = ['Operator Admin', 'Manager'].includes(actor.role ?? '')

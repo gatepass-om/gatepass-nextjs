@@ -361,7 +361,7 @@ export function ProjectWizardDialog({
             </Field>
             <Field label="Consultant verifier" hint="Optional. If you leave this unassigned, the consultant administrator is notified to choose one of their supervisors. The operator makes the final decision and can override the verification.">
               <select value={draft.supervisorUserId} onChange={(event) => updateField('supervisorUserId', event.target.value)} className={inputClass()} disabled={!draft.consultantCompanyId}>
-                <option value="">Delegate to consultant administrator</option>
+                <option value="">Delegate to the consultant’s focal point</option>
                 {consultantSupervisorOptions.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.email ? ` · ${supervisor.email}` : ''}</option>)}
               </select>
             </Field>

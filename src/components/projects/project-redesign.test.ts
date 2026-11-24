@@ -39,7 +39,7 @@ test('project create and edit use a four-step wizard with back and next navigati
   assert.match(wizard, /step === ['"]details['"]/);
   assert.match(wizard, /step === ['"]review['"]/);
   assert.match(wizard, /Consultant verifier/);
-  assert.match(wizard, /Delegate to consultant administrator/);
+  assert.match(wizard, /Delegate to the consultant’s focal point/);
   assert.match(wizard, /supervisorUserId/);
 });
 

@@ -46,7 +46,7 @@ export function WorkerTransferReview({ passId, status, projectName, siteName, wo
     <p className="mt-1 text-sm text-muted-foreground">Destination: {projectName} · {siteName}. The employing contractor decides the transfer; site access moves after the destination operator approves.</p>
     {error ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
     <ul className="mt-4 divide-y">{transfers.map(worker => {
-      const canDecide = status === 'PendingContractorApproval' && worker.transferStatus === 'Pending' && user?.role === 'Contractor Admin' && user.contractorId === worker.contractorId;
+      const canDecide = status === 'PendingContractorApproval' && worker.transferStatus === 'Pending' && (user?.role === 'Contractor Admin' || user?.role === 'Supervisor') && Boolean(user?.contractorId) && user?.contractorId === worker.contractorId;
       return <li key={worker.userId} className="space-y-3 py-4 first:pt-0">
         <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-medium">{worker.name}</h3><Badge variant="outline">{worker.transferStatus === 'Applied' ? 'Transferred' : `${worker.transferStatus} contractor decision`}</Badge></div>
         <div className="text-sm"><p className="font-medium">{worker.transferStatus === 'Applied' ? 'Previous assignment' : 'Current assignment'}</p><ul className="mt-1 space-y-1 text-muted-foreground">{worker.transferSources?.map((source, index) => <li key={index}>{source.projectName} · {source.siteName || 'Project roster; no site assigned'}</li>)}</ul></div>
