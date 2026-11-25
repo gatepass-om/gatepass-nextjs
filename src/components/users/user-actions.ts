@@ -12,6 +12,57 @@ export function canEditUserRecord(canMutateUsers: boolean, _role: UserRole) {
   return canMutateUsers;
 }
 
+type PersonRef = { role: UserRole; contractorId?: string | null };
+
+/**
+ * Who may edit a person's file. Mirrors the API: supervisors look after their
+ * own company's workers and visitors, a focal point (Manager) looks after a
+ * company's supervisors and the operator's own staff, and operator admins
+ * manage the operator's people and contractor supervisors (supervisors
+ * register their own workers).
+ */
+export function canEditPersonRecord(viewer: PersonRef, subject: PersonRef) {
+  const subjectCompany = subject.contractorId || null;
+  switch (viewer.role) {
+    case 'Admin':
+      return true;
+    case 'Operator Admin':
+      return !subjectCompany || subject.role === 'Supervisor';
+    case 'Contractor Admin':
+      return !!viewer.contractorId && subjectCompany === viewer.contractorId;
+    case 'Supervisor':
+      return !!viewer.contractorId
+        && subjectCompany === viewer.contractorId
+        && ['Worker', 'Visitor'].includes(subject.role);
+    case 'Manager':
+      return subjectCompany
+        ? subject.role === 'Supervisor'
+        : ['Security', 'Inspector', 'Worker', 'Visitor'].includes(subject.role);
+    default:
+      return false;
+  }
+}
+
+/** Roles a viewer may give the person they are editing. */
+export function editableRolesFor(viewer: PersonRef, subject: PersonRef): UserRole[] {
+  switch (viewer.role) {
+    case 'Admin':
+      return ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector'];
+    case 'Operator Admin':
+      return subject.contractorId ? ['Supervisor'] : ['Manager', 'Security', 'Worker', 'Inspector'];
+    case 'Contractor Admin':
+      return ['Supervisor', 'Worker', 'Visitor'];
+    case 'Supervisor':
+      return ['Worker', 'Visitor'];
+    case 'Manager':
+      return subject.contractorId ? ['Supervisor'] : ['Security', 'Inspector', 'Worker', 'Visitor'];
+    case 'Security':
+      return ['Visitor'];
+    default:
+      return [];
+  }
+}
+
 export function canLoadPersonnelData(role: UserRole) {
   return PERSONNEL_PAGE_ROLES.includes(role);
 }

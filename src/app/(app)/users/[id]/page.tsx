@@ -5,7 +5,7 @@ import { ArrowLeft, BriefcaseBusiness, Building2, Loader2, Mail, MapPinned, Shie
 import { useParams, useRouter } from 'next/navigation';
 import { EditUserForm } from '@/components/users/edit-user-form';
 import {
-  canEditUserRecord,
+  canEditPersonRecord,
   canManageWorkerCard,
   canReviewWorkerCompliance,
   PERSONNEL_PAGE_ROLES,
@@ -139,9 +139,10 @@ export default function PersonnelProfilePage() {
   const companyName = resolveUserCompanyName(user, contractors, operators);
   const assignedSiteName = sites.find((site) => site.id === user.assignedSiteId)?.name;
   const isChildCompanyPersonnel = currentUser.role === 'Contractor Admin' && user.contractorId !== currentUser.contractorId;
-  const canEdit = !isChildCompanyPersonnel && canEditUserRecord(['Admin', 'Operator Admin', 'Contractor Admin'].includes(currentUser.role), user.role);
+  const canEdit = !isChildCompanyPersonnel && canEditPersonRecord(currentUser, user);
+  const canManageEvidence = canEdit || currentUser.role === 'Operator Admin';
   const showCompliance = !isChildCompanyPersonnel && shouldShowWorkerDocuments(user.role)
-    && (canEdit || canReviewWorkerCompliance(currentUser.role, user.role));
+    && (canManageEvidence || canReviewWorkerCompliance(currentUser.role, user.role));
   const showCard = !isChildCompanyPersonnel && canManageWorkerCard(currentUser.role, user.status);
 
   return (
@@ -204,7 +205,7 @@ export default function PersonnelProfilePage() {
 
       {showCompliance && (
         <div className="space-y-6">
-          <WorkerDocuments workerId={user.id} canManage={canEdit} documentTypeFilter="IdDocument" title="Civil ID evidence" description="Upload the Civil ID copy for review. Set its expiry date in the personnel details above." />
+          <WorkerDocuments workerId={user.id} canManage={canManageEvidence} documentTypeFilter="IdDocument" title="Civil ID evidence" description="Upload the Civil ID copy for review. Set its expiry date in the personnel details above." />
           <WorkerDocuments workerId={user.id} canManage={false} documentTypeFilter="Photo" title="Photo verification" description="Review the uploaded profile photo before issuing a personnel card. Upload or replace the photo from the profile picture above." />
           <WorkerClearance key={`${user.id}-${user.clearanceStatus}`} workerId={user.id} initialStatus={user.clearanceStatus} />
           <WorkerPositionCompliancePanel workerId={user.id} />

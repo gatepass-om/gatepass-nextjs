@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { buildEmploymentPayload } from '@/components/compliance/compliance-model';
 import { resolveEditAffiliation } from './user-affiliation';
 import { NATIONALITY_OPTIONS } from './nationalities';
+import { editableRolesFor } from './user-actions';
 import { isMaskedIdentityNumber } from '@/lib/user-profile';
 
 
@@ -67,17 +68,9 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
     const { token } = useSession();
     const { toast } = useToast();
     const roles = React.useMemo<UserRole[]>(() => {
-      const permitted: UserRole[] = currentUser.role === 'Admin'
-        ? ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector']
-        : currentUser.role === 'Operator Admin'
-          ? ['Manager', 'Security', 'Worker', 'Inspector']
-          : currentUser.role === 'Contractor Admin'
-            ? ['Supervisor', 'Worker', 'Visitor']
-            : currentUser.role === 'Security'
-              ? ['Visitor']
-              : [];
+      const permitted = editableRolesFor(currentUser, user);
       return permitted.includes(user.role) ? permitted : [user.role, ...permitted];
-    }, [currentUser.role, user.role]);
+    }, [currentUser, user]);
     const statuses: UserStatus[] = ['Active', 'Inactive'];
 
     const form = useForm<FormValues>({
