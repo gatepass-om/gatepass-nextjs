@@ -22,3 +22,10 @@ test('worker registration can return to the requesting project', () => {
   assert.match(usersPage, /searchParams\.get\(['"]new['"]\)/);
   assert.match(usersPage, /searchParams\.get\(['"]returnTo['"]\)/);
 });
+
+test('worker access dates are whole UTC days, like the project window they must fit in', () => {
+  const page = readFileSync(new URL('../../app/(app)/projects/[id]/page.tsx', import.meta.url), 'utf8');
+  assert.match(page, /validFromUtc: `\$\{from\}T00:00:00\.000Z`/);
+  assert.match(page, /validToUtc: `\$\{to\}T23:59:59\.000Z`/);
+  assert.match(page, /timeZone: 'UTC'/);
+});

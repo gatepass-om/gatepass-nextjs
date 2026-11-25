@@ -14,9 +14,17 @@ export type CommandCenterWorkPass = {
   projectId: string;
   status: string;
   submittedByUserId: string;
+  submittingContractorId?: string | null;
 };
 
-export type WorkflowActor = { id?: string; role?: string; operatorId?: string; contractorId?: string };
+/** focalCompanyIds: the companies a manager is NWS focal point for; they decide only those companies' requests. */
+export type WorkflowActor = { id?: string; role?: string; operatorId?: string; contractorId?: string; focalCompanyIds?: string[] };
+/** The companies whose active NWS focal point is this manager. */
+export function focalCompanyIdsFor(companies: Array<{ id: string; focalPointUserId?: string | null; focalPointActive?: boolean }>, userId?: string) {
+  if (!userId) return [];
+  return companies.filter(company => company.focalPointUserId === userId && company.focalPointActive !== false).map(company => company.id);
+}
+
 export type WorkPassAction = 'submit' | 'approve' | 'second-approve' | 'reject' | 'review-transfer';
 export type WorkflowStageState = 'completed' | 'current' | 'upcoming' | 'attention';
 
@@ -54,8 +62,10 @@ export function getWorkPassActions(
   if (workPass.status === 'PendingContractorApproval' && ['Contractor Admin', 'Supervisor'].includes(actor.role ?? '') && Boolean(actor.contractorId)
     && workPass.workers?.some(worker => worker.transferStatus === 'Pending' && worker.contractorId === actor.contractorId)) return ['review-transfer'];
   if (workPass.status === 'Draft' && workPass.submittedByUserId === actor.id) return ['submit'];
-  const isOperatorApprover = ['Operator Admin', 'Manager'].includes(actor.role ?? '')
-    && actor.operatorId === project.operatorId;
+  const isOperatorApprover = actor.operatorId === project.operatorId
+    && (actor.role === 'Operator Admin'
+      || (actor.role === 'Manager' && Boolean(workPass.submittingContractorId)
+        && (actor.focalCompanyIds ?? []).includes(workPass.submittingContractorId!)));
   const isAssignedConsultantVerifier = project.supervisorUserId === actor.id
     && actor.role === 'Supervisor'
     && actor.contractorId === project.consultantCompanyId;
