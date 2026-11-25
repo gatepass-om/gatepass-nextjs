@@ -337,9 +337,13 @@ export const arabicTranslations: Record<string, string> = {
   'Nobody matches your search.': 'لا يوجد من يطابق بحثك.',
   'No people registered yet.': 'لا يوجد أشخاص مسجلون بعد.',
   'Supervisors, workers and visitors registered under this company.': 'المشرفون والعمال والزوار المسجلون تحت هذه الشركة.',
-  'Delegate to the consultant’s focal point': 'تفويض مسؤول الاتصال لدى الاستشاري',
+  'Delegate to the consultant’s focal point': 'التفويض إلى نقطة الاتصال لدى الاستشاري',
   'Select one active supervisor of the consultant company to verify this project’s worker-access requests.': 'اختر مشرفًا نشطًا واحدًا من الشركة الاستشارية للتحقق من طلبات وصول العمال لهذا المشروع.',
   'This project is waiting for a consultant supervisor to be assigned as verifier before worker access can be verified.': 'ينتظر هذا المشروع تعيين مشرف استشاري كمتحقق قبل التحقق من وصول العمال.',
+  'Optional. If you leave this unassigned, the consultant’s focal point is notified to choose one of its supervisors. The operator makes the final decision and can override the verification.': 'اختياري. إذا تركته دون تعيين، تُبلَّغ نقطة الاتصال لدى الاستشاري لاختيار أحد مشرفيه. يتخذ المشغّل القرار النهائي ويمكنه تجاوز التحقق.',
+  'Delegated to the consultant’s focal point': 'مفوَّض إلى نقطة الاتصال لدى الاستشاري',
+  'Check the document attached to each certificate. Every certificate the job position needs must be verified before the worker can be cleared. Add certificates in the personnel data above.': 'راجع المستند المرفق بكل شهادة. يجب التحقق من كل شهادة يتطلبها المسمى الوظيفي قبل منح العامل التصريح. أضف الشهادات في بيانات الموظف أعلاه.',
+  'Under review': 'قيد المراجعة',
 };
 
 export function translateToArabic(value: string) {

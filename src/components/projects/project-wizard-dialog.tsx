@@ -359,7 +359,7 @@ export function ProjectWizardDialog({
                 {consultantCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
               </select>
             </Field>
-            <Field label="Consultant verifier" hint="Optional. If you leave this unassigned, the consultant administrator is notified to choose one of their supervisors. The operator makes the final decision and can override the verification.">
+            <Field label="Consultant verifier" hint="Optional. If you leave this unassigned, the consultant’s focal point is notified to choose one of its supervisors. The operator makes the final decision and can override the verification.">
               <select value={draft.supervisorUserId} onChange={(event) => updateField('supervisorUserId', event.target.value)} className={inputClass()} disabled={!draft.consultantCompanyId}>
                 <option value="">Delegate to the consultant’s focal point</option>
                 {consultantSupervisorOptions.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.email ? ` · ${supervisor.email}` : ''}</option>)}
@@ -407,7 +407,7 @@ export function ProjectWizardDialog({
             <StepHeading title="Review project" description="Confirm the scope and participants before saving." />
             <dl className="grid gap-4 rounded-xl border border-slate-200 p-5 sm:grid-cols-2">
               <ReviewItem label="Project" value={draft.name} />
-              <ReviewItem label="Consultant verifier" value={consultantSupervisorOptions.find((item) => item.id === draft.supervisorUserId)?.name ?? 'Delegated to consultant administrator'} />
+              <ReviewItem label="Consultant verifier" value={consultantSupervisorOptions.find((item) => item.id === draft.supervisorUserId)?.name ?? 'Delegated to the consultant’s focal point'} />
               <ReviewItem label="Operating period" value={`${draft.validFromUtc} – ${draft.validToUtc}`} />
               <ReviewItem label="Sites" value={`${draft.siteIds.length} selected`} />
               <ReviewItem label="Contractors" value={`${draft.contractorIds.length} selected`} />

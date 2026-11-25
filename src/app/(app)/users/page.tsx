@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import type { User, Site, Contractor, Operator, JobPosition } from "@/lib/types";
+import type { User, Site, Contractor, Operator, JobPosition, UserRole } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { UsersTable } from "@/components/users/users-table";
 import { BulkRegistration } from "@/components/users/bulk-registration";
+import { isContractorSupervisorForOperatorStaff } from "@/components/users/inline-user-row";
 import {
   canLoadPersonnelData,
   PERSONNEL_PAGE_ROLES,
@@ -115,9 +116,9 @@ export default function UsersPage() {
 
       let userFilters: { operatorId?: string; contractorId?: string } = {};
       if (currentUser.role === "Operator Admin") {
-        if (currentUser.operatorId) {
-          userFilters.operatorId = currentUser.operatorId;
-        } else {
+        // The API already limits an operator admin to the operator's own staff and the people of
+        // companies registered with it, so contractor workers can be reviewed and cleared here.
+        if (!currentUser.operatorId) {
           setUsers([]);
           setLoading(false);
           return;
@@ -165,8 +166,13 @@ export default function UsersPage() {
     let contractorId = newUser.contractorId;
 
     if (currentUser.role === "Operator Admin" || currentUser.role === "Manager") {
-      operatorId = currentUser.operatorId ?? undefined;
-      contractorId = undefined;
+      if (isContractorSupervisorForOperatorStaff(currentUser.role, newUser.role as UserRole) && contractorId) {
+        // A company supervisor added by its focal point or an operator admin belongs to that company only.
+        operatorId = undefined;
+      } else {
+        operatorId = currentUser.operatorId ?? undefined;
+        contractorId = undefined;
+      }
     }
     if (currentUser.role === "Contractor Admin" || currentUser.role === "Supervisor") {
       contractorId = currentUser.contractorId ?? undefined;

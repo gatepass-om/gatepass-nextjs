@@ -66,9 +66,6 @@ export default function PersonnelProfilePage() {
       }
 
       const userFilters: { operatorId?: string; contractorId?: string } = {};
-      if (currentUser.role === 'Operator Admin' && currentUser.operatorId) {
-        userFilters.operatorId = currentUser.operatorId;
-      }
       if (currentUser.role === 'Contractor Admin' && currentUser.contractorId) {
         userFilters.contractorId = currentUser.contractorId;
       }
@@ -207,6 +204,7 @@ export default function PersonnelProfilePage() {
         <div className="space-y-6">
           <WorkerDocuments workerId={user.id} canManage={canManageEvidence} documentTypeFilter="IdDocument" title="Civil ID evidence" description="Upload the Civil ID copy for review. Set its expiry date in the personnel details above." />
           <WorkerDocuments workerId={user.id} canManage={false} documentTypeFilter="Photo" title="Photo verification" description="Review the uploaded profile photo before issuing a personnel card. Upload or replace the photo from the profile picture above." />
+          <WorkerDocuments workerId={user.id} canManage={false} documentTypeFilter="Certificate" title="Certificate evidence" description="Check the document attached to each certificate. Every certificate the job position needs must be verified before the worker can be cleared. Add certificates in the personnel data above." />
           <WorkerClearance key={`${user.id}-${user.clearanceStatus}`} workerId={user.id} initialStatus={user.clearanceStatus} />
           <WorkerPositionCompliancePanel workerId={user.id} />
           <WorkerTimeline workerId={user.id} />

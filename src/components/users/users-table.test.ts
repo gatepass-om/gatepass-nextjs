@@ -51,3 +51,15 @@ test('the personnel list reloads server state after create and delete', () => {
   const reloads = pageSource.match(/await fetchData\(\)/g) ?? [];
   assert.ok(reloads.length >= 3, 'create, delete, and activation resend should reload personnel');
 });
+
+test('a supervisor added by a focal point or operator admin keeps the chosen company', () => {
+  const page = readFileSync(new URL('../../app/(app)/users/page.tsx', import.meta.url), 'utf8');
+  assert.match(page, /isContractorSupervisorForOperatorStaff\(currentUser\.role, newUser\.role as UserRole\) && contractorId/);
+});
+
+test('operator admins see the contractor people the API scopes to them, not only operator staff', () => {
+  const page = readFileSync(new URL('../../app/(app)/users/page.tsx', import.meta.url), 'utf8');
+  const profile = readFileSync(new URL('../../app/(app)/users/[id]/page.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(page, /userFilters\.operatorId = currentUser\.operatorId/);
+  assert.doesNotMatch(profile, /userFilters\.operatorId = currentUser\.operatorId/);
+});

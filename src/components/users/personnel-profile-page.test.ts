@@ -25,10 +25,10 @@ test('the personnel profile route loads the selected record and supports editing
   assert.match(source, /await loadProfile\(\)/);
 });
 
-test('certificate evidence is uploaded beside each certificate rather than in a separate document section', () => {
+test('certificate evidence is uploaded beside each certificate; its own section is for review only', () => {
   assert.match(source, /documentTypeFilter="IdDocument"/);
   assert.match(source, /documentTypeFilter="Photo"/);
-  assert.doesNotMatch(source, /documentTypeFilter="Certificate"/);
+  assert.match(source, /canManage=\{false\} documentTypeFilter="Certificate"/);
 });
 
 test('company-scoped administrators never fall back to an unscoped personnel request', () => {

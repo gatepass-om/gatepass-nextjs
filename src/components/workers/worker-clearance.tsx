@@ -11,7 +11,7 @@ import { transitionWorkerClearance, type WorkerClearanceAction } from '@/lib/api
 import type { User } from '@/lib/types';
 import { useSession } from '@/providers/session-provider';
 
-import { getWorkerClearanceActions } from './worker-clearance-actions';
+import { clearanceStatusLabel, getWorkerClearanceActions } from './worker-clearance-actions';
 
 const actionLabels: Record<WorkerClearanceAction, string> = {
   submit: 'Submit for review',
@@ -51,7 +51,7 @@ export function WorkerClearance({ workerId, initialStatus }: WorkerClearanceProp
       const result = await transitionWorkerClearance(token, workerId, action, note.trim() || undefined);
       setStatus(result.status);
       setNote('');
-      toast({ title: 'Clearance updated', description: `Worker status is now ${result.status}.` });
+      toast({ title: 'Clearance updated', description: `Worker status is now ${clearanceStatusLabel(result.status)}.` });
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -68,7 +68,7 @@ export function WorkerClearance({ workerId, initialStatus }: WorkerClearanceProp
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-3">
           Worker clearance
-          <Badge variant={status === 'Cleared' ? 'default' : 'secondary'}>{status}</Badge>
+          <Badge variant={status === 'Cleared' ? 'default' : 'secondary'}>{clearanceStatusLabel(status)}</Badge>
         </CardTitle>
         <CardDescription>Submit, review, clear, or return this worker&apos;s onboarding record.</CardDescription>
       </CardHeader>
