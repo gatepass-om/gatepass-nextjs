@@ -29,9 +29,10 @@ import {
     cancelPermit,
     completePermit,
     listSitesRequest,
+    listUsersRequest,
     type PermitToWork,
 } from '@/lib/api';
-import type { Site } from '@/lib/types';
+import type { Site, User } from '@/lib/types';
 
 type ProjectScope = {
     id: string;
@@ -74,6 +75,9 @@ export default function PermitsPage() {
     const [submitting, setSubmitting] = useState(false);
     const [project, setProject] = useState<ProjectScope | null>(null);
     const [projectSites, setProjectSites] = useState<Site[]>([]);
+    // People pick a worker and a site by name; nobody should have to know an internal ID.
+    const [workerOptions, setWorkerOptions] = useState<User[]>([]);
+    const [siteOptions, setSiteOptions] = useState<Site[]>([]);
 
     const [form, setForm] = useState({
         workerId: '',
@@ -138,6 +142,20 @@ export default function PermitsPage() {
             cancelled = true;
         };
     }, [token, projectId]);
+
+    useEffect(() => {
+        if (!token || !canManage) return;
+        let cancelled = false;
+        Promise.all([
+            listUsersRequest(token, { role: 'Worker', pageSize: 500 }).catch(() => []),
+            listSitesRequest(token).catch(() => []),
+        ]).then(([workers, sites]) => {
+            if (cancelled) return;
+            setWorkerOptions((workers as User[]).filter(worker => (worker.status ?? 'Active') === 'Active'));
+            setSiteOptions(sites as Site[]);
+        });
+        return () => { cancelled = true; };
+    }, [token, canManage]);
 
     const handleIssue = async () => {
         if (!token) return;
@@ -223,12 +241,20 @@ export default function PermitsPage() {
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
                                 <div className="grid gap-1.5">
-                                    <Label>Worker ID</Label>
-                                    <Input
-                                        placeholder="Worker user ID"
+                                    <Label>Worker</Label>
+                                    <select
+                                        aria-label="Worker"
+                                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                         value={form.workerId}
                                         onChange={e => setForm(f => ({ ...f, workerId: e.target.value }))}
-                                    />
+                                    >
+                                        <option value="">{workerOptions.length ? 'Select a worker' : 'No active workers you can see'}</option>
+                                        {workerOptions.map(worker => (
+                                            <option key={worker.id} value={worker.id}>
+                                                {worker.name}{worker.idNumber ? ` · ${worker.idNumber}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="grid gap-1.5">
                                     <Label>Site</Label>
@@ -246,11 +272,17 @@ export default function PermitsPage() {
                                         ))}
                                       </select>
                                     ) : (
-                                      <Input
-                                          placeholder="Site ID"
+                                      <select
+                                          aria-label="Site"
+                                          className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                           value={form.siteId}
                                           onChange={e => setForm(f => ({ ...f, siteId: e.target.value }))}
-                                      />
+                                      >
+                                          <option value="">{siteOptions.length ? 'Select a site' : 'No sites you can see'}</option>
+                                          {siteOptions.map(site => (
+                                              <option key={site.id} value={site.id}>{site.name}</option>
+                                          ))}
+                                      </select>
                                     )}
                                 </div>
                                 <div className="grid gap-1.5">

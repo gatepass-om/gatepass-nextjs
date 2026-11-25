@@ -21,6 +21,12 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
 }
 
+/** Work-pass windows are whole UTC calendar days. */
+function formatDay(value?: string | null) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(value));
+}
+
 function splitWords(value?: string | null) {
   return (value ?? '').replace(/([a-z])([A-Z])/g, '$1 $2');
 }
@@ -159,7 +165,7 @@ export default function ContractorTeamPage() {
                             <span className="text-sm text-muted-foreground">
                               {' · '}
                               {assignment.workPassNumber
-                                ? `Work pass ${assignment.workPassNumber} (${splitWords(assignment.workPassStatus)})${assignment.siteName ? ` at ${assignment.siteName}` : ''}${assignment.validToUtc ? `, until ${formatDate(assignment.validToUtc)}` : ''}`
+                                ? `Work pass ${assignment.workPassNumber} (${splitWords(assignment.workPassStatus)})${assignment.siteName ? ` at ${assignment.siteName}` : ''}${assignment.validToUtc ? `, until ${formatDay(assignment.validToUtc)}` : ''}`
                                 : assignment.capacity}
                             </span>
                           </li>
