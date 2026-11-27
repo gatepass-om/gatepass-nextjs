@@ -4,6 +4,8 @@ export type CommandCenterProject = {
   status: string;
   operatorId?: string;
   supervisorUserId: string;
+  /** The NWS manager who gives this project's final approval; older projects have none. */
+  approvingManagerUserId?: string | null;
   consultantCompanyId: string;
   consultantReviewerUserIds: string[];
   consultantApprovedAtUtc?: string | null;
@@ -64,8 +66,9 @@ export function getWorkPassActions(
   if (workPass.status === 'Draft' && workPass.submittedByUserId === actor.id) return ['submit'];
   const isOperatorApprover = actor.operatorId === project.operatorId
     && (actor.role === 'Operator Admin'
-      || (actor.role === 'Manager' && Boolean(workPass.submittingContractorId)
-        && (actor.focalCompanyIds ?? []).includes(workPass.submittingContractorId!)));
+      || (actor.role === 'Manager' && (project.approvingManagerUserId
+        ? project.approvingManagerUserId === actor.id
+        : Boolean(workPass.submittingContractorId) && (actor.focalCompanyIds ?? []).includes(workPass.submittingContractorId!))));
   const isAssignedConsultantVerifier = project.supervisorUserId === actor.id
     && actor.role === 'Supervisor'
     && actor.contractorId === project.consultantCompanyId;

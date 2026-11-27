@@ -48,6 +48,18 @@ test('work-pass actions follow contractor, consultant verification, then operato
   assert.deepEqual(getWorkPassActions(submitted, project, { id: 'admin-1', role: 'Admin' }), []);
 });
 
+test('on a project with an approving manager, only that manager (or an operator admin) decides', () => {
+  const withManager = { ...project, approvingManagerUserId: 'project-manager' };
+  const submitted = { id: 'wp-2', projectId: 'project-1', status: 'Submitted', submittedByUserId: 'contractor-1', submittingContractorId: 'galfar' } as CommandCenterWorkPass;
+  const second = { ...submitted, status: 'PendingSecondApproval' };
+  const projectManager = { id: 'project-manager', role: 'Manager', operatorId: 'operator-1', focalCompanyIds: [] };
+  const focal = { id: 'manager-1', role: 'Manager', operatorId: 'operator-1', focalCompanyIds: ['galfar'] };
+  assert.deepEqual(getWorkPassActions(submitted, withManager, projectManager), ['approve', 'reject']);
+  assert.deepEqual(getWorkPassActions(second, withManager, projectManager), ['second-approve', 'reject']);
+  assert.deepEqual(getWorkPassActions(second, withManager, focal), []);
+  assert.deepEqual(getWorkPassActions(second, withManager, { id: 'operator-admin-1', role: 'Operator Admin', operatorId: 'operator-1' }), ['second-approve', 'reject']);
+});
+
 test('pending second approval uses the operator approval label', () => {
   assert.equal(getWorkPassStatusPresentation('PendingSecondApproval').label, 'Pending operator approval');
   assert.match(workPassDetailSource, /getWorkPassStatusPresentation\(request\.status\)/);

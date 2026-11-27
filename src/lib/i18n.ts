@@ -495,6 +495,11 @@ export const arabicTranslations: Record<string, string> = {
   'Presence': 'التواجد',
   'Access request': 'طلب الدخول',
   'Work pass': 'تصريح العمل',
+  'Approving manager': 'مدير الاعتماد',
+  'The NWS manager who gives the final approval on every worker access request in this project, after the consultant verifies it.': 'مدير نما للمياه الذي يمنح الموافقة النهائية على كل طلب دخول عامل في هذا المشروع بعد تحقق الاستشاري منه.',
+  'Choose the manager who gives the final approval on this project.': 'اختر المدير الذي يمنح الموافقة النهائية في هذا المشروع.',
+  'The focal point of the submitting company': 'نقطة الاتصال للشركة مقدمة الطلب',
+  'Gives the final approval on worker access requests in this project.': 'يمنح الموافقة النهائية على طلبات دخول العمال في هذا المشروع.',
 };
 
 export function translateToArabic(value: string) {

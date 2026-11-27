@@ -33,6 +33,8 @@ export type ProjectRecord = {
   operatorName: string;
   supervisorUserId: string;
   supervisorUserName?: string;
+  approvingManagerUserId?: string | null;
+  approvingManagerName?: string;
   isConsultantVerifierDelegationPending?: boolean;
   consultantCompanyId: string;
   consultantCompanyName: string;
@@ -89,6 +91,7 @@ function initialDraft(project?: ProjectRecord | null): ProjectDraft {
     description: project?.description ?? '',
     operatorId: project?.operatorId ?? '',
     supervisorUserId: project?.supervisorUserId ?? '',
+    approvingManagerUserId: project?.approvingManagerUserId ?? '',
     consultantCompanyId: project?.consultantCompanyId ?? '',
     consultantReviewerUserIds: project?.consultantReviewerUserIds ?? [],
     validFromUtc: dateValue(project?.validFromUtc) || today.toISOString().slice(0, 10),
@@ -157,6 +160,16 @@ export function ProjectWizardDialog({
       && isOperationalProjectParticipant(item.role)),
     [draft.operatorId, users],
   );
+  const canPickApprovingManager = currentUserRole === 'Operator Admin' || currentUserRole === 'Admin';
+  const approvingManagerOptions = useMemo(
+    () => users.filter((item) => item.operatorId === draft.operatorId && !item.contractorId && item.role === 'Manager'),
+    [draft.operatorId, users],
+  );
+  function approvingManagerErrors(): Record<string, string> {
+    return canPickApprovingManager && !draft.approvingManagerUserId
+      ? { approvingManagerUserId: 'Choose the manager who gives the final approval on this project.' }
+      : {};
+  }
   const selectedMembers = useMemo(
     () => users.filter((item) => draft.memberIds.includes(item.id)),
     [draft.memberIds, users],
@@ -204,6 +217,7 @@ export function ProjectWizardDialog({
       ...validateProjectStep('details', draft, { requireOperator: currentUserRole !== 'Supervisor' }),
       ...validateProjectStep('sites', draft),
       ...validateProjectStep('participants', draft),
+      ...approvingManagerErrors(),
     };
     if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
@@ -219,6 +233,7 @@ export function ProjectWizardDialog({
           token,
           body: {
             ...buildCreateProjectPayload(draft),
+            ...(canPickApprovingManager ? { approvingManagerUserId: draft.approvingManagerUserId ?? '' } : {}),
             contractorIds: draft.contractorIds,
           },
         });
@@ -228,6 +243,7 @@ export function ProjectWizardDialog({
           token,
           body: {
             ...buildCreateProjectPayload(draft),
+            ...(canPickApprovingManager ? { approvingManagerUserId: draft.approvingManagerUserId || null } : {}),
             contractorIds: draft.contractorIds,
           },
         });
@@ -266,7 +282,10 @@ export function ProjectWizardDialog({
   }
 
   function goNext() {
-    const stepErrors = validateProjectStep(step, draft, { requireOperator: currentUserRole !== 'Supervisor' });
+    const stepErrors = {
+      ...validateProjectStep(step, draft, { requireOperator: currentUserRole !== 'Supervisor' }),
+      ...(step === 'participants' ? approvingManagerErrors() : {}),
+    };
     if (Object.keys(stepErrors).length) {
       setErrors(stepErrors);
       return;
@@ -365,6 +384,12 @@ export function ProjectWizardDialog({
                 {consultantSupervisorOptions.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.email ? ` · ${supervisor.email}` : ''}</option>)}
               </select>
             </Field>
+            {canPickApprovingManager ? <Field label="Approving manager" error={errors.approvingManagerUserId} hint="The NWS manager who gives the final approval on every worker access request in this project, after the consultant verifies it.">
+              <select value={draft.approvingManagerUserId ?? ''} onChange={(event) => updateField('approvingManagerUserId', event.target.value)} className={inputClass(errors.approvingManagerUserId)}>
+                <option value="">Select a manager</option>
+                {approvingManagerOptions.map((manager) => <option key={manager.id} value={manager.id}>{manager.name}{manager.email ? ` · ${manager.email}` : ''}</option>)}
+              </select>
+            </Field> : null}
             <SelectionGroup
               title="Contractors"
               description="Companies permitted to supply workers or request work passes."
@@ -408,6 +433,7 @@ export function ProjectWizardDialog({
             <dl className="grid gap-4 rounded-xl border border-slate-200 p-5 sm:grid-cols-2">
               <ReviewItem label="Project" value={draft.name} />
               <ReviewItem label="Consultant verifier" value={consultantSupervisorOptions.find((item) => item.id === draft.supervisorUserId)?.name ?? 'Delegated to the consultant’s focal point'} />
+              <ReviewItem label="Approving manager" value={approvingManagerOptions.find((item) => item.id === draft.approvingManagerUserId)?.name ?? project?.approvingManagerName ?? 'The focal point of the submitting company'} />
               <ReviewItem label="Operating period" value={`${draft.validFromUtc} – ${draft.validToUtc}`} />
               <ReviewItem label="Sites" value={`${draft.siteIds.length} selected`} />
               <ReviewItem label="Contractors" value={`${draft.contractorIds.length} selected`} />
