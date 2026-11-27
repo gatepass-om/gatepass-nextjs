@@ -2,6 +2,7 @@
 'use client'
 
 import { z } from "zod";
+import { focalCompanyNames, focalPointLossWarning } from '@/lib/focal-points';
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { buildEmploymentPayload } from '@/components/compliance/compliance-model';
 import { resolveEditAffiliation } from './user-affiliation';
 import { NATIONALITY_OPTIONS } from './nationalities';
+import { editableRolesFor } from './user-actions';
 import { isMaskedIdentityNumber } from '@/lib/user-profile';
 
 
@@ -66,17 +68,9 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
     const { token } = useSession();
     const { toast } = useToast();
     const roles = React.useMemo<UserRole[]>(() => {
-      const permitted: UserRole[] = currentUser.role === 'Admin'
-        ? ['Admin', 'Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Visitor', 'Worker', 'Supervisor', 'Inspector']
-        : currentUser.role === 'Operator Admin'
-          ? ['Manager', 'Security', 'Worker', 'Inspector']
-          : currentUser.role === 'Contractor Admin'
-            ? ['Supervisor', 'Worker', 'Visitor']
-            : currentUser.role === 'Security'
-              ? ['Visitor']
-              : [];
+      const permitted = editableRolesFor(currentUser, user);
       return permitted.includes(user.role) ? permitted : [user.role, ...permitted];
-    }, [currentUser.role, user.role]);
+    }, [currentUser, user]);
     const statuses: UserStatus[] = ['Active', 'Inactive'];
 
     const form = useForm<FormValues>({
@@ -105,6 +99,11 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
       control: form.control,
       name: 'role'
     });
+    const selectedStatus = useWatch({ control: form.control, name: "status" });
+    const focalPointWarning = user.role === 'Manager' && (user.status ?? 'Active') === 'Active'
+      && (selectedStatus === 'Inactive' || selectedRole !== 'Manager')
+      ? focalPointLossWarning(focalCompanyNames(user.id, contractors))
+      : null;
 
     useEffect(() => {
         if (!token) {
@@ -330,6 +329,11 @@ export function EditUserForm({ user, currentUser, onUpdateUser, sites, contracto
                 )}
               />
               </div>
+              {focalPointWarning ? (
+                <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  {focalPointWarning}
+                </p>
+              ) : null}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {selectedRole === "Contractor Admin" && currentUser.role === "Admin" && (
                 <FormField

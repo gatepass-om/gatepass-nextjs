@@ -202,6 +202,10 @@ export type Contractor = {
     approvalStatus?: 'PendingOperatorApproval' | 'Approved' | 'Rejected' | 'Unlinked';
     operatorId?: string;
     rejectionReason?: string | null;
+    /** The operator's manager who looks after this company. */
+    focalPointUserId?: string | null;
+    focalPointName?: string | null;
+    focalPointActive?: boolean;
 }
 
 export const ExternalCompanyTypeNames = {
@@ -398,10 +402,43 @@ export type OperatorDetail = {
   recentRequests: CompanyAccessRequestSummary[];
 };
 
+export type ContractorTeamAssignment = {
+  projectId: string;
+  projectName: string;
+  capacity: string;
+  workPassNumber?: string | null;
+  workPassStatus?: string | null;
+  siteName?: string | null;
+  validToUtc?: string | null;
+};
+
+export type ContractorTeamMember = {
+  id: string;
+  name: string;
+  email?: string | null;
+  role: string;
+  status: string;
+  jobTitle?: string | null;
+  clearanceStatus?: string | null;
+  onSite: boolean;
+  currentSiteName?: string | null;
+  lastSeenAtUtc?: string | null;
+  assignments: ContractorTeamAssignment[];
+};
+
+export type ContractorTeam = {
+  contractorId: string;
+  contractorName: string;
+  members: ContractorTeamMember[];
+};
+
 export type ContractorDetail = {
   approvalStatus?: string;
   rejectionReason?: string | null;
   parentContractorName?: string | null;
+  focalPointUserId?: string | null;
+  focalPointName?: string | null;
+  focalPointActive?: boolean;
   id: string;
   tenantId?: string | null;
   tenantName?: string | null;

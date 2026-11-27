@@ -39,7 +39,11 @@ interface ContractorsTableProps {
   users: User[];
   accessRequests: AccessRequest[];
   isLoading?: boolean;
-  onRenameContractor?: (contractorId: string, name: string, companyType: ExternalCompanyType, logoUrl?: string, supervisorLimit?: number | null) => void;
+  onRenameContractor?: (contractorId: string, name: string, companyType: ExternalCompanyType, logoUrl?: string, supervisorLimit?: number | null, focalPointUserId?: string) => void;
+  /** Active managers who can be made a company's focal point (operator and platform admins only). */
+  focalPointCandidates?: User[];
+  /** A focal-point manager may rename their own companies; defaults to canManage. */
+  canEditCompany?: (contractor: Contractor) => boolean;
   onDeleteContractor?: (contractorId: string, name: string) => void;
   canManage?: boolean;
   canDelete?: boolean;
@@ -48,13 +52,15 @@ interface ContractorsTableProps {
   onRejectSubcontractor?: (contractorId: string) => void;
 }
 
-export function ContractorsTable({ title = 'External Companies', description = 'Contractors and subcontractors connected to an operator. Pending subcontractor registrations require operator approval before activation.', contractors, users, accessRequests, isLoading = false, onRenameContractor, onDeleteContractor, canManage = true, canDelete = canManage, canDecideSubcontractors = false, onApproveSubcontractor, onRejectSubcontractor }: ContractorsTableProps) {
+export function ContractorsTable({ title = 'External Companies', description = 'Contractors and subcontractors connected to an operator. Pending subcontractor registrations require operator approval before activation.', contractors, users, accessRequests, isLoading = false, onRenameContractor, onDeleteContractor, canManage = true, canDelete = canManage, canDecideSubcontractors = false, onApproveSubcontractor, onRejectSubcontractor, focalPointCandidates = [], canEditCompany }: ContractorsTableProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null);
   const [editedName, setEditedName] = useState('');
   const [editedType, setEditedType] = useState<ExternalCompanyType>(1);
   const [editedLogoUrl, setEditedLogoUrl] = useState('');
-  const [editedSupervisorLimit, setEditedSupervisorLimit] = useState('');
+  const [editedFocalPointId, setEditedFocalPointId] = useState('');
+  const canEdit = (contractor: Contractor) => canEditCompany ? canEditCompany(contractor) : canManage;
+  const editingCandidates = focalPointCandidates.filter((manager) => !editingContractor?.operatorId || manager.operatorId === editingContractor.operatorId);
   
   const getContractorPersonnelCount = (contractorId: string) => {
     return users.filter(u => u.contractorId === contractorId && (u.role === 'Worker' || u.role === 'Supervisor')).length;
@@ -78,6 +84,7 @@ export function ContractorsTable({ title = 'External Companies', description = '
                 <TableHead>Company Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Focal point</TableHead>
                 <TableHead>Personnel</TableHead>
                 <TableHead>Active Requests</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -85,7 +92,7 @@ export function ContractorsTable({ title = 'External Companies', description = '
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
               ) : contractors.length > 0 ? (
 		                contractors.map((contractor) => (
 	                  <TableRow key={contractor.id}>
@@ -101,6 +108,12 @@ export function ContractorsTable({ title = 'External Companies', description = '
                       </Badge>
                       {contractor.parentContractorName && <div className="mt-1 text-xs text-muted-foreground">Main: {contractor.parentContractorName}</div>}
                       {contractor.rejectionReason && <p className="mt-2 max-w-xs whitespace-normal text-sm text-destructive">Reason: {contractor.rejectionReason}</p>}
+                    </TableCell>
+                    <TableCell>
+                      <div className="whitespace-nowrap">{contractor.focalPointName ?? <span className="text-muted-foreground">Not assigned</span>}</div>
+                      {contractor.focalPointUserId && contractor.focalPointActive === false ? (
+                        <Badge variant="destructive" className="mt-1">Needs reassignment</Badge>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -133,18 +146,18 @@ export function ContractorsTable({ title = 'External Companies', description = '
                                 <Eye className="mr-2 h-4 w-4" /> View details
                               </Link>
                             </DropdownMenuItem>
-	                          {canManage && (
+	                          {canEdit(contractor) && (
                             <DropdownMenuItem
                             onSelect={() => {
                               setEditingContractor(contractor);
                               setEditedName(contractor.name);
                               setEditedType(normalizeExternalCompanyType(contractor.companyType));
                               setEditedLogoUrl(contractor.logoUrl ?? '');
-                              setEditedSupervisorLimit(contractor.supervisorLimit?.toString() ?? '');
+                              setEditedFocalPointId(contractor.focalPointUserId ?? '');
                               setIsEditOpen(true);
                             }}
                           >
-                            <Pencil className="mr-2 h-4 w-4" /> Rename
+                            <Pencil className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
                           )}
                           {canDelete && (
@@ -181,7 +194,7 @@ export function ContractorsTable({ title = 'External Companies', description = '
 	                  </TableRow>
                   ))
               ) : (
-                <TableRow><TableCell colSpan={6} className="h-24 text-center">No contractors or consultants found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="h-24 text-center">No contractors or consultants found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -200,7 +213,7 @@ export function ContractorsTable({ title = 'External Companies', description = '
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Contractor</DialogTitle>
+            <DialogTitle>Edit company</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <Input
@@ -214,21 +227,25 @@ export function ContractorsTable({ title = 'External Companies', description = '
               onChange={(event) => setEditedLogoUrl(event.target.value)}
               placeholder="Contractor logo URL"
             />
-            <Input
-              type="number"
-              min="0"
-              value={editedSupervisorLimit}
-              onChange={(event) => setEditedSupervisorLimit(event.target.value)}
-              placeholder="Supervisor limit for this operator"
-            />
-            <Select value={String(editedType)} onValueChange={(value) => setEditedType(Number(value) as ExternalCompanyType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{EXTERNAL_COMPANY_TYPES.map((type) => <SelectItem key={type.value} value={String(type.value)}>{type.label}</SelectItem>)}</SelectContent>
-            </Select>
+            {canManage && <>
+              <Select value={String(editedType)} onValueChange={(value) => setEditedType(Number(value) as ExternalCompanyType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{EXTERNAL_COMPANY_TYPES.map((type) => <SelectItem key={type.value} value={String(type.value)}>{type.label}</SelectItem>)}</SelectContent>
+              </Select>
+              <div className="space-y-1.5">
+                <label htmlFor="edit-focal-point" className="text-sm font-medium">Focal point</label>
+                <select id="edit-focal-point" value={editedFocalPointId} onChange={(event) => setEditedFocalPointId(event.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+                  <option value="">Select a manager</option>
+                  {editingCandidates.map((manager) => <option key={manager.id} value={manager.id}>{manager.name}</option>)}
+                </select>
+                <p className="text-xs text-muted-foreground">The Nama manager who keeps this company’s profile current and creates its supervisors.</p>
+              </div>
+            </>}
             <Button
               onClick={() => {
                 if (!editingContractor) return;
-                onRenameContractor?.(editingContractor.id, editedName.trim(), editedType, editedLogoUrl.trim(), editedSupervisorLimit === '' ? null : Number(editedSupervisorLimit));
+                const focalPointChanged = canManage && editedFocalPointId !== '' && editedFocalPointId !== (editingContractor.focalPointUserId ?? '');
+                onRenameContractor?.(editingContractor.id, editedName.trim(), editedType, editedLogoUrl.trim(), undefined, focalPointChanged ? editedFocalPointId : undefined);
                 setIsEditOpen(false);
               }}
               disabled={!editedName.trim()}

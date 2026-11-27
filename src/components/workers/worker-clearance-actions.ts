@@ -28,3 +28,8 @@ export function getWorkerClearanceActions(
 
   return [];
 }
+
+/** "UnderReview" reads as "Under review", as the SOPs and the rest of the app write it. */
+export function clearanceStatusLabel(status: WorkerClearanceStatus) {
+  return status === 'UnderReview' ? 'Under review' : status;
+}

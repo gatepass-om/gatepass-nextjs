@@ -14,12 +14,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { apiRequest, listUsersRequest } from '@/lib/api';
+import { apiRequest, getContractorDetailRequest, listExternalCompaniesRequest, listUsersRequest } from '@/lib/api';
 import type { Site, User } from '@/lib/types';
 import { useSession } from '@/providers/session-provider';
 import type { ProjectRecord } from '@/components/projects/project-wizard-dialog';
 import { getProjectStatusPresentation } from '@/components/projects/project-workflow';
-import { getWorkPassActions, getWorkPassStatusPresentation, type CommandCenterWorkPass } from '@/components/projects/project-command-center';
+import { focalCompanyIdsFor, getWorkPassActions, getWorkPassStatusPresentation, type CommandCenterWorkPass, type WorkflowActor } from '@/components/projects/project-command-center';
 import { getEligibleProjectWorkers, getProjectSites } from '@/components/projects/project-worker-access';
 
 type WorkPass = CommandCenterWorkPass & {
@@ -49,6 +49,7 @@ export default function ProjectCommandCenterPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [activity, setActivity] = useState<AuditEntry[]>([]);
   const [consultantSupervisors, setConsultantSupervisors] = useState<User[]>([]);
+  const [canAssignAsNws, setCanAssignAsNws] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -57,13 +58,14 @@ export default function ProjectCommandCenterPage() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [assigningVerifier, setAssigningVerifier] = useState(false);
   const [selectedVerifierId, setSelectedVerifierId] = useState('');
+  const [focalCompanyIds, setFocalCompanyIds] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     if (!token || !params.id) return;
     setLoading(true);
     setError('');
     try {
-      const [projectData, passData, userData, auditData, supervisorData] = await Promise.all([
+      const [projectData, passData, userData, auditData, supervisorData, companyData] = await Promise.all([
         apiRequest<ProjectRecord>(`/projects/${params.id}`, { token }),
         apiRequest<WorkPass[]>(`/work-passes?projectId=${params.id}`, { token }),
         listUsersRequest(token, { role: 'Worker', contractorId: user?.contractorId ?? undefined, pageSize: 250 }).catch(() => []),
@@ -71,19 +73,35 @@ export default function ProjectCommandCenterPage() {
         user?.role === 'Contractor Admin' && user.contractorId
           ? listUsersRequest(token, { role: 'Supervisor', contractorId: user.contractorId, pageSize: 250 }).catch(() => [])
           : Promise.resolve([]),
+        user?.role === 'Manager' ? listExternalCompaniesRequest(token, { onlyMine: true }).catch(() => []) : Promise.resolve([]),
       ]);
+      setFocalCompanyIds(focalCompanyIdsFor(companyData, user?.id));
+      // The consultant's focal point (a NWS manager) or an operator admin picks a delegated verifier.
+      let verifierCandidates = supervisorData as User[];
+      let isConsultantFocalPoint = false;
+      if (projectData.isConsultantVerifierDelegationPending && projectData.consultantCompanyId
+        && (user?.role === 'Manager' || user?.role === 'Operator Admin')) {
+        const consultant = user.role === 'Manager'
+          ? await getContractorDetailRequest(token, projectData.consultantCompanyId).catch(() => null)
+          : null;
+        isConsultantFocalPoint = Boolean(consultant && consultant.focalPointUserId === user.id && consultant.focalPointActive);
+        if (isConsultantFocalPoint || user.role === 'Operator Admin') {
+          verifierCandidates = await listUsersRequest(token, { role: 'Supervisor', contractorId: projectData.consultantCompanyId, pageSize: 250 }).catch(() => []) as User[];
+        }
+      }
+      setCanAssignAsNws(isConsultantFocalPoint || (user?.role === 'Operator Admin' && Boolean(projectData.isConsultantVerifierDelegationPending)));
       setProject(projectData);
       setWorkPasses(passData);
       setSites(getProjectSites(projectData.sites ?? []));
       setUsers(userData as User[]);
       setActivity(auditData);
-      setConsultantSupervisors(supervisorData as User[]);
+      setConsultantSupervisors(verifierCandidates);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load this project.');
     } finally {
       setLoading(false);
     }
-  }, [params.id, token, user?.contractorId]);
+  }, [params.id, token, user?.contractorId, user?.id, user?.role]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -92,9 +110,8 @@ export default function ProjectCommandCenterPage() {
   const canCreateRequest = Boolean(project && user && project.status === 'Active'
     && ['Contractor Admin', 'Supervisor'].includes(user.role)
     && (!user.contractorId || project.contractors.some((item) => item.contractorId === user.contractorId)));
-  const canAssignConsultantVerifier = Boolean(project && user?.role === 'Contractor Admin'
-    && user.contractorId === project.consultantCompanyId
-    && project.isConsultantVerifierDelegationPending);
+  const canAssignConsultantVerifier = Boolean(project && project.isConsultantVerifierDelegationPending
+    && ((user?.role === 'Contractor Admin' && user.contractorId === project.consultantCompanyId) || canAssignAsNws));
 
   async function runAction(pass: WorkPass, action: 'submit' | 'approve' | 'second-approve') {
     if (!token) return;
@@ -167,7 +184,7 @@ export default function ProjectCommandCenterPage() {
       {notice ? <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{notice}</div> : null}
       {canAssignConsultantVerifier ? (
         <section className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="font-semibold text-amber-950">Consultant verifier required</h2><p className="mt-1 text-sm text-amber-800">This project is waiting for your consultant company to assign a supervisor before worker access can be verified.</p></div>
+          <div><h2 className="font-semibold text-amber-950">Consultant verifier required</h2><p className="mt-1 text-sm text-amber-800">This project is waiting for a consultant supervisor to be assigned as verifier before worker access can be verified.</p></div>
           <Button size="sm" onClick={() => setAssigningVerifier(true)}>Assign verifier</Button>
         </section>
       ) : null}
@@ -182,12 +199,12 @@ export default function ProjectCommandCenterPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4"><div><h2 className="font-semibold text-slate-950">Worker access requests</h2><p className="text-sm text-slate-500">Work passes follow the project’s two-stage decision flow</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{workPasses.length}</span></div>
-          {workPasses.length ? <div className="h-[340px] divide-y divide-slate-100 overflow-y-auto">{workPasses.map((pass) => <WorkPassRow key={pass.id} pass={pass} project={project} actor={{ id: user?.id, role: user?.role, operatorId: user?.operatorId ?? undefined, contractorId: user?.contractorId ?? undefined }} onAction={runAction} onReject={setRejecting} />)}</div>
+          {workPasses.length ? <div className="h-[340px] divide-y divide-slate-100 overflow-y-auto">{workPasses.map((pass) => <WorkPassRow key={pass.id} pass={pass} project={project} actor={{ id: user?.id, role: user?.role, operatorId: user?.operatorId ?? undefined, contractorId: user?.contractorId ?? undefined, focalCompanyIds }} onAction={runAction} onReject={setRejecting} />)}</div>
             : <div className="px-6 py-14 text-center"><ClipboardCheck className="mx-auto h-8 w-8 text-slate-300" /><h3 className="mt-3 font-semibold text-slate-900">No worker requests yet</h3><p className="mt-1 text-sm text-slate-500">Assigned contractors can select project personnel and submit access.</p>{canCreateRequest ? <Button className="mt-4" onClick={() => setRequestOpen(true)}>Request worker access</Button> : null}</div>}
         </section>
 
         <div className="space-y-6">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-950">Project responsibility</h2><div className="mt-4 space-y-4"><div><PersonRow label="Consultant verifier" name={project.supervisorUserName || (project.isConsultantVerifierDelegationPending ? 'Awaiting consultant assignment' : undefined)} />{canAssignConsultantVerifier ? <Button className="mt-3" size="sm" variant="outline" onClick={() => setAssigningVerifier(true)}>Assign verifier</Button> : null}</div><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Consultant company</p><p className="mt-1 text-sm font-medium text-slate-900">{project.consultantCompanyName}</p><p className="text-xs text-slate-500">The consultant verifies worker access. The operator makes the final decision and can override verification.</p></div></div></section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-950">Project responsibility</h2><div className="mt-4 space-y-4"><div><PersonRow label="Consultant verifier" name={project.supervisorUserName || (project.isConsultantVerifierDelegationPending ? 'Awaiting consultant assignment' : undefined)} />{canAssignConsultantVerifier ? <Button className="mt-3" size="sm" variant="outline" onClick={() => setAssigningVerifier(true)}>Assign verifier</Button> : null}</div><div><PersonRow label="Approving manager" name={project.approvingManagerName || 'The focal point of the submitting company'} /><p className="text-xs text-slate-500">Gives the final approval on worker access requests in this project.</p></div><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Consultant company</p><p className="mt-1 text-sm font-medium text-slate-900">{project.consultantCompanyName}</p><p className="text-xs text-slate-500">The consultant verifies worker access. The operator makes the final decision and can override verification.</p></div></div></section>
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-950">Project sites</h2><div className="mt-4 space-y-3">{sites.map((site) => <div key={site.id} className="rounded-xl border border-slate-200 p-3"><span className="font-medium text-slate-900">{site.name}</span></div>)}</div></section>
         </div>
       </div>
@@ -195,13 +212,13 @@ export default function ProjectCommandCenterPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-950">Activity history</h2>{activity.length ? <ol className="mt-4 divide-y divide-slate-100">{activity.map((item) => <li key={item.id} className="flex gap-3 py-3"><span className="mt-1 h-2 w-2 rounded-full bg-blue-500" /><div className="min-w-0"><p className="text-sm text-slate-800">{item.summary}</p><p className="mt-0.5 text-xs text-slate-400">{formatDateTime(item.occurredAtUtc)}{item.actorRole ? ` · ${item.actorRole}` : ' · System'}</p></div></li>)}</ol> : <p className="mt-3 text-sm text-slate-500">No project activity is available for your role yet.</p>}</section>
 
       <WorkerAccessDialog open={requestOpen} onOpenChange={setRequestOpen} token={token ?? ''} project={project} sites={sites} users={users} currentUser={user} onCreated={load} />
-      <Dialog open={assigningVerifier} onOpenChange={setAssigningVerifier}><DialogContent><DialogHeader><DialogTitle>Assign consultant verifier</DialogTitle><DialogDescription>Select one active supervisor from your company. This is the only project setting a consultant administrator can change.</DialogDescription></DialogHeader><div className="py-3"><Label htmlFor="consultant-verifier">Supervisor</Label><select id="consultant-verifier" className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={selectedVerifierId} onChange={(event) => setSelectedVerifierId(event.target.value)}><option value="">Select supervisor</option>{consultantSupervisors.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.email ? ` · ${supervisor.email}` : ''}</option>)}</select>{!consultantSupervisors.length ? <p className="mt-2 text-sm text-amber-700">No active supervisors are available for this consultant company.</p> : null}</div><DialogFooter><Button variant="outline" onClick={() => setAssigningVerifier(false)}>Cancel</Button><Button disabled={!selectedVerifierId} onClick={() => void assignConsultantVerifier()}>Assign verifier</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={assigningVerifier} onOpenChange={setAssigningVerifier}><DialogContent><DialogHeader><DialogTitle>Assign consultant verifier</DialogTitle><DialogDescription>Select one active supervisor of the consultant company to verify this project’s worker-access requests.</DialogDescription></DialogHeader><div className="py-3"><Label htmlFor="consultant-verifier">Supervisor</Label><select id="consultant-verifier" className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={selectedVerifierId} onChange={(event) => setSelectedVerifierId(event.target.value)}><option value="">Select supervisor</option>{consultantSupervisors.map((supervisor) => <option key={supervisor.id} value={supervisor.id}>{supervisor.name}{supervisor.email ? ` · ${supervisor.email}` : ''}</option>)}</select>{!consultantSupervisors.length ? <p className="mt-2 text-sm text-amber-700">No active supervisors are available for this consultant company.</p> : null}</div><DialogFooter><Button variant="outline" onClick={() => setAssigningVerifier(false)}>Cancel</Button><Button disabled={!selectedVerifierId} onClick={() => void assignConsultantVerifier()}>Assign verifier</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={Boolean(rejecting)} onOpenChange={(open) => { if (!open) { setRejecting(null); setRejectionReason(''); } }}><DialogContent><DialogHeader><DialogTitle>Reject worker access</DialogTitle><DialogDescription>The contractor and affected workers will receive this reason in-system and by email when available.</DialogDescription></DialogHeader><div className="py-3"><Label htmlFor="rejection">Reason</Label><Textarea id="rejection" className="mt-2" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} placeholder="Explain what must be corrected" /></div><DialogFooter><Button variant="outline" onClick={() => setRejecting(null)}>Cancel</Button><Button variant="destructive" disabled={!rejectionReason.trim()} onClick={() => void rejectPass()}>Reject request</Button></DialogFooter></DialogContent></Dialog>
     </div>
   );
 }
 
-function WorkPassRow({ pass, project, actor, onAction, onReject }: { pass: WorkPass; project: ProjectRecord; actor: { id?: string; role?: string; operatorId?: string; contractorId?: string }; onAction: (pass: WorkPass, action: 'submit' | 'approve' | 'second-approve') => void; onReject: (pass: WorkPass) => void }) {
+function WorkPassRow({ pass, project, actor, onAction, onReject }: { pass: WorkPass; project: ProjectRecord; actor: WorkflowActor; onAction: (pass: WorkPass, action: 'submit' | 'approve' | 'second-approve') => void; onReject: (pass: WorkPass) => void }) {
   const actions = getWorkPassActions(pass, project, actor);
   const statusPresentation = getWorkPassStatusPresentation(pass.status);
   const isOperatorOverride = ['Operator Admin', 'Manager'].includes(actor.role ?? '') && actor.operatorId === project.operatorId && pass.status === 'Submitted';
@@ -342,7 +359,7 @@ function WorkerAccessDialog({ open, onOpenChange, token, project, sites, users, 
   const [truthAccepted, setTruthAccepted] = useState(false);
   const availableWorkers = getEligibleProjectWorkers(users, currentUser?.contractorId, search, workers, showSelectedOnly);
   const selectedSite = sites.find((site) => site.id === siteId);
-  async function createAndSubmit(confirmWorkerProjectTransfer = false) { setSaving(true); setSubmitError(''); try { const pass = await apiRequest<WorkPass>('/work-passes', { method: 'POST', token, body: { projectId: project.id, siteId, taskDescription: description || undefined, workerIds: workers, confirmWorkerProjectTransfer, validFromUtc: new Date(`${from}T00:00:00`).toISOString(), validToUtc: new Date(`${to}T23:59:59`).toISOString() } }); await apiRequest(`/work-passes/${pass.id}/submit`, { method: 'POST', token }); onOpenChange(false); setStep(0); setWorkers([]); setDescription(''); setTruthAccepted(false); await onCreated(); } catch (requestError) { const message = requestError instanceof Error ? requestError.message : 'The worker access request could not be submitted.'; if (!confirmWorkerProjectTransfer && message.includes('already assigned') && window.confirm(`${message}\n\nConfirm moving the selected worker(s) to this project after operator approval?`)) { await createAndSubmit(true); return; } setSubmitError(message); } finally { setSaving(false); } }
+  async function createAndSubmit(confirmWorkerProjectTransfer = false) { setSaving(true); setSubmitError(''); try { const pass = await apiRequest<WorkPass>('/work-passes', { method: 'POST', token, body: { projectId: project.id, siteId, taskDescription: description || undefined, workerIds: workers, confirmWorkerProjectTransfer, validFromUtc: `${from}T00:00:00.000Z`, validToUtc: `${to}T23:59:59.000Z` } }); await apiRequest(`/work-passes/${pass.id}/submit`, { method: 'POST', token }); onOpenChange(false); setStep(0); setWorkers([]); setDescription(''); setTruthAccepted(false); await onCreated(); } catch (requestError) { const message = requestError instanceof Error ? requestError.message : 'The worker access request could not be submitted.'; if (!confirmWorkerProjectTransfer && message.includes('already assigned') && window.confirm(`${message}\n\nConfirm moving the selected worker(s) to this project after operator approval?`)) { await createAndSubmit(true); return; } setSubmitError(message); } finally { setSaving(false); } }
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Request worker access</DialogTitle><DialogDescription>Step {step + 1} of 3 · {['Scope and dates', 'Select workers', 'Review and submit'][step]}</DialogDescription></DialogHeader><div className="flex gap-2 py-2">{[0, 1, 2].map((item) => <span key={item} className={`h-1.5 flex-1 rounded-full ${item <= step ? 'bg-blue-600' : 'bg-slate-200'}`} />)}</div>{step === 0 ? <div className="grid gap-4 py-3"><div><Label>Project site</Label><select className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={siteId} onChange={(event) => setSiteId(event.target.value)}><option value="">Select a site</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.name} · {site.requiresAccessApproval === false ? 'compliance only' : 'authorization required'}</option>)}</select></div><div><Label>Work description</Label><Textarea className="mt-2" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What will this crew do?" /></div><div className="grid grid-cols-2 gap-3"><div><Label>Valid from</Label><Input className="mt-2" type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></div><div><Label>Valid to</Label><Input className="mt-2" type="date" value={to} onChange={(event) => setTo(event.target.value)} /></div></div></div> : null}{step === 1 ? <div className="py-3"><div className="flex flex-col gap-2 sm:flex-row"><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by worker name, email or national ID" /><Button type="button" variant={showSelectedOnly ? 'default' : 'outline'} onClick={() => setShowSelectedOnly((current) => !current)}>Selected ({workers.length})</Button></div><p className="mt-2 text-xs text-slate-500">{availableWorkers.length} eligible worker{availableWorkers.length === 1 ? '' : 's'} from your contractor.</p><div className="mt-3 max-h-72 space-y-2 overflow-y-auto">{availableWorkers.map((worker) => <label key={worker.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 p-3 hover:bg-slate-50"><input type="checkbox" checked={workers.includes(worker.id)} onChange={() => setWorkers((current) => current.includes(worker.id) ? current.filter((id) => id !== worker.id) : [...current, worker.id])} /><span><span className="block text-sm font-medium text-slate-900">{worker.name}</span><span className="block text-xs text-slate-500">{worker.idNumber ? `National ID: ${worker.idNumber}` : worker.email || 'No email — supervisor-assisted notification'}</span></span></label>)}{availableWorkers.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500">No eligible workers match these filters.</p> : null}</div></div> : null}{step === 2 ? <div className="space-y-3 py-3"><div className="rounded-xl bg-slate-50 p-4 text-sm"><p><strong>Site:</strong> {selectedSite?.name}</p><p className="mt-1"><strong>Workers:</strong> {workers.length}</p><p className="mt-1"><strong>Period:</strong> {formatDate(from)} – {formatDate(to)}</p><p className="mt-1"><strong>Operating model:</strong> {selectedSite?.requiresAccessApproval === false ? 'Compliance assignment; no access authorization will be created' : 'Approved access authorization will be created'}</p></div><label className="flex items-start gap-2 rounded-xl border border-slate-200 p-3 text-sm text-slate-700"><input type="checkbox" className="mt-1" checked={truthAccepted} onChange={(event) => setTruthAccepted(event.target.checked)} /><span>I confirm that all information submitted in this worker access request is correct and true.</span></label><p className="text-sm text-slate-500">Workers active elsewhere first require their employing contractor’s transfer decision. The consultant then verifies the request, followed by the operator’s final approval.</p></div> : null}{submitError ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{submitError}</p> : null}<DialogFooter><Button variant="outline" onClick={() => step ? setStep(step - 1) : onOpenChange(false)}>{step ? 'Back' : 'Cancel'}</Button>{step < 2 ? <Button onClick={() => setStep(step + 1)} disabled={(step === 0 && (!siteId || !from || !to)) || (step === 1 && workers.length === 0)}>Continue <ArrowRight className="ml-2 h-4 w-4" /></Button> : <Button onClick={() => void createAndSubmit()} disabled={saving || !truthAccepted}>{saving ? 'Submitting…' : 'Submit request'}</Button>}</DialogFooter></DialogContent></Dialog>;
 }
 
@@ -350,5 +367,6 @@ function PersonRow({ label, name }: { label: string; name?: string }) { return <
 function Metric({ label, value, icon: Icon, accent = 'blue' }: { label: string; value: number; icon: typeof BriefcaseBusiness; accent?: string }) { const colors: Record<string, string> = { blue: 'bg-blue-50 text-blue-700', amber: 'bg-amber-50 text-amber-700', emerald: 'bg-emerald-50 text-emerald-700', slate: 'bg-slate-100 text-slate-600' }; return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between"><div><p className="text-sm font-medium text-slate-500">{label}</p><p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p></div><span className={`rounded-xl p-2.5 ${colors[accent]}`}><Icon className="h-5 w-5" /></span></div></div>; }
 function ProjectLoading() { return <div className="space-y-6 p-6"><Skeleton className="h-20 w-2/3" /><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{[1,2,3,4].map((item) => <Skeleton key={item} className="h-28" />)}</div><Skeleton className="h-48" /><Skeleton className="h-80" /></div>; }
 function statusClass(tone: string) { return { amber: 'bg-amber-100 text-amber-800', emerald: 'bg-emerald-50 text-emerald-700', blue: 'bg-blue-50 text-blue-700', red: 'bg-red-50 text-red-700', slate: 'bg-slate-100 text-slate-600' }[tone] || 'bg-slate-100 text-slate-600'; }
-function formatDate(value: string) { return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)); }
+// Project and work-pass windows are whole UTC calendar days, so they are shown in UTC.
+function formatDate(value: string) { return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(value)); }
 function formatDateTime(value: string) { return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value)); }

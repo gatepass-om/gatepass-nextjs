@@ -24,6 +24,7 @@ import {
   listSitesRequest,
   listUsersRequest,
   listProjectRolesRequest,
+  listExternalCompaniesRequest,
 } from '@/lib/api';
 import type { Contractor, ProjectRole } from '@/lib/types';
 import { useSession } from '@/providers/session-provider';
@@ -35,7 +36,7 @@ import { calculateProjectPortfolio, getProjectStatusPresentation } from '@/compo
 import {
   type ProjectWorkPassRecord,
 } from '@/components/access-requests/project-work-pass-queue';
-import { getWorkPassActions, type WorkPassAction } from '@/components/projects/project-command-center';
+import { focalCompanyIdsFor, getWorkPassActions, type WorkPassAction } from '@/components/projects/project-command-center';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -71,6 +72,7 @@ export default function ProjectsPage() {
   // acting as a project's consultant reviewer, who is NOT covered by canConfigureProjects).
   const canViewWorkPassQueue = Boolean(user && user.role !== 'Worker');
   const [projectWorkPasses, setProjectWorkPasses] = useState<ProjectWorkPassRecord[]>([]);
+  const [focalCompanyIds, setFocalCompanyIds] = useState<string[]>([]);
   const [busyWorkPassId, setBusyWorkPassId] = useState<string | null>(null);
   const [rejectWorkPass, setRejectWorkPass] = useState<ProjectWorkPassRecord | null>(null);
   const [workPassRejectReason, setWorkPassRejectReason] = useState('');
@@ -80,7 +82,7 @@ export default function ProjectsPage() {
     setLoading(true);
     setError('');
     try {
-      const [projectData, operatorData, contractorData, userData, siteData, roleData, workPassData] = await Promise.all([
+      const [projectData, operatorData, contractorData, userData, siteData, roleData, workPassData, focalCompanyData] = await Promise.all([
         apiRequest<ProjectRecord[]>('/projects', { token }),
         canConfigureProjects ? listOperatorsRequest(token) : Promise.resolve([]),
         canConfigureProjects ? listContractorsRequest(token) : Promise.resolve([]),
@@ -88,7 +90,9 @@ export default function ProjectsPage() {
         canConfigureProjects ? listSitesRequest(token) : Promise.resolve([]),
         canConfigureProjects ? listProjectRolesRequest(token) : Promise.resolve([]),
         canViewWorkPassQueue ? apiRequest<ProjectWorkPassRecord[]>('/work-passes', { token }) : Promise.resolve([]),
+        user?.role === 'Manager' ? listExternalCompaniesRequest(token, { onlyMine: true }).catch(() => []) : Promise.resolve([]),
       ]);
+      setFocalCompanyIds(focalCompanyIdsFor(focalCompanyData, user?.id));
       setProjects(projectData);
       setOperators(operatorData as NamedOption[]);
       setContractors(contractorData as Contractor[]);
@@ -253,7 +257,7 @@ export default function ProjectsPage() {
             {filteredProjects.map((project) => {
               const actionable = projectWorkPasses
                 .filter((pass) => pass.projectId === project.id)
-                .map((pass) => ({ pass, actions: getWorkPassActions(pass, project, { id: user?.id, role: user?.role, operatorId: user?.operatorId ?? undefined, contractorId: user?.contractorId ?? undefined }) }))
+                .map((pass) => ({ pass, actions: getWorkPassActions(pass, project, { id: user?.id, role: user?.role, operatorId: user?.operatorId ?? undefined, contractorId: user?.contractorId ?? undefined, focalCompanyIds }) }))
                 .filter((item) => item.actions.includes('approve') || item.actions.includes('second-approve'));
               return (
                 <ProjectRow
@@ -434,5 +438,5 @@ function StatusBadge({ project }: { project: ProjectRecord }) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value));
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(value));
 }

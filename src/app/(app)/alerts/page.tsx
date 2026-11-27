@@ -180,7 +180,7 @@ export default function AlertsPage() {
                   <TableCell className="font-medium">{t(alert.eventType)}</TableCell>
                   <TableCell>{alert.siteName}</TableCell>
                   <TableCell className="hidden max-w-[420px] truncate md:table-cell" title={alert.description}>{alert.description}</TableCell>
-                  <TableCell className="hidden whitespace-nowrap text-muted-foreground lg:table-cell">{new Date(alert.occurredAtUtc).toLocaleString(locale === 'ar' ? 'ar-OM' : 'en-GB')}</TableCell>
+                  <TableCell className="hidden whitespace-nowrap text-muted-foreground lg:table-cell">{new Date(alert.occurredAtUtc).toLocaleString(locale === 'ar' ? 'ar-OM' : 'en-GB', { timeZone: 'UTC' })}</TableCell>
                   <TableCell>
                     {alert.isAcknowledged
                       ? <span className="text-xs text-success">{t('Acknowledged')}{alert.acknowledgedByUserName ? ` · ${alert.acknowledgedByUserName}` : ''}</span>

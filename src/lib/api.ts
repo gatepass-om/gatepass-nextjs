@@ -1,4 +1,4 @@
-import type { AccessDecisionEvaluation, AccessRequest, AccessRuleConfig, ContractorDetail, ContractorUserApplication, ContractorUserApplicationAttachment, DecisionReasonOption, OperatorDetail, Tenant, User, WorkerProfile } from './types';
+import type { AccessDecisionEvaluation, AccessRequest, AccessRuleConfig, ContractorDetail, ContractorTeam, ContractorUserApplication, ContractorUserApplicationAttachment, DecisionReasonOption, OperatorDetail, Tenant, User, WorkerProfile } from './types';
 import { normalizeUserProfile } from './user-profile';
 
 export const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4005').replace(/\/$/, '');
@@ -767,8 +767,13 @@ export async function listContractorsRequest(token: string) {
   return apiRequest<any[]>('/companies/contractors', { token });
 }
 
-export async function listExternalCompaniesRequest(token: string) {
-  return apiRequest<any[]>('/companies/external', { token });
+/** `onlyMine` limits a manager to their focal companies and the companies on their projects. */
+export async function listExternalCompaniesRequest(token: string, options: { onlyMine?: boolean } = {}) {
+  return apiRequest<any[]>(options.onlyMine ? '/companies/external?scope=mine' : '/companies/external', { token });
+}
+
+export async function getContractorTeamRequest(token: string, contractorId: string) {
+  return apiRequest<ContractorTeam>(`/companies/external/${contractorId}/team`, { token });
 }
 
 export async function getContractorDetailRequest(token: string, contractorId: string) {
@@ -814,8 +819,10 @@ export async function createExternalCompanyRequest(token: string, input: {
   contractNumber?: string;
   contractValidFromUtc?: string;
   contractValidToUtc?: string;
-  adminName: string;
-  adminEmail: string;
+  /** Required for operator and platform admins: the Nama manager who looks after the company. */
+  focalPointUserId?: string;
+  /** Set when a focal-point manager registers a subcontractor under one of their companies. */
+  parentContractorId?: string;
 }) {
   return apiRequest<any>('/companies/external', { method: 'POST', token, body: input });
 }
@@ -828,7 +835,7 @@ export async function updateContractorRequest(token: string, contractorId: strin
   });
 }
 
-export async function updateExternalCompanyRequest(token: string, companyId: string, input: { name: string; companyType: number; logoUrl?: string; operatorId?: string; supervisorLimit?: number | null }) {
+export async function updateExternalCompanyRequest(token: string, companyId: string, input: { name: string; companyType?: number; logoUrl?: string; operatorId?: string; supervisorLimit?: number | null; focalPointUserId?: string }) {
   return apiRequest<any>(`/companies/external/${companyId}`, { method: 'PUT', token, body: input });
 }
 

@@ -24,13 +24,19 @@ type InlineUserDraft = {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const OPERATOR_AFFILIATED_ROLES: UserRole[] = ['Operator Admin', 'Manager', 'Security', 'Inspector'];
 
-function creatableRoles(role: UserRole): UserRole[] {
+export function creatableRoles(role: UserRole, isFocalPoint = false): UserRole[] {
   if (role === 'Admin') return ['Operator Admin', 'Contractor Admin', 'Manager', 'Security', 'Worker', 'Supervisor', 'Inspector'];
-  if (role === 'Operator Admin') return ['Manager', 'Security', 'Worker', 'Inspector'];
+  // Operator admins and focal-point managers add supervisors for contractor companies; supervisors add the workers.
+  if (role === 'Operator Admin') return ['Manager', 'Security', 'Worker', 'Inspector', 'Supervisor'];
   if (role === 'Contractor Admin') return ['Supervisor', 'Worker'];
-  if (role === 'Manager') return ['Security', 'Worker', 'Inspector'];
+  if (role === 'Manager') return isFocalPoint ? ['Security', 'Worker', 'Inspector', 'Supervisor'] : ['Security', 'Worker', 'Inspector'];
   if (role === 'Supervisor') return ['Worker'];
   return [];
+}
+
+/** Operator admins and managers add a supervisor on behalf of a contractor company. */
+export function isContractorSupervisorForOperatorStaff(actorRole: UserRole, draftRole: UserRole) {
+  return draftRole === 'Supervisor' && (actorRole === 'Operator Admin' || actorRole === 'Manager');
 }
 
 export function validateInlineUserDraft(draft: InlineUserDraft, currentUserRole?: UserRole): string | null {
@@ -46,6 +52,7 @@ export function validateInlineUserDraft(draft: InlineUserDraft, currentUserRole?
   }
   if (draft.role === 'Operator Admin' && !draft.affiliationId) return 'Select an operator company.';
   if (draft.role === 'Contractor Admin' && !draft.affiliationId) return 'Select a contractor company.';
+  if (currentUserRole && isContractorSupervisorForOperatorStaff(currentUserRole, draft.role) && !draft.affiliationId) return 'Select a contractor company.';
   if (currentUserRole === 'Admin' && OPERATOR_AFFILIATED_ROLES.includes(draft.role) && !draft.affiliationId) {
     return 'Select an operator company.';
   }
@@ -71,7 +78,9 @@ export function InlineUserRow({
   onCreateUser,
   onCancel,
 }: InlineUserRowProps) {
-  const roles = useMemo(() => creatableRoles(currentUser.role), [currentUser.role]);
+  const focalCompanies = useMemo(() => contractors.filter((company) => company.focalPointUserId === currentUser.id), [contractors, currentUser.id]);
+  const roles = useMemo(() => creatableRoles(currentUser.role, focalCompanies.length > 0), [currentUser.role, focalCompanies.length]);
+  const supervisorForCompany = (role: UserRole) => isContractorSupervisorForOperatorStaff(currentUser.role, role);
   const [draft, setDraft] = useState<InlineUserDraft>(() => ({
     name: '',
     idNumber: '',
@@ -90,8 +99,12 @@ export function InlineUserRow({
     setError(null);
   };
 
-  const companyOptions = OPERATOR_AFFILIATED_ROLES.includes(draft.role) ? operators : contractors;
-  const companyName = currentUser.role === 'Operator Admin' || currentUser.role === 'Manager'
+  const companyOptions = supervisorForCompany(draft.role)
+    ? (currentUser.role === 'Manager' ? focalCompanies : contractors.filter((company) => company.approvalStatus === undefined || company.approvalStatus === 'Approved'))
+    : OPERATOR_AFFILIATED_ROLES.includes(draft.role) ? operators : contractors;
+  const companyName = supervisorForCompany(draft.role)
+    ? null
+    : currentUser.role === 'Operator Admin' || currentUser.role === 'Manager'
     ? operators.find((operator) => operator.id === currentUser.operatorId)?.name ?? currentUser.company ?? 'Own operator'
     : currentUser.role === 'Contractor Admin' || currentUser.role === 'Supervisor'
       ? contractors.find((contractor) => contractor.id === currentUser.contractorId)?.name ?? currentUser.company ?? 'Own contractor'
@@ -104,16 +117,21 @@ export function InlineUserRow({
       return;
     }
 
-    const operatorId = currentUser.role === 'Operator Admin' || currentUser.role === 'Manager'
-      ? currentUser.operatorId ?? undefined
-      : OPERATOR_AFFILIATED_ROLES.includes(draft.role)
-        ? draft.affiliationId
-        : undefined;
-    const contractorId = currentUser.role === 'Contractor Admin' || currentUser.role === 'Supervisor'
-      ? currentUser.contractorId ?? undefined
-      : draft.role === 'Contractor Admin'
-        ? draft.affiliationId
-        : undefined;
+    const forCompany = supervisorForCompany(draft.role);
+    const operatorId = forCompany
+      ? undefined
+      : currentUser.role === 'Operator Admin' || currentUser.role === 'Manager'
+        ? currentUser.operatorId ?? undefined
+        : OPERATOR_AFFILIATED_ROLES.includes(draft.role)
+          ? draft.affiliationId
+          : undefined;
+    const contractorId = forCompany
+      ? draft.affiliationId
+      : currentUser.role === 'Contractor Admin' || currentUser.role === 'Supervisor'
+        ? currentUser.contractorId ?? undefined
+        : draft.role === 'Contractor Admin'
+          ? draft.affiliationId
+          : undefined;
 
     setSaving(true);
     try {

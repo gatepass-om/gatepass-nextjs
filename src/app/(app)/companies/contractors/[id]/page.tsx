@@ -43,7 +43,7 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: number; 
 export default function ContractorDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin']);
+  const { currentUser, loading: authLoading, isAuthorized, UnauthorizedComponent } = useAuthProtection(['Admin', 'Operator Admin', 'Contractor Admin', 'Manager']);
   const { token } = useSession();
   const { toast } = useToast();
   const [detail, setDetail] = useState<ContractorDetail | null>(null);
@@ -90,7 +90,15 @@ export default function ContractorDetailPage() {
             Contractor details, associated operators, scoped sites, personnel, and recent access activity.
           </p>
         </div>
-        <Badge variant="outline" className="w-fit">{detail.tenantName ?? detail.tenantId ?? 'No tenant'}</Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild>
+            <Link href={`/companies/contractors/${detail.id}/team`}>
+              <Users className="mr-2 h-4 w-4" />
+              Team and assignments
+            </Link>
+          </Button>
+          <Badge variant="outline" className="w-fit">{detail.tenantName ?? detail.tenantId ?? 'No tenant'}</Badge>
+        </div>
       </header>
       {detail.approvalStatus && <div className="rounded-md border p-4 text-sm"><p className="font-medium">Registration: {detail.approvalStatus.replace(/([a-z])([A-Z])/g, '$1 $2')}</p>{detail.parentContractorName && <p>Main contractor: {detail.parentContractorName}</p>}{detail.rejectionReason && <p className="mt-2 text-destructive">Rejection reason: {detail.rejectionReason}</p>}</div>}
 
@@ -168,7 +176,10 @@ export default function ContractorDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>Personnel</CardTitle>
-            <CardDescription>Personnel visible in this contractor scope.</CardDescription>
+            <CardDescription>
+              Personnel visible in this contractor scope.{' '}
+              <Link className="font-medium text-primary hover:underline" href={`/companies/contractors/${detail.id}/team`}>See where each person is assigned</Link>
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>

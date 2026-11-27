@@ -6,6 +6,8 @@ export type ProjectDraft = {
   description: string;
   operatorId: string;
   supervisorUserId: string;
+  /** The NWS manager who gives the final approval; only an operator administrator picks it. */
+  approvingManagerUserId?: string;
   consultantCompanyId: string;
   consultantReviewerUserIds: string[];
   validFromUtc: string;

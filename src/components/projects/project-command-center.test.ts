@@ -28,7 +28,7 @@ const project: CommandCenterProject = {
 };
 
 test('work-pass actions follow contractor, consultant verification, then operator decision', () => {
-  const draft = { id: 'wp-1', status: 'Draft', submittedByUserId: 'contractor-1' } as CommandCenterWorkPass;
+  const draft = { id: 'wp-1', status: 'Draft', submittedByUserId: 'contractor-1', submittingContractorId: 'galfar' } as CommandCenterWorkPass;
   const submitted = { ...draft, status: 'Submitted' };
   const second = { ...draft, status: 'PendingSecondApproval' };
 
@@ -38,9 +38,26 @@ test('work-pass actions follow contractor, consultant verification, then operato
   assert.deepEqual(getWorkPassActions(submitted, project, { id: 'supervisor-1', role: 'Supervisor', contractorId: 'consultant-company-1' }), ['approve', 'reject']);
   assert.deepEqual(getWorkPassActions(submitted, project, { id: 'operator-admin-1', role: 'Operator Admin', operatorId: 'operator-1' }), ['approve', 'reject']);
   assert.deepEqual(getWorkPassActions(second, project, { id: 'operator-admin-1', role: 'Operator Admin', operatorId: 'operator-1' }), ['second-approve', 'reject']);
-  assert.deepEqual(getWorkPassActions(submitted, project, { id: 'manager-1', role: 'Manager', operatorId: 'operator-1' }), ['approve', 'reject']);
-  assert.deepEqual(getWorkPassActions(second, project, { id: 'manager-1', role: 'Manager', operatorId: 'operator-1' }), ['second-approve', 'reject']);
+  const focal = { id: 'manager-1', role: 'Manager', operatorId: 'operator-1', focalCompanyIds: ['galfar'] };
+  assert.deepEqual(getWorkPassActions(submitted, project, focal), ['approve', 'reject']);
+  assert.deepEqual(getWorkPassActions(second, project, focal), ['second-approve', 'reject']);
+  // A manager who is not the submitting company's focal point sees the request but does not decide it.
+  const otherManager = { id: 'manager-2', role: 'Manager', operatorId: 'operator-1', focalCompanyIds: ['consultant-company-1'] };
+  assert.deepEqual(getWorkPassActions(submitted, project, otherManager), []);
+  assert.deepEqual(getWorkPassActions(second, project, otherManager), []);
   assert.deepEqual(getWorkPassActions(submitted, project, { id: 'admin-1', role: 'Admin' }), []);
+});
+
+test('on a project with an approving manager, only that manager (or an operator admin) decides', () => {
+  const withManager = { ...project, approvingManagerUserId: 'project-manager' };
+  const submitted = { id: 'wp-2', projectId: 'project-1', status: 'Submitted', submittedByUserId: 'contractor-1', submittingContractorId: 'galfar' } as CommandCenterWorkPass;
+  const second = { ...submitted, status: 'PendingSecondApproval' };
+  const projectManager = { id: 'project-manager', role: 'Manager', operatorId: 'operator-1', focalCompanyIds: [] };
+  const focal = { id: 'manager-1', role: 'Manager', operatorId: 'operator-1', focalCompanyIds: ['galfar'] };
+  assert.deepEqual(getWorkPassActions(submitted, withManager, projectManager), ['approve', 'reject']);
+  assert.deepEqual(getWorkPassActions(second, withManager, projectManager), ['second-approve', 'reject']);
+  assert.deepEqual(getWorkPassActions(second, withManager, focal), []);
+  assert.deepEqual(getWorkPassActions(second, withManager, { id: 'operator-admin-1', role: 'Operator Admin', operatorId: 'operator-1' }), ['second-approve', 'reject']);
 });
 
 test('pending second approval uses the operator approval label', () => {

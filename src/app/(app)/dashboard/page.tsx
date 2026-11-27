@@ -66,7 +66,6 @@ export default function DashboardPage() {
   } = useAuthProtection(DASHBOARD_ROLES);
   const { token } = useSession();
   const userRole = currentUser?.role;
-  const userId = currentUser?.id;
   const userOperatorId = currentUser?.operatorId;
   const userContractorId = currentUser?.contractorId;
   const isAdmin = userRole === 'Admin';
@@ -135,11 +134,8 @@ export default function DashboardPage() {
     if (userRole === 'Operator Admin') {
       return sites.filter((site) => site.operatorId === userOperatorId);
     }
-    if (userRole === 'Manager') {
-      return sites.filter((site) => userId && site.managerIds.includes(userId));
-    }
     return sites;
-  }, [selectedOperatorId, sites, userId, userOperatorId, userRole]);
+  }, [selectedOperatorId, sites, userOperatorId, userRole]);
 
   useEffect(() => {
     if (!viewerScopeKey || previousViewerScopeRef.current === viewerScopeKey) return;
@@ -174,7 +170,7 @@ export default function DashboardPage() {
         : Promise.resolve([]);
       const companiesRequest = userContractorId
         ? Promise.resolve([])
-        : listExternalCompaniesRequest(token).catch((error) => {
+        : listExternalCompaniesRequest(token, { onlyMine: userRole === 'Manager' }).catch((error) => {
           console.warn('External-company dashboard filter is unavailable', error);
           return [];
         });

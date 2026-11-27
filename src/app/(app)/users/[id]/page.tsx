@@ -5,7 +5,7 @@ import { ArrowLeft, BriefcaseBusiness, Building2, Loader2, Mail, MapPinned, Shie
 import { useParams, useRouter } from 'next/navigation';
 import { EditUserForm } from '@/components/users/edit-user-form';
 import {
-  canEditUserRecord,
+  canEditPersonRecord,
   canManageWorkerCard,
   canReviewWorkerCompliance,
   PERSONNEL_PAGE_ROLES,
@@ -66,9 +66,6 @@ export default function PersonnelProfilePage() {
       }
 
       const userFilters: { operatorId?: string; contractorId?: string } = {};
-      if (currentUser.role === 'Operator Admin' && currentUser.operatorId) {
-        userFilters.operatorId = currentUser.operatorId;
-      }
       if (currentUser.role === 'Contractor Admin' && currentUser.contractorId) {
         userFilters.contractorId = currentUser.contractorId;
       }
@@ -80,7 +77,8 @@ export default function PersonnelProfilePage() {
             ? { operatorId: currentUser.operatorId }
             : undefined)
           : Promise.resolve([]),
-        currentUser.role === 'Operator Admin' ? Promise.resolve([]) : listContractorsRequest(token),
+        // Operator admins need the company list too: the edit form warns before a focal point is deactivated.
+        listContractorsRequest(token).catch(() => []),
         listOperatorsRequest(token),
         listJobPositionsRequest(token),
       ]);
@@ -138,9 +136,10 @@ export default function PersonnelProfilePage() {
   const companyName = resolveUserCompanyName(user, contractors, operators);
   const assignedSiteName = sites.find((site) => site.id === user.assignedSiteId)?.name;
   const isChildCompanyPersonnel = currentUser.role === 'Contractor Admin' && user.contractorId !== currentUser.contractorId;
-  const canEdit = !isChildCompanyPersonnel && canEditUserRecord(['Admin', 'Operator Admin', 'Contractor Admin'].includes(currentUser.role), user.role);
+  const canEdit = !isChildCompanyPersonnel && canEditPersonRecord(currentUser, user);
+  const canManageEvidence = canEdit || currentUser.role === 'Operator Admin';
   const showCompliance = !isChildCompanyPersonnel && shouldShowWorkerDocuments(user.role)
-    && (canEdit || canReviewWorkerCompliance(currentUser.role, user.role));
+    && (canManageEvidence || canReviewWorkerCompliance(currentUser.role, user.role));
   const showCard = !isChildCompanyPersonnel && canManageWorkerCard(currentUser.role, user.status);
 
   return (
@@ -203,8 +202,9 @@ export default function PersonnelProfilePage() {
 
       {showCompliance && (
         <div className="space-y-6">
-          <WorkerDocuments workerId={user.id} canManage={canEdit} documentTypeFilter="IdDocument" title="Civil ID evidence" description="Upload the Civil ID copy for review. Set its expiry date in the personnel details above." />
+          <WorkerDocuments workerId={user.id} canManage={canManageEvidence} documentTypeFilter="IdDocument" title="Civil ID evidence" description="Upload the Civil ID copy for review. Set its expiry date in the personnel details above." />
           <WorkerDocuments workerId={user.id} canManage={false} documentTypeFilter="Photo" title="Photo verification" description="Review the uploaded profile photo before issuing a personnel card. Upload or replace the photo from the profile picture above." />
+          <WorkerDocuments workerId={user.id} canManage={false} documentTypeFilter="Certificate" title="Certificate evidence" description="Check the document attached to each certificate. Every certificate the job position needs must be verified before the worker can be cleared. Add certificates in the personnel data above." />
           <WorkerClearance key={`${user.id}-${user.clearanceStatus}`} workerId={user.id} initialStatus={user.clearanceStatus} />
           <WorkerPositionCompliancePanel workerId={user.id} />
           <WorkerTimeline workerId={user.id} />

@@ -25,3 +25,8 @@ test('applications support configured choices, assignments, and server paginatio
   assert.match(source, /totalPages/);
   assert.match(source, /updateContractorUserApplicationOptions/);
 });
+
+test('the retired applications page explains the focal-point flow and offers no new applications', () => {
+  assert.match(source, /const canCreate = false;/);
+  assert.match(source, /Account applications are no longer used/);
+});

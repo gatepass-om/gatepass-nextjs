@@ -117,5 +117,5 @@ export function ProjectWorkPassQueue({
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value));
+  return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(value));
 }
