@@ -58,7 +58,6 @@ export function ContractorsTable({ title = 'External Companies', description = '
   const [editedName, setEditedName] = useState('');
   const [editedType, setEditedType] = useState<ExternalCompanyType>(1);
   const [editedLogoUrl, setEditedLogoUrl] = useState('');
-  const [editedSupervisorLimit, setEditedSupervisorLimit] = useState('');
   const [editedFocalPointId, setEditedFocalPointId] = useState('');
   const canEdit = (contractor: Contractor) => canEditCompany ? canEditCompany(contractor) : canManage;
   const editingCandidates = focalPointCandidates.filter((manager) => !editingContractor?.operatorId || manager.operatorId === editingContractor.operatorId);
@@ -154,7 +153,6 @@ export function ContractorsTable({ title = 'External Companies', description = '
                               setEditedName(contractor.name);
                               setEditedType(normalizeExternalCompanyType(contractor.companyType));
                               setEditedLogoUrl(contractor.logoUrl ?? '');
-                              setEditedSupervisorLimit(contractor.supervisorLimit?.toString() ?? '');
                               setEditedFocalPointId(contractor.focalPointUserId ?? '');
                               setIsEditOpen(true);
                             }}
@@ -230,13 +228,6 @@ export function ContractorsTable({ title = 'External Companies', description = '
               placeholder="Contractor logo URL"
             />
             {canManage && <>
-              <Input
-                type="number"
-                min="0"
-                value={editedSupervisorLimit}
-                onChange={(event) => setEditedSupervisorLimit(event.target.value)}
-                placeholder="Supervisor limit for this operator"
-              />
               <Select value={String(editedType)} onValueChange={(value) => setEditedType(Number(value) as ExternalCompanyType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{EXTERNAL_COMPANY_TYPES.map((type) => <SelectItem key={type.value} value={String(type.value)}>{type.label}</SelectItem>)}</SelectContent>
@@ -254,7 +245,7 @@ export function ContractorsTable({ title = 'External Companies', description = '
               onClick={() => {
                 if (!editingContractor) return;
                 const focalPointChanged = canManage && editedFocalPointId !== '' && editedFocalPointId !== (editingContractor.focalPointUserId ?? '');
-                onRenameContractor?.(editingContractor.id, editedName.trim(), editedType, editedLogoUrl.trim(), canManage ? (editedSupervisorLimit === '' ? null : Number(editedSupervisorLimit)) : undefined, focalPointChanged ? editedFocalPointId : undefined);
+                onRenameContractor?.(editingContractor.id, editedName.trim(), editedType, editedLogoUrl.trim(), undefined, focalPointChanged ? editedFocalPointId : undefined);
                 setIsEditOpen(false);
               }}
               disabled={!editedName.trim()}
